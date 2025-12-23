@@ -43,7 +43,7 @@ body::before{content:"";position:fixed;inset:0;background-position:center center
 .sidebar-menu li:hover{ background:rgba(60,120,200,0.06); transform:translateX(4px); border-left-color: rgba(41,128,185,0.8); }
 .sidebar-menu li.active{ background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#fff; border-left-color:#fff; font-weight:700; }
 .sidebar-footer{margin-top:18px;font-size:13px;color:var(--muted)}
-.main{margin-left:calc(var(--sidebar-w) + 18px);width:70%; padding:18px; min-height:100vh; background: transparent;}
+.main{margin-left:calc(var(--sidebar-w) + 18px);width:calc(100% - var(--sidebar-w) - 18px; padding:18px; min-height:100vh;transition:margin-left 0.25 ease, width 0.25 ease; background: transparent;}
 .top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
 .search{padding:8px 10px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);width:320px; background: rgba(255,255,255,0.55); }
 .btn{background:var(--accent);color:#fff;border:none;padding:8px 12px;border-radius:8px;cursor:pointer}
@@ -96,6 +96,7 @@ body.sidebar-collapsed .sidebar-menu li span {
 
 body.sidebar-collapsed .main {
   margin-left: 90px;
+  Width: calc(100% - 90px);
 }
 
 </style>
@@ -681,6 +682,7 @@ refreshAll();
 </div>
 </body>
 </html>
+
 
 
 

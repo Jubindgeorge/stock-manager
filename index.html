@@ -74,16 +74,41 @@ th{background:rgba(255,255,255,0.6);font-weight:700}
         background-position: center !important;
     }
 }
+  /* ===== SIDEBAR COLLAPSE SYSTEM ===== */
+body.sidebar-collapsed .sidebar {
+  width: 70px;
+}
+
+body.sidebar-collapsed .sidebar .brand-title,
+body.sidebar-collapsed .sidebar .brand-sub,
+body.sidebar-collapsed .submenu,
+body.sidebar-collapsed .arrow {
+  display: none;
+}
+
+body.sidebar-collapsed .sidebar-menu li {
+  justify-content: center;
+}
+
+body.sidebar-collapsed .sidebar-menu li span {
+  display: none;
+}
+
+body.sidebar-collapsed .main {
+  margin-left: 90px;
+}
 
 </style>
 </head>
 
 <body>
-<div class="app">
-<aside class="sidebar">
 <div class="sidebar-header">
-<img src="banner.png" class="sidebar-logo" onerror="this.style.display='none'">
-<div><div class="brand-title">STOCK</div><div class="brand-sub">Inventory • Public Sheet</div></div>
+<button id="toggleSidebar" class="btn secondary">☰</button>
+<img src="banner.png" class="sidebar-logo">
+<div>
+  <div class="brand-title">STOCK</div>
+  <div class="brand-sub">Inventory • Public Sheet</div>
+</div>
 </div>
 <ul class="sidebar-menu" id="menu">
 <li class="menu-title collapsible" data-page="dashboard">📊 Dashboard<span class="arrow">▾</span></li>
@@ -444,6 +469,24 @@ function closeStockOutHistory(){document.getElementById('stockOutHistoryModal').
 document.querySelectorAll('.menu-title.collapsible').forEach(m=>{m.addEventListener('click',()=>{m.classList.toggle('open');m.nextElementSibling.classList.toggle('open');});});
 document.querySelectorAll('.submenu').forEach(sm=>{sm.addEventListener('click',()=>{const page=sm.dataset.page;const action=sm.dataset.action;if(page){document.querySelectorAll('.page').forEach(p=>p.style.display='none');document.getElementById(page).style.display='block';refreshAll();}if(action){window[action]?.();}});});
 
+  /* ===== SIDEBAR TOGGLE ===== */
+document.getElementById("toggleSidebar").addEventListener("click", () => {
+  document.body.classList.toggle("sidebar-collapsed");
+
+  // save state
+  localStorage.setItem(
+    "sidebarState",
+    document.body.classList.contains("sidebar-collapsed") ? "closed" : "open"
+  );
+});
+
+/* ===== RESTORE SIDEBAR STATE ===== */
+window.addEventListener("load", () => {
+  if (localStorage.getItem("sidebarState") === "closed") {
+    document.body.classList.add("sidebar-collapsed");
+  }
+});
+  
 // ADD PRODUCT
 document.getElementById('addProductBtn').addEventListener('click',()=>{const name=document.getElementById('newName').value.trim();const cat=document.getElementById('newCategory').value.trim();const threshold=Number(document.getElementById('newThreshold').value||5);if(!name)return alert('Enter product name');products.push({id:genId(),name:name,category:cat,threshold});saveAll();document.getElementById('newName').value='';document.getElementById('newCategory').value='';document.getElementById('newThreshold').value='';refreshAll();});
 
@@ -636,4 +679,5 @@ refreshAll();
 </div>
 </body>
 </html>
+
 

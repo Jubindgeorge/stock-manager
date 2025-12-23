@@ -43,11 +43,17 @@ body::before{content:"";position:fixed;inset:0;background-position:center center
 .sidebar-menu li:hover{ background:rgba(60,120,200,0.06); transform:translateX(4px); border-left-color: rgba(41,128,185,0.8); }
 .sidebar-menu li.active{ background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#fff; border-left-color:#fff; font-weight:700; }
 .sidebar-footer{margin-top:18px;font-size:13px;color:var(--muted)}
-.main{margin-left:calc(var(--sidebar-w) + 18px);width:calc(100% - var(--sidebar-w) - 18px; padding:18px; min-height:100vh;transition:margin-left 0.25 ease, width 0.25 ease; background: transparent;}
+;border-radius:8px;cursor:pointer}
+.main{
+  margin-left: calc(var(--sidebar-w) + 18px);
+  width: calc(100% - var(--sidebar-w) - 18px);
+  padding:18px;
+  min-height:100vh;
+  transition: margin-left 0.25s ease, width 0.25s ease;
+}
 .top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
 .search{padding:8px 10px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);width:320px; background: rgba(255,255,255,0.55); }
-.btn{background:var(--accent);color:#fff;border:none;padding:8px 12px;border-radius:8px;cursor:pointer}
-.btn.secondary{background:var(--accent-2)}
+.btn{background:var(--accent);color:#fff;border:none;padding:8px 12pxn.secondary{background:var(--accent-2)}
 .btn.out{background:#dc2626}
 .btn.info{background:#16a34a}
 .page {background:rgba(255,255,255,0.5);backdrop-filter:blur(5px);border-radius:12px;width:100%;min-height:calc(100vh - 40px);padding:25px;border:1px solid rgba(0,0,0,0.05);box-shadow:0 6px 25px rgba(0,0,0,0.1);}
@@ -73,14 +79,18 @@ th{background:rgba(255,255,255,0.6);font-weight:700}
         background-repeat: no-repeat !important;
         background-position: center !important;
     }
-}
-  /* ===== SIDEBAR COLLAPSE SYSTEM ===== */
+}/* ===== SIDEBAR COLLAPSE SYSTEM (FIXED) ===== */
 body.sidebar-collapsed .sidebar {
   width: 70px;
 }
 
-body.sidebar-collapsed .sidebar .brand-title,
-body.sidebar-collapsed .sidebar .brand-sub,
+body.sidebar-collapsed .main {
+  margin-left: 90px;
+  width: calc(100% - 90px);
+}
+
+body.sidebar-collapsed .brand-title,
+body.sidebar-collapsed .brand-sub,
 body.sidebar-collapsed .submenu,
 body.sidebar-collapsed .arrow {
   display: none;
@@ -90,20 +100,11 @@ body.sidebar-collapsed .sidebar-menu li {
   justify-content: center;
 }
 
-body.sidebar-collapsed .sidebar-menu li span {
-  display: none;
-}
-
-body.sidebar-collapsed .main {
-  margin-left: 90px;
-  Width: calc(100% - 90px);
-}
-
 </style>
 </head>
 
 <body>
-  <div class="aside" >
+  
 <div class="sidebar-header">
 <button id="toggleSidebar" class="btn secondary">☰</button>
 <img src="banner.png" class="sidebar-logo">
@@ -112,7 +113,7 @@ body.sidebar-collapsed .main {
   <div class="brand-sub">Inventory • Public Sheet</div>
 </div>
 </div>
-  </div>
+  
 <ul class="sidebar-menu" id="menu">
 <li class="menu-title collapsible" data-page="dashboard">📊 Dashboard<span class="arrow">▾</span></li>
 <ul class="subgroup">
@@ -682,6 +683,7 @@ refreshAll();
 </div>
 </body>
 </html>
+
 
 
 

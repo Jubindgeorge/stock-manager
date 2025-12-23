@@ -79,18 +79,14 @@ th{background:rgba(255,255,255,0.6);font-weight:700}
         background-repeat: no-repeat !important;
         background-position: center !important;
     }
-}/* ===== SIDEBAR COLLAPSE SYSTEM (FIXED) ===== */
+}
+  /* ===== SIDEBAR COLLAPSE SYSTEM ===== */
 body.sidebar-collapsed .sidebar {
   width: 70px;
 }
 
-body.sidebar-collapsed .main {
-  margin-left: 90px;
-  width: calc(100% - 90px);
-}
-
-body.sidebar-collapsed .brand-title,
-body.sidebar-collapsed .brand-sub,
+body.sidebar-collapsed .sidebar .brand-title,
+body.sidebar-collapsed .sidebar .brand-sub,
 body.sidebar-collapsed .submenu,
 body.sidebar-collapsed .arrow {
   display: none;
@@ -100,6 +96,13 @@ body.sidebar-collapsed .sidebar-menu li {
   justify-content: center;
 }
 
+body.sidebar-collapsed .sidebar-menu li span {
+  display: none;
+}
+
+body.sidebar-collapsed .main {
+  margin-left: 90px;
+}
 </style>
 </head>
 
@@ -684,6 +687,7 @@ refreshAll();
 </div>
 </body>
 </html>
+
 
 
 

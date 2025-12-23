@@ -251,11 +251,7 @@ const KEY_MOVES='sms_movements_final_v1';
 let products=JSON.parse(localStorage.getItem(KEY_PRODUCTS)||'[]');
 let stockMovements=JSON.parse(localStorage.getItem(KEY_MOVES)||'[]');
 if(!localStorage.getItem(KEY_PRODUCTS)){
-    products = [
-        {id:genId(),name:'0',category:'0',threshold:5},
-        {id:genId(),name:'1',category:'0',threshold:10},
-        {id:genId(),name:'0',category:'0',threshold:50}
-    ];
+    
     stockMovements = [
         {id:genId(),productId:products[0].id,type:'IN',quantity:20,date:todayISO()},
         {id:genId(),productId:products[1].id,type:'IN',quantity:15,date:todayISO()},
@@ -631,6 +627,7 @@ refreshAll();
 </div>
 </body>
 </html>
+
 
 
 

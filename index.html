@@ -491,10 +491,7 @@ function closeStockOutHistory(){document.getElementById('stockOutHistoryModal').
 document.querySelectorAll('.menu-title.collapsible').forEach(m=>{m.addEventListener('click',()=>{m.classList.toggle('open');m.nextElementSibling.classList.toggle('open');});});
 document.querySelectorAll('.submenu').forEach(sm=>{sm.addEventListener('click',()=>{const page=sm.dataset.page;const action=sm.dataset.action;if(page){document.querySelectorAll('.page').forEach(p=>p.style.display='none');document.getElementById(page).style.display='block';refreshAll();}if(action){window[action]?.();}});});
 
-  /* ===== SIDEBAR TOGGLE ===== */
-document.getElementById("toggleSidebar").addEventListener("click", () => {
-  document.body.classList.toggle("sidebar-collapsed");
-
+  
   // save state
   localStorage.setItem(
     "sidebarState",
@@ -701,6 +698,7 @@ refreshAll();
 </div>
 </body>
 </html>
+
 
 
 

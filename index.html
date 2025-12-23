@@ -102,6 +102,7 @@ th{background:rgba(255,255,255,0.6);font-weight:700}
 <li class="submenu" data-page="stockOut">⬇ Stock Out</li>
 <li class="submenu" data-page="history">📚 Combined History</li>
 </ul>
+  
 <li class="menu-title collapsible">💾 Backup <span class="arrow">▾</span></li>
 <ul class="subgroup">
 <li class="submenu" data-action="importExcel">📥 Import Excel</li>
@@ -536,7 +537,7 @@ function printStockReport() {
     win.focus();
     win.print();
 }
-
+  
 
 // EDIT PRODUCT
 function editProduct(productId){
@@ -584,44 +585,47 @@ firebase.initializeApp(firebaseConfig);
 const cloudDB = firebase.database(); // Use the same variable as in your functions
 window.cloudDB = cloudDB;  
 console.log("✅ Firebase initialized");
-/* --------------------------
-   UPLOAD LOCAL → CLOUD
--------------------------- */
-function pushToCloud() {
-  cloudDB.ref("stockManager").set({
-    products: products,
-    stockMovements: stockMovements,
-    syncedAt: new Date().toISOString()
-  })
-  .then(() => {
-    document.getElementById("status").textContent = "Status: Synced to Cloud ☁️";
-    alert("Data uploaded to cloud successfully");
-  })
-  .catch(err => alert("Cloud upload failed: " + err.message));
-}
 
-/* --------------------------
-   DOWNLOAD CLOUD → LOCAL
--------------------------- */
-function pullFromCloud() {
+// 🔄 AUTO LOAD FROM CLOUD ON PAGE LOAD
+window.addEventListener("load", () => {
+
+  if (!window.cloudDB) {
+    console.warn("Cloud DB not ready");
+    refreshAll();
+    return;
+  }
+
   cloudDB.ref("stockManager").once("value")
-  .then(snapshot => {
-    const data = snapshot.val();
-    if (!data) return alert("No cloud data found");
+    .then(snapshot => {
 
-    products = data.products || [];
-    stockMovements = data.stockMovements || [];
+      const data = snapshot.val();
+      if (!data) {
+        refreshAll();
+        return;
+      }
 
-    localStorage.setItem(KEY_PRODUCTS, JSON.stringify(products));
-    localStorage.setItem(KEY_MOVES, JSON.stringify(stockMovements));
+      products = data.products || [];
+      stockMovements = data.stockMovements || [];
 
-    refreshAll(); // Keep your balance, stock in/out, and dashboard updates intact
-    document.getElementById("status").textContent = "Status: Loaded from Cloud ⬇️";
-    alert("Cloud data loaded successfully");
-  })
-  .catch(err => alert("Cloud download failed: " + err.message));
-}
+      localStorage.setItem(KEY_PRODUCTS, JSON.stringify(products));
+      localStorage.setItem(KEY_MOVES, JSON.stringify(stockMovements));
 
+      refreshAll();
+
+      const status = document.getElementById("status");
+      if (status) {
+        status.textContent = "Status: Auto-synced from Cloud ☁️";
+      }
+
+      console.log("✅ Auto sync completed");
+
+    })
+    .catch(err => {
+      console.error("Auto sync failed:", err);
+      refreshAll();
+    });
+
+});
 
 // UTILITY
 function refreshAll(){renderDashboard();renderProductsTable();renderStockIn();renderStockOut();renderCombinedHistory();populateCategoryFilter();}
@@ -632,3 +636,4 @@ refreshAll();
 </div>
 </body>
 </html>
+

@@ -133,7 +133,7 @@ th{background:rgba(255,255,255,0.6);font-weight:700}
 </div>
 <div style="overflow:auto">
 <table id="dashTable">
-<thead><tr><th>#</th><th>Product</th><th>Category</th><th>Balance</th><th>Last IN</th><th>Last OUT</th><th>Action</th></tr></thead>
+<thead><tr><th>#</th><th>Product</th><th>Category</th><th>Balance</th><th>Last IN</th><th>Last OUT</th><th>Last Date</th><th>Action</th></tr></thead>
 <tbody></tbody>
 </table>
 </div>
@@ -251,8 +251,10 @@ const KEY_MOVES='sms_movements_final_v1';
 let products=JSON.parse(localStorage.getItem(KEY_PRODUCTS)||'[]');
 let stockMovements=JSON.parse(localStorage.getItem(KEY_MOVES)||'[]');
 if(!localStorage.getItem(KEY_PRODUCTS)){
-     products = [
-        {id:genId(),name:'Backup From Cloud'}
+    products = [
+        {id:genId(),name:'download',category:'from cloud',threshold:5},
+        {id:genId(),name:'0',category:'0',threshold:10},
+        {id:genId(),name:'1',category:'1',threshold:50}
     ];
     stockMovements = [
         {id:genId(),productId:products[0].id,type:'IN',quantity:20,date:todayISO()},
@@ -316,6 +318,7 @@ function renderDashboard() {
                 <td class="${bal <= p.threshold ? 'low-stock' : 'balance-qty'}">${bal}</td>
                 <td>${lastIn}</td>
                 <td>${lastOut}</td>
+                <td>${lastDate}</td>
                 <td><button class="btn secondary" onclick="openHistory('${p.id}')">View</button></td>
             </tr>
         `);
@@ -629,9 +632,3 @@ refreshAll();
 </div>
 </body>
 </html>
-
-
-
-
-
-

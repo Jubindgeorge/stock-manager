@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
 
-<!-- ☁️ CLOUD SYNC ADDITION -->
+  <!-- ☁️ CLOUD SYNC ADDITION -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
@@ -35,6 +35,403 @@ body::before{content:"";position:fixed;inset:0;background-position:center center
 .sidebar-menu li{padding:12px 10px;display:flex;gap:10px;align-items:center;cursor:pointer;border-left:4px solid transparent;border-radius:6px;transition:all .18s;color:#222;}
 .menu-title{font-weight:700;background:rgba(0,0,0,0.05);}
 .submenu{padding-left:36px !important;font-size:14px;}
+.subgroup{list-style:none;padding:0;margin:0;display:none;}
+.subgroup.open{display:block;}
+.menu-title.collapsible{display:flex;justify-content:space-between;align-items:center;}
+.arrow{font-size:12px;transition:transform .2s ease;}
+.menu-title.open .arrow{transform:rotate(180deg);}
+.sidebar-menu li:hover{ background:rgba(60,120,200,0.06); transform:translateX(4px); border-left-color: rgba(41,128,185,0.8); }
+.sidebar-menu li.active{ background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#fff; border-left-color:#fff; font-weight:700; }
+.sidebar-footer{margin-top:18px;font-size:13px;color:var(--muted)}
+.main{margin-left:calc(var(--sidebar-w) + 18px);width:70%; padding:18px; min-height:100vh; background: transparent;}
+.top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.search{padding:8px 10px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);width:320px; background: rgba(255,255,255,0.55); }
+.btn{background:var(--accent);color:#fff;border:none;padding:8px 12px;border-radius:8px;cursor:pointer}
+.btn.secondary{background:var(--accent-2)}
+.btn.out{background:#dc2626}
+.btn.info{background:#16a34a}
+.page {background:rgba(255,255,255,0.5);backdrop-filter:blur(5px);border-radius:12px;width:100%;min-height:calc(100vh - 40px);padding:25px;border:1px solid rgba(0,0,0,0.05);box-shadow:0 6px 25px rgba(0,0,0,0.1);}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{padding:10px;border-bottom:1px solid rgba(0,0,0,0.06);text-align:left}
+th{background:rgba(255,255,255,0.6);font-weight:700}
+.low-stock{color:var(--danger);font-weight:700}
+.balance-qty{font-weight:bold}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;justify-content:center;align-items:center;z-index:9999;}
+.modal-box,.modal{background:white;padding:20px;border-radius:12px;max-height:80%;overflow-y:auto;width:600px;box-shadow:0 5px 15px rgba(0,0,0,0.3);}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.modal-close{cursor:pointer;background:none;border:none;font-size:18px;}
+.modal-table{width:100%;border-collapse:collapse;}
+.modal-table th,.modal-table td{border:1px solid #ccc;padding:8px;text-align:left;}
+@media print {
+    body {
+        -webkit-print-color-adjust: exact; /* Chrome/Safari */
+        print-color-adjust: exact;         /* Firefox */
+    }
+    .print-bg {
+        background-image: url('banner.png') !important;
+        background-size: cover !important;
+        background-repeat: no-repeat !important;
+        background-position: center !important;
+    }
+}
+
+</style>
+</head>
+
+<body>
+<div class="app">
+<aside class="sidebar">
+<div class="sidebar-header">
+<img src="banner.png" class="sidebar-logo" onerror="this.style.display='none'">
+<div><div class="brand-title">STOCK</div><div class="brand-sub">Inventory • Public Sheet</div></div>
+</div>
+<ul class="sidebar-menu" id="menu">
+<li class="menu-title collapsible" data-page="dashboard">📊 Dashboard<span class="arrow">▾</span></li>
+<ul class="subgroup">
+<li class="submenu" data-page="dashboard">📊 Dashboard</li>
+<li class="submenu" data-action="printStockReport">🖨️ Print Stock Report</li>
+<li class="submenu" data-action="exportPDF">📄 Export PDF</li>
+</ul>
+<li class="menu-title collapsible">📦 Products<span class="arrow">▾</span></li>
+<ul class="subgroup">
+<li class="submenu" data-page="products">📦 Add Products</li>
+</ul>
+<li class="menu-title collapsible">📈 Stock <span class="arrow">▾</span></li>
+<ul class="subgroup">
+<li class="submenu" data-page="stockIn">⬆ Stock In</li>
+<li class="submenu" data-page="stockOut">⬇ Stock Out</li>
+<li class="submenu" data-page="history">📚 Combined History</li>
+</ul>
+<li class="menu-title collapsible">💾 Backup <span class="arrow">▾</span></li>
+<ul class="subgroup">
+<li class="submenu" data-action="importExcel">📥 Import Excel</li>
+<li class="submenu" data-action="exportExcel">📤 Export Excel</li>
+ <li class="submenu" onclick="pushToCloud()">☁️ Upload to Cloud</li>
+<li class="submenu" onclick="pullFromCloud()">⬇️ Download from Cloud</li>
+
+ 
+</ul>
+<div class="sidebar-footer">Data stored locally; cloud optional.</div>
+</ul>
+</aside>
+
+<main class="main"><!-- DASHBOARD -->
+<section id="dashboard" class="page" style="display:block">
+<h2>Dashboard</h2>
+<div class="top">
+<input id="globalSearch" class="search" placeholder="Search products, categories or history...">
+</div>
+<div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+<div>Category:
+<select id="categoryFilter" class="small">
+<option value="">All</option>
+</select>
+</div>
+<div>Low threshold:
+<input id="globalThreshold" type="number" class="small" value="5" style="width:80px">
+</div>
+<div style="margin-left:auto" class="small" id="status">Status: Local</div>
+</div>
+<div style="overflow:auto">
+<table id="dashTable">
+<thead><tr><th>#</th><th>Product</th><th>Category</th><th>Balance</th><th>Last IN</th><th>Last OUT</th><th>Last Date</th><th>Action</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+</section>
+
+<!-- PRODUCTS -->
+<section id="products" class="page" style="display:none">
+<h2>Add Products</h2>
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+<input id="newName" class="small" placeholder="Product Name">
+<input id="newCategory" class="small" placeholder="Category">
+<input id="newThreshold" class="small" placeholder="Threshold" type="number" style="width:110px">
+<button id="addProductBtn" class="btn">Add Product</button>
+</div>
+<div style="margin-bottom:12px">
+<input id="productSearch" class="search" placeholder="Search products...">
+</div>
+<div style="overflow:auto; height: calc(100% - 170px);">
+<table id="productsTable">
+<thead><tr><th>#</th><th>Name</th><th>Category</th><th>Balance</th><th>Threshold</th><th>History</th><th>Edit</th><th>Delete</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+</section>
+
+<!-- STOCK IN -->
+<section id="stockIn" class="page" style="display:none">
+<h2>Stock In</h2>
+<input id="inSearch" class="search" placeholder="Search product">
+<button class="btn secondary" onclick="stockInHistoryModal()">View Stock IN History</button>
+<table id="stockInBody">
+<thead><tr><th>Product</th><th>Balance</th><th>Last IN</th><th>Action</th></tr></thead>
+<tbody></tbody>
+</table>
+</section>
+
+<!-- STOCK OUT -->
+<section id="stockOut" class="page" style="display:none">
+<h2>Stock Out</h2>
+<input id="outSearch" class="search" placeholder="Search product">
+<button class="btn info" onclick="stockOutHistoryModal()">View Stock OUT History</button>
+<table id="stockOutBody">
+<thead><tr><th>Product</th><th>Balance</th><th>Last OUT</th><th>Action</th></tr></thead>
+<tbody></tbody>
+</table>
+</section>
+
+<!-- COMBINED HISTORY -->
+<section id="history" class="page" style="display:none">
+<h2>Combined History</h2>
+<div style="margin-bottom:12px">
+<input id="historySearch" class="search" placeholder="Search combined history...">
+</div>
+<div style="overflow:auto; height: calc(100% - 120px);">
+<table id="historyTable"><thead><tr><th>Date</th><th>Product</th><th>Type</th><th>Qty</th></tr></thead><tbody></tbody></table>
+</div>
+</section>
+
+<!-- MODALS -->
+<div id="historyModal" class="modal-backdrop">
+<div class="modal-box">
+<div class="modal-header">
+<h3 id="modalTitle">Product History</h3>
+<button onclick="closeHistoryModal()" class="modal-close">✖</button>
+</div>
+<div class="modal-body">
+<table class="modal-table"><thead><tr><th>Date</th><th>Type</th><th>Qty</th></tr></thead>
+<tbody id="modalHistoryBody"></tbody></table>
+</div>
+</div>
+</div>
+
+<div id="stockInHistoryModal" class="modal-backdrop">
+<div class="modal">
+<div class="modal-header"><h3>Stock IN History</h3><button onclick="closeStockInHistory()" class="modal-close">✖</button></div>
+<div class="modal-body">
+<table class="modal-table"><thead><tr><th>Date</th><th>Product</th><th>Qty</th></tr></thead>
+<tbody id="stockInHistoryPopupBody"></tbody>
+</table>
+</div>
+</div>
+</div>
+
+<div id="stockOutHistoryModal" class="modal-backdrop">
+<div class="modal">
+<div class="modal-header"><h3>Stock OUT History</h3><button onclick="closeStockOutHistory()" class="modal-close">✖</button></div>
+<div class="modal-body">
+<table class="modal-table"><thead><tr><th>Date</th><th>Product</th><th>Qty</th></tr></thead>
+<tbody id="stockOutHistoryPopupBody"></tbody>
+</table>
+</div>
+</div>
+</div>
+
+<div id="stockModal" class="modal-backdrop">
+<div class="modal">
+<div class="modal-header"><h3 id="modalTitle">Stock </h3><button onclick="closeModal()" class="modal-close">✖</button></div>
+<div class="modal-body">
+<p>Product: <b id="modalProductName"></b></p>
+<p>Balance: <b id="modalProductBalance"></b></p>
+<input id="modalQty" type="number" placeholder="Enter quantity">
+<p id="successMsg" class="success"></p>
+</div>
+<div class="modal-actions">
+<button class="btn secondary" onclick="closeModal()">Cancel</button>
+<button class="btn" id="modalSave">Save</button>
+</div>
+</div>
+</div>
+
+<script>
+// FULL JS LOGIC START
+const KEY_PRODUCTS='sms_products_final_v1';
+const KEY_MOVES='sms_movements_final_v1';
+let products=JSON.parse(localStorage.getItem(KEY_PRODUCTS)||'[]');
+let stockMovements=JSON.parse(localStorage.getItem(KEY_MOVES)||'[]');
+if(!localStorage.getItem(KEY_PRODUCTS)){
+    products = [
+        {id:genId(),name:'Laptop',category:'Electronics',threshold:5},
+        {id:genId(),name:'Chair',category:'Furniture',threshold:10},
+        {id:genId(),name:'Pen',category:'Stationery',threshold:50}
+    ];
+    stockMovements = [
+        {id:genId(),productId:products[0].id,type:'IN',quantity:20,date:todayISO()},
+        {id:genId(),productId:products[1].id,type:'IN',quantity:15,date:todayISO()},
+        {id:genId(),productId:products[2].id,type:'IN',quantity:100,date:todayISO()}
+    ];
+    saveAll();
+}
+
+function saveAll(){localStorage.setItem(KEY_PRODUCTS,JSON.stringify(products));localStorage.setItem(KEY_MOVES,JSON.stringify(stockMovements));document.getElementById('status')&&(document.getElementById('status').textContent='Status: Local saved');}
+function genId(){return'id_'+Date.now().toString(36)+'_'+Math.floor(Math.random()*1000);}
+function todayISO(){return new Date().toISOString().split('T')[0];}
+function fmtDate(iso){if(!iso)return'-';const p=iso.split('-');return${p[2]}/${p[1]}/${p[0]};}
+function escapeHtml(s){if(s==null)return'';return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function computeBalance(productId){let bal=0;stockMovements.forEach(m=>{if(m.productId===productId){bal+=m.type==='IN'?m.quantity:-m.quantity;}});return bal>0?bal:0;}
+function lastMovement(productId,type){const rows=stockMovements.filter(m=>m.productId===productId&&m.type===type);return rows.length?fmtDate(rows[rows.length-1].date):'-';}
+function populateCategoryFilter() {
+    const catSelect = document.getElementById('categoryFilter');
+    if(!catSelect) return;
+    const cats = [...new Set(products.map(p=>p.category).filter(c=>c))];
+    catSelect.innerHTML = '<option value="">All</option>';
+    cats.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.toLowerCase();
+        opt.textContent = c;
+        catSelect.appendChild(opt);
+    });
+}
+
+
+// Render Dashboard
+function renderDashboard() {
+    const tbody = document.querySelector('#dashTable tbody');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+
+    const catFilter = (document.getElementById('categoryFilter').value || '').trim().toLowerCase();
+    const globalSearch = (document.getElementById('globalSearch').value || '').trim().toLowerCase();
+    const threshold = Number(document.getElementById('globalThreshold').value || 5);
+
+    products.forEach((p,i) => {
+        const productName = p.name.toLowerCase();
+        const productCat = (p.category || '').toLowerCase();
+
+        if(catFilter && productCat !== catFilter) return; // Category filter
+        if(globalSearch && !productName.includes(globalSearch) && !productCat.includes(globalSearch)) return; // Global search
+
+        const bal = computeBalance(p.id);
+        const ins = stockMovements.filter(m=>m.productId===p.id && m.type==='IN');
+        const outs = stockMovements.filter(m=>m.productId===p.id && m.type==='OUT');
+        const lastIn = ins.length > 0 ? fmtDate(ins[ins.length-1].date) : '-';
+        const lastOut = outs.length > 0 ? fmtDate(outs[outs.length-1].date) : '-';
+        const ld = [...ins,...outs].sort((a,b)=>new Date(a.date)-new Date(b.date));
+        const lastDate = ld.length > 0 ? fmtDate(ld[ld.length-1].date) : '-';
+
+        tbody.insertAdjacentHTML('beforeend',
+            <tr>
+                <td>${i+1}</td>
+                <td>${escapeHtml(p.name)}</td>
+                <td>${escapeHtml(p.category)}</td>
+                <td class="${bal <= p.threshold ? 'low-stock' : 'balance-qty'}">${bal}</td>
+                <td>${lastIn}</td>
+                <td>${lastOut}</td>
+                <td>${lastDate}</td>
+                <td><button class="btn secondary" onclick="openHistory('${p.id}')">View</button></td>
+            </tr>
+        );
+    });
+}
+
+function renderProductsTable() {
+    const tbody = document.querySelector('#productsTable tbody');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+
+    const globalSearch = (document.getElementById('globalSearch').value || '').trim().toLowerCase();
+    const localSearch = (document.getElementById('productSearch').value || '').trim().toLowerCase();
+
+    products.forEach((p,i) => {
+        const name = p.name.toLowerCase();
+        const cat = (p.category || '').toLowerCase();
+        if((localSearch && !name.includes(localSearch) && !cat.includes(localSearch)) ||
+           (globalSearch && !name.includes(globalSearch) && !cat.includes(globalSearch))) return;
+
+        const bal = computeBalance(p.id);
+        tbody.insertAdjacentHTML('beforeend',
+            <tr>
+                <td>${i+1}</td>
+                <td>${escapeHtml(p.name)}</td>
+                <td>${escapeHtml(p.category)}</td>
+                <td>${bal}</td>
+                <td>${p.threshold || 5}</td>
+                <td><button class="btn secondary" onclick="openHistory('${p.id}')">History</button></td>
+                <td><button class="btn secondary" onclick="editProduct('${p.id}')">Edit</button></td>
+                <td><button class="btn secondary" onclick="deleteProduct('${p.id}')">Delete</button></td>
+            </tr>
+        );
+    });
+}
+
+function renderStockIn() {
+    const tbody = document.querySelector('#stockInBody tbody');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+
+    const globalSearch = (document.getElementById('globalSearch').value || '').trim().toLowerCase();
+    const localSearch = (document.getElementById('inSearch').value || '').trim().toLowerCase();
+
+    products.forEach(p => {
+        const name = p.name.toLowerCase();
+        if((localSearch && !name.includes(localSearch)) || (globalSearch && !name.includes(globalSearch))) return;
+        const bal = computeBalance(p.id);
+        tbody.insertAdjacentHTML('beforeend',
+            <tr>
+                <td>${escapeHtml(p.name)}</td>
+                <td>${bal}</td>
+                <td>${lastMovement(p.id,'IN')}</td>
+                <td><button class="btn" onclick="openStockModal('${p.id}','IN')">Add</button></td>
+            </tr>
+        );
+    });
+}
+function renderStockOut() {
+    const tbody = document.querySelector('#stockOutBody tbody');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+
+    const globalSearch = (document.getElementById('globalSearch').value || '').trim().toLowerCase();
+    const localSearch = (document.getElementById('outSearch').value || '').trim().toLowerCase();
+
+    products.forEach(p => {
+        const name = p.name.toLowerCase();
+        if((localSearch && !name.includes(localSearch)) || (globalSearch && !name.includes(globalSearch))) return;
+        const bal = computeBalance(p.id);
+        tbody.insertAdjacentHTML('beforeend',
+            <tr>
+                <td>${escapeHtml(p.name)}</td>
+                <td>${bal}</td>
+                <td>${lastMovement(p.id,'OUT')}</td>
+                <td><button class="btn out" onclick="openStockModal('${p.id}','OUT')">Remove</button></td>
+            </tr>
+        );
+    });
+}
+
+function renderCombinedHistory() {
+    const tbody = document.querySelector('#historyTable tbody');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+
+    const globalSearch = (document.getElementById('globalSearch').value || '').trim().toLowerCase();
+    const localSearch = (document.getElementById('historySearch').value || '').trim().toLowerCase();
+
+    stockMovements.slice().sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(m => {
+        const prod = products.find(p => p.id === m.productId);
+        if(!prod) return;
+        const name = prod.name.toLowerCase();
+        const cat = (prod.category||'').toLowerCase();
+        if((localSearch && !name.includes(localSearch) && !cat.includes(localSearch)) ||
+           (globalSearch && !name.includes(globalSearch) && !cat.includes(globalSearch))) return;
+
+        tbody.insertAdjacentHTML('beforeend',
+            <tr>
+                <td>${fmtDate(m.date)}</td>
+                <td>${escapeHtml(prod.name)}</td>
+                <td>${m.type}</td>
+                <td>${m.quantity}</td>
+            </tr>
+        );
+    });
+}
+
+
+// MODALS
+let modalCurrent=null;
+function openStockModal(productId,type){modalCurrent={productId,type};const prod=products.find(p=>p.id===productId);if(!prod)return;document.getElementById('modalProductName').textC.submenu{padding-left:36px !important;font-size:14px;}
 .subgroup{list-style:none;padding:0;margin:0;display:none;}
 .subgroup.open{display:block;}
 .menu-title.collapsible{display:flex;justify-content:space-between;align-items:center;}
@@ -1061,6 +1458,7 @@ refreshAll();
 </div>
 </body>
 </html>
+
 
 
 

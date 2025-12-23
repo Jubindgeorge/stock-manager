@@ -252,9 +252,9 @@ let products=JSON.parse(localStorage.getItem(KEY_PRODUCTS)||'[]');
 let stockMovements=JSON.parse(localStorage.getItem(KEY_MOVES)||'[]');
 if(!localStorage.getItem(KEY_PRODUCTS)){
     products = [
-        {id:genId(),name:'Laptop',category:'Electronics',threshold:5},
-        {id:genId(),name:'Chair',category:'Furniture',threshold:10},
-        {id:genId(),name:'Pen',category:'Stationery',threshold:50}
+        {id:genId(),name:'0',category:'0',threshold:5},
+        {id:genId(),name:'1',category:'0',threshold:10},
+        {id:genId(),name:'0',category:'0',threshold:50}
     ];
     stockMovements = [
         {id:genId(),productId:products[0].id,type:'IN',quantity:20,date:todayISO()},
@@ -631,5 +631,6 @@ refreshAll();
 </div>
 </body>
 </html>
+
 
 

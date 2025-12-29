@@ -52,8 +52,8 @@ body::before{content:"";position:fixed;inset:0;background-position:center center
 .btn.info{background:#16a34a}
 .page {background:rgba(255,255,255,0.5);backdrop-filter:blur(5px);border-radius:12px;width:100%;min-height:calc(100vh - 40px);padding:25px;border:1px solid rgba(0,0,0,0.05);box-shadow:0 6px 25px rgba(0,0,0,0.1);}
 table{width:100%;border-collapse:collapse;margin-top:10px}
-th,td{padding:20px;border-bottom:1px solid rgba(0,0,0,0.06);text-align:left;white-space: nowrap}
-th{background:rgba(255,255,255,0.6);font-weight:700;width:50%}
+th,td{padding:10px;border-bottom:1px solid rgba(0,0,0,0.06);text-align:left}
+th{background:rgba(255,255,255,0.6);font-weight:700}
 .low-stock{color:var(--danger);font-weight:700}
 .balance-qty{font-weight:bold}
 .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;justify-content:center;align-items:center;z-index:9999;}
@@ -105,44 +105,11 @@ th{background:rgba(255,255,255,0.6);font-weight:700;width:50%}
 .menu-title span.arrow {
     display: inline-block;
 }
-.admin-only{display:none;}
+
 </style>
 </head>
 
 <body>
-<div id="loginScreen" style="position:fixed; inset:0; background:#f3f4f6;
-display:flex; align-items:center; justify-content:center; z-index:99999;">
-  <div style="width:350px; background:white; padding:25px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.15)">
-    <h2 style="text-align:center">Stock Manager</h2>
-    
-    <div id="loginForm">
-      <input id="loginUser" placeholder="Username" style="width:90%;padding:10px;margin:10px 0">
-      <input id="loginPass" type="password" placeholder="Password" style="width:90%;padding:10px;margin-bottom:10px">
-      <button class="btn" style="width:98%" onclick="login()">Login</button>
-      <p style="text-align:center;margin:10px 0;">Don't have an account? <span style="color:blue;cursor:pointer;" onclick="showSignup()">Sign Up</span></p><p style="text-align:center;margin:10px 0;">
-    <span style="color:blue;cursor:pointer;" onclick="forgotPassword()">Forgot Password?</span>
-</p>
-
-      <p id="loginMsg" style="color:red;text-align:center;margin-top:10px"></p>
-    </div>
-
-    <div id="signupForm" style="display:none">
-      <input id="signupUser" placeholder="Username" style="width:90%;padding:10px;margin:10px 0">
-      <input id="signupPass" type="password" placeholder="Password" style="width:90%;padding:10px;margin-bottom:10px">
-      <select id="signupRole" style="width:100%;padding:10px;margin-bottom:10px">
-        <option value="user">User</option>
-              </select>
-      <button class="btn" style="width:98%" onclick="signup()">Create Account</button>
-      <p style="text-align:center;margin:10px 0;">Already have an account? <span style="color:blue;cursor:pointer;" onclick="showLogin()">Login</span></p>
-
-      <p id="signupMsg" style="color:red;text-align:center;margin-top:10px"></p>
-
-    </div>
-
-  </div>
-</div>
-
-
 <div class="app">
 <aside class="sidebar">
 <div class="sidebar-header">
@@ -151,18 +118,11 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
         <div class="brand-title">STOCK</div>
         <div class="brand-sub">Inventory • Public Sheet</div>
     </div>
-    <button id="sidebarToggle" class="btn secondary" style="margin-left:auto;padding:4px 6px;font-size:14px">←</button>
+    <button id="sidebarToggle" class="btn secondary" style="margin-left:auto;padding:4px 6px;font-size:14px">☰</button>
 </div>
 
 
 <ul class="sidebar-menu" id="menu">
-
-<li id="usersMenu" class="menu-title collapsible admin-only">
-  👥 Users <span class="arrow">▾</span>
-</li>
-<ul class="subgroup admin-only">
-  <li class="submenu" data-page="userManagement">Manage Users</li>
-</ul>
 <li class="menu-title collapsible" data-page="dashboard">📊 Dashboard<span class="arrow">▾</span></li>
 <ul class="subgroup">
 <li class="submenu" data-page="dashboard">📊 Dashboard</li>
@@ -179,11 +139,7 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 <li class="submenu" data-page="stockOut">⬇ Stock Out</li>
 <li class="submenu" data-page="history">📚 Combined History</li>
 </ul>
-  <li class="menu-title collapsible">🧾 FG Stock <span class="arrow">▾</span></li>
-<ul class="subgroup">
-  <li class="submenu" data-page="fgStock">📦 FG Stock</li>
-</ul>
-
+  
 <li class="menu-title collapsible">💾 Backup <span class="arrow">▾</span></li>
 <ul class="subgroup">
 <li class="submenu" data-action="importExcel">📥 Import Excel</li>
@@ -195,37 +151,11 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 </aside>
 
 <main class="main"><!-- DASHBOARD -->
-<button onclick="logout()" class="btn out" style="position:fixed;top:10px;right:20px;z-index:999">Logout</button>
-<section id="userManagement" class="page" style="display:none">
-  <h2>Manage Users</h2>
-  <table id="usersTable">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Username</th>
-        <th>Role</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-  <div style="margin-top:12px;">
-    <input id="newUsername" placeholder="Username">
-    <input id="newPassword" type="password" placeholder="Password">
-    <select id="newRole">
-      <option value="user">User</option>
-      <option value="admin">Admin</option>
-    </select>
-    <button class="btn admin-only" onclick="addUser()">Add User</button>
-  </div>
-</section>
-
 <section id="dashboard" class="page" style="display:block">
 <h2>Dashboard</h2>
 <div class="top">
-<div class="dash-search">
-    <input type="text" id="globalSearch" class="search" placeholder="Global search...">
-</div></div>
+<input id="globalSearch" class="search" placeholder="Search products, categories or history...">
+</div>
 <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
 <div>Category:
 <select id="categoryFilter" class="small">
@@ -239,74 +169,23 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 </div>
 <div style="overflow:auto">
 <table id="dashTable">
-<thead>
-<tr>
-    <th>Product / Group</th>
- <th>Balance</th>
-   <th>threshold</th>
-<th>Last IN</th><th>Last OUT</th>
-    <th colspan="3">Actions</th>
-   
-
-</tr>
-</thead>
+<thead><tr><th>#</th><th>Product</th><th>Category</th><th>Balance</th><th>Last IN</th><th>Last OUT</th><th>Last Date</th><th>Action</th></tr></thead>
 <tbody></tbody>
 </table>
 </div>
 </section>
-<section id="fgStock" class="page" style="display:none">
-  <h2>Finished Goods Stock</h2>
-  <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
-    <input type="file" id="fgExcelInput" accept=".xlsx,.xls">
-    <input id="fgSearch" class="search" placeholder="Search FG products...">
-  </div>
-  <div style="overflow:auto; height: calc(100% - 140px);">
-    <table id="fgTable">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Product</th>
-          <th>Volume</th>
-          <th>Balance</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</section>
-
-<!-- Modal for daily stock -->
-<div id="fgModal" style="display:none; position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
-  <div style="background:#fff;padding:20px;max-height:80%;overflow:auto; width:90%;">
-    <h3 id="fgModalTitle">Product Stock Details</h3>
-    <table id="modalTable">
-      <thead>
-        <tr id="modalHead"></tr>
-      </thead>
-      <tbody id="modalBody"></tbody>
-    </table>
-    <button onclick="document.getElementById('fgModal').style.display='none'">Close</button>
-  </div>
-</div>
 
 <!-- PRODUCTS -->
 <section id="products" class="page" style="display:none">
 <h2>Add Products</h2>
-  <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
     <input id="newCode" class="small" placeholder="Product Code" style="width:120px">
     <input id="newName" class="small" placeholder="Product Name">
     <input id="newCategory" class="small" placeholder="Category">
     <input id="newThreshold" class="small" placeholder="Threshold" type="number" style="width:110px">
     <input id="newBarcode" class="small" placeholder="Barcode" style="width:150px">
-    <input id="newGroups" class="small" placeholder="Groups (comma separated)">
-    <label style="display:flex;align-items:center;gap:4px;">
-      <input type="checkbox" id="newExclusive"> Exclusive to first group
-    </label>
-    <button id="addProductBtn" class="btn admin-only">Add Product</button>
+    <button id="addProductBtn" class="btn">Add Product</button>
 </div>
-
-
 
 <div style="margin-bottom:12px">
 <input id="productSearch" class="search" placeholder="Search products...">
@@ -418,286 +297,17 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 </div>
 
 <script>
-let fgProducts = [];
-
-let currentUser = null;
-const savedUser = localStorage.getItem('sms_currentUser');
-if (savedUser) {
-    currentUser = JSON.parse(savedUser);
-    document.getElementById('loginScreen').style.display = 'none';
-    document.querySelector('.app').style.display = 'flex';
-}
-
-
-/* 🔴 REPLACE WITH YOUR FIREBASE CONFIG */
-const firebaseConfig = {
-  apiKey: "AIzaSyBTtsOeQTpPwTEn_T9EDqt5i_0eyQuzGOA",
-  authDomain: "stock-manager-703e6.firebaseapp.com",
-  databaseURL: "https://stock-manager-703e6-default-rtdb.firebaseio.com",
-  projectId: "stock-manager-703e6",
-  storageBucket: "stock-manager-703e6.firebasestorage.app",
-  messagingSenderId: "778548519096",
-  appId: "1:778548519096:web:716f903fee993f4d85544d",
-  measurementId: "G-G735N8XCQ2"
-};
-
-firebase.initializeApp(firebaseConfig);
-const cloudDB = firebase.database(); // Use the same variable as in your functions
-window.cloudDB = cloudDB;  
-console.log("✅ Firebase initialized");
-
-async function ensureAdminExists() {
-    try {
-        const snapshot = await cloudDB.ref('users').orderByChild('role').equalTo('admin').once('value');
-        if(!snapshot.exists()) {
-            const userId = 'admin_' + Date.now().toString(36);
-            await cloudDB.ref('users/' + userId).set(DEFAULT_ADMIN);
-            console.log("Default admin created");
-        } else {
-            console.log("Admin already exists");
-        }
-    } catch(err) {
-        console.error("Error checking/creating admin:", err);
-    }
-}
-
-// Call this on app load
-ensureAdminExists();
-
-
-
-function applyPermissions() {
-    if (!currentUser) return;
-
-    const isAdmin = currentUser.role === 'admin';
-
-    document.querySelectorAll('.admin-only').forEach(el => {
-        // Use inline-block to make buttons appear properly
-        el.style.display = isAdmin ? 'inline-block' : 'none';
-    });
-
-    // Protect admin-only pages
-    if (!isAdmin && document.getElementById('userManagement').style.display === 'block') {
-        document.getElementById('userManagement').style.display = 'none';
-        document.getElementById('dashboard').style.display = 'block';
-    }
-}
-
-/* ==========================
-   🔐 ADVANCED LOGIN SYSTEM
-========================== */
-const DEFAULT_ADMIN = {
-    username: "admin",
-    password: "admin123",  // change this after first login
-    role: "admin",
-    createdAt: new Date().toISOString()
-};
-
-
-// Show forms
-function showSignup(){ loginForm.style.display='none'; signupForm.style.display='block'; loginMsg.textContent=''; }
-function showLogin(){ loginForm.style.display='block'; signupForm.style.display='none'; signupMsg.textContent=''; }
-
-const loginForm = document.getElementById('loginForm');
-const signupForm = document.getElementById('signupForm');
-const loginMsg = document.getElementById('loginMsg');
-const signupMsg = document.getElementById('signupMsg');
-
-async function signup() {
-  const u = signupUser.value.trim();
-  const p = signupPass.value;
-  const role = signupRole.value;
-
-  if(!u || !p) { signupMsg.textContent="Enter username & password"; return; }
-
-  try {
-    const snapshot = await cloudDB.ref('users').orderByChild('username').equalTo(u).once('value');
-    if(snapshot.exists()){ signupMsg.textContent="Username already taken"; return; }
-
-    const userId = 'u_'+Date.now().toString(36)+'_'+Math.floor(Math.random()*1000);
-    await cloudDB.ref('users/'+userId).set({username:u,password:p,role,createdAt:new Date().toISOString()});
-
-    signupMsg.style.color="green"; signupMsg.textContent="Account created! Please login.";
-    showLogin();
-  } catch(err){
-    console.error(err);
-    signupMsg.textContent="Signup failed";
-  }
-}
-
-async function login() {
-  const u = loginUser.value.trim();
-  const p = loginPass.value;
-
-  if(!u || !p){ loginMsg.textContent="Enter username & password"; return; }
-
-  try {
-    const snapshot = await cloudDB.ref('users').orderByChild('username').equalTo(u).once('value');
-    if(!snapshot.exists()){ loginMsg.textContent="Invalid login"; return; }
-
-    const userData = Object.values(snapshot.val())[0]; // get first match
-    if(userData.password !== p){ loginMsg.textContent="Invalid login"; return; }
-
-    currentUser = userData;
-    localStorage.setItem('sms_currentUser', JSON.stringify(currentUser));
-
-    loginScreen.style.display='none';
-    document.querySelector('.app').style.display='flex';
-    applyPermissions();
-
-    // Show Users page automatically if admin
-    if(currentUser.role === 'admin') {
-        document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
-        document.getElementById('userManagement').style.display = 'block';
-        renderUsersTable();
-    }
-
-  } catch(err){
-    console.error(err);
-    loginMsg.textContent="Login failed";
-  }
-document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
-document.getElementById('dashboard').style.display = 'block';
-renderDashboardGrouped();
-}
-
-function logout(){
-  localStorage.removeItem('sms_currentUser');
-  location.reload();
-}
-
-async function addUser() {
-    const username = document.getElementById('newUsername').value.trim();
-    const password = document.getElementById('newPassword').value;
-    const role = document.getElementById('newRole').value;
-
-    if(!username || !password) {
-        alert("Enter username and password");
-        return;
-    }
-
-    try {
-        // Check if username exists
-        const snapshot = await cloudDB.ref('users').orderByChild('username').equalTo(username).once('value');
-        if(snapshot.exists()) {
-            alert("Username already taken");
-            return;
-        }
-
-        const userId = 'u_' + Date.now().toString(36) + '_' + Math.floor(Math.random()*1000);
-        await cloudDB.ref('users/' + userId).set({
-            username,
-            password,
-            role,
-            createdAt: new Date().toISOString()
-        });
-
-        alert("User added successfully!");
-        // Optionally, clear inputs
-        document.getElementById('newUsername').value = '';
-        document.getElementById('newPassword').value = '';
-
-        // Refresh users table if you have a function for that
-        renderUsersTable();
-
-    } catch(err) {
-        console.error(err);
-        alert("Failed to add user");
-    }
-}
-
-async function forgotPassword() {
-    const username = prompt("Enter your username to reset password:");
-    if(!username || !username.trim()) return;
-
-    try {
-        const snapshot = await cloudDB.ref('users').orderByChild('username').equalTo(username.trim()).once('value');
-        if(!snapshot.exists()){
-            alert("Username not found");
-            return;
-        }
-
-        const userId = Object.keys(snapshot.val())[0];
-        const userData = snapshot.val()[userId];
-
-        // For simplicity, we just ask for a new password
-        const newPass = prompt(`Enter new password for "${userData.username}":`);
-        if(!newPass || !newPass.trim()) return alert("Password cannot be empty");
-
-        await cloudDB.ref('users/' + userId + '/password').set(newPass.trim());
-        alert("Password successfully reset. You can now login with the new password.");
-    } catch(err){
-        console.error(err);
-        alert("Failed to reset password");
-    }
-}
-
-// Delete a user (cannot delete admin)
-async function deleteUser(username) {
-    if(!confirm(`Are you sure you want to delete "${username}"?`)) return;
-
-    try {
-        const snapshot = await cloudDB.ref('users').orderByChild('username').equalTo(username).once('value');
-        if(!snapshot.exists()) return alert("User not found");
-
-        const userId = Object.keys(snapshot.val())[0];
-        const userData = snapshot.val()[userId];
-
-        if(userData.role === 'admin') return alert("Cannot delete admin");
-
-        await cloudDB.ref('users/' + userId).remove();
-        alert("User deleted successfully!");
-        renderUsersTable(); // refresh table
-    } catch(err) {
-        console.error(err);
-        alert("Failed to delete user");
-    }
-}
-
-// Render users table
-async function renderUsersTable() {
-    const tbody = document.querySelector('#usersTable tbody');
-    tbody.innerHTML = '';
-
-    const snapshot = await cloudDB.ref('users').once('value');
-    const users = snapshot.val() ? Object.values(snapshot.val()) : [];
-
-    users.forEach((u,i)=>{
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${i+1}</td>
-            <td>${u.username}</td>
-            <td>${u.role}</td>
-<td>
-  ${u.role !== 'admin' && currentUser.role==='admin' ? `<button class="btn out" onclick="deleteUser('${u.username}')">Delete</button>` : ''}
-</td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-
 // FULL JS LOGIC START
-const KEY_GROUP_ALIASES = 'sms_group_aliases_v1';
-let groupAliases = JSON.parse(localStorage.getItem(KEY_GROUP_ALIASES) || '{}');
-
-function saveGroupAliases() {
-    localStorage.setItem(KEY_GROUP_ALIASES, JSON.stringify(groupAliases));
-}
-
 const KEY_PRODUCTS='sms_products_final_v1';
 const KEY_MOVES='sms_movements_final_v1';
 let products=JSON.parse(localStorage.getItem(KEY_PRODUCTS)||'[]');
 let stockMovements=JSON.parse(localStorage.getItem(KEY_MOVES)||'[]');
 if(!localStorage.getItem(KEY_PRODUCTS)){
-let products = [
-    {id:'p1', name:'Product A', category:'Cat1', threshold:5, groups:['Group1'], exclusive:true},
-    {id:'p2', name:'Product B', category:'Cat1', threshold:10, groups:['Group1','Group2'], exclusive:false},
-    {id:'p3', name:'Product C', category:'Cat2', threshold:8, groups:['Group2'], exclusive:true},
-    {id:'p4', name:'Product D', category:'Cat2', threshold:7, groups:['Group2','Group3'], exclusive:false},
-    {id:'p5', name:'Product E', category:'Cat3', threshold:12, groups:['Group3'], exclusive:true}
-];
-
+    products = [
+        {id:genId(),name:'download',category:'from cloud',threshold:5},
+        {id:genId(),name:'0',category:'0',threshold:10},
+        {id:genId(),name:'1',category:'1',threshold:50}
+    ];
     stockMovements = [
         {id:genId(),productId:products[0].id,type:'IN',quantity:20,date:todayISO()},
         {id:genId(),productId:products[1].id,type:'IN',quantity:15,date:todayISO()},
@@ -711,19 +321,9 @@ function genId(){return'id_'+Date.now().toString(36)+'_'+Math.floor(Math.random(
 function todayISO(){return new Date().toISOString().split('T')[0];}
 function fmtDate(iso){if(!iso)return'-';const p=iso.split('-');return`${p[2]}/${p[1]}/${p[0]}`;}
 function escapeHtml(s){if(s==null)return'';return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function computeBalance(productId){
-    let bal=0;
-    stockMovements.forEach(m=>{
-        if(m.productId===productId){bal += m.type==='IN'? m.quantity : -m.quantity;}
-    });
-    return bal>0?bal:0;
-}
-
-function lastMovement(productId,type){
-    const moves = stockMovements.filter(m=>m.productId===productId && m.type===type);
-    if(!moves.length) return '-';
-    return moves[moves.length-1].date;
-}function populateCategoryFilter() {
+function computeBalance(productId){let bal=0;stockMovements.forEach(m=>{if(m.productId===productId){bal+=m.type==='IN'?m.quantity:-m.quantity;}});return bal>0?bal:0;}
+function lastMovement(productId,type){const rows=stockMovements.filter(m=>m.productId===productId&&m.type===type);return rows.length?fmtDate(rows[rows.length-1].date):'-';}
+function populateCategoryFilter() {
     const catSelect = document.getElementById('categoryFilter');
     if(!catSelect) return;
     const cats = [...new Set(products.map(p=>p.category).filter(c=>c))];
@@ -737,206 +337,44 @@ function lastMovement(productId,type){
 }
 
 
-// FG stock for a group of products
-function getFGStock(groupName){
-    let totalFG = 0;
-    products.forEach(p=>{
-        if(!Array.isArray(p.groups)) return;
-        if(p.groups.includes(groupName)){
-            totalFG += p.fgStock || 0; // assuming each product has fgStock property
-        }
-    });
-    return totalFG;
-}
-
-// Render dashboard (products RAW only)
-// Load renamed groups from localStorage
-let renamedGroups = JSON.parse(localStorage.getItem('renamedGroups') || '{}');
-
-// Save renamed groups to localStorage
-function saveRenamedGroups() {
-    localStorage.setItem('renamedGroups', JSON.stringify(renamedGroups));
-}
-function searchDashboard() {
-    const searchTerm = document.getElementById('dashboardSearch').value.toLowerCase().trim();
-    renderDashboardGrouped(searchTerm);
-}
-
-// Dashboard rendering
-function renderDashboardGrouped(){
+// Render Dashboard
+function renderDashboard() {
     const tbody = document.querySelector('#dashTable tbody');
-    tbody.innerHTML='';
+    if(!tbody) return;
+    tbody.innerHTML = '';
 
-    const search = (document.getElementById('globalSearch').value||'').toLowerCase().trim();
+    const catFilter = (document.getElementById('categoryFilter').value || '').trim().toLowerCase();
+    const globalSearch = (document.getElementById('globalSearch').value || '').trim().toLowerCase();
+    const threshold = Number(document.getElementById('globalThreshold').value || 5);
 
-    const groupsMap = {};
-    products.forEach(p=>{
-        if(!Array.isArray(p.groups)) return;
-        p.groups.forEach(groupName=>{
-            if(!groupsMap[groupName]) groupsMap[groupName]=[];
-            if(p.exclusive && p.groups[0]!==groupName) return;
-            groupsMap[groupName].push(p);
-        });
-    });
+    products.forEach((p,i) => {
+        const productName = p.name.toLowerCase();
+        const productCat = (p.category || '').toLowerCase();
 
-    Object.keys(groupsMap).sort().forEach(groupName=>{
-        const groupProducts = groupsMap[groupName].filter(p=>{
-            const name = p.name.toLowerCase();
-            if(search && !name.includes(search) && !(renamedGroups[groupName]||groupName).toLowerCase().includes(search)) return false;
-            return true;
-        });
-        if(!groupProducts.length) return;
+        if(catFilter && productCat !== catFilter) return; // Category filter
+        if(globalSearch && !productName.includes(globalSearch) && !productCat.includes(globalSearch)) return; // Global search
 
-        const displayName = renamedGroups[groupName] ? renamedGroups[groupName] : groupName;
-        const fgBalance = getFGStock(groupName);
+        const bal = computeBalance(p.id);
+        const ins = stockMovements.filter(m=>m.productId===p.id && m.type==='IN');
+        const outs = stockMovements.filter(m=>m.productId===p.id && m.type==='OUT');
+        const lastIn = ins.length > 0 ? fmtDate(ins[ins.length-1].date) : '-';
+        const lastOut = outs.length > 0 ? fmtDate(outs[outs.length-1].date) : '-';
+        const ld = [...ins,...outs].sort((a,b)=>new Date(a.date)-new Date(b.date));
+        const lastDate = ld.length > 0 ? fmtDate(ld[ld.length-1].date) : '-';
 
-const groupRow = document.createElement('tr');
-groupRow.classList.add('group-row');
-
-let renameBtn = '';
-if(currentUser && currentUser.role === 'admin') {
-    renameBtn = `<button style="margin-left:10px;" onclick="renameGroup('${groupName}')">Rename</button>`;
-}
-
-groupRow.innerHTML = `
-    <td colspan="6">
-        <b>${displayName.toUpperCase()}</b> 
-        <span style="margin-left:20px; color:green;">FG BALANCE: ${fgBalance}</span>
-        ${renameBtn}
-    </td>
-`;
-tbody.appendChild(groupRow);
-
-
-        groupProducts.forEach(p=>{
-            const bal = computeBalance(p.id); // RAW stock
-            const lastIn = lastMovement(p.id,'IN');
-            const lastOut = lastMovement(p.id,'OUT');
-
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td style="padding-left:20px;">${p.name}</td>
-                <td>${bal}</td>
-                <td>${p.threshold}</td>
+        tbody.insertAdjacentHTML('beforeend',`
+            <tr>
+                <td>${i+1}</td>
+                <td>${escapeHtml(p.name)}</td>
+                <td>${escapeHtml(p.category)}</td>
+                <td class="${bal <= p.threshold ? 'low-stock' : 'balance-qty'}">${bal}</td>
                 <td>${lastIn}</td>
                 <td>${lastOut}</td>
-                <td>
-                    <button class="btn secondary" onclick="alert('View ${p.name}')">View</button>
-                    <button class="btn" onclick="alert('Add IN ${p.name}')">Add IN</button>
-                    <button class="btn" onclick="alert('Stock OUT ${p.name}')">Stock OUT</button>
-                </td>
-            `;
-            tbody.appendChild(row);
-        });
+                <td>${lastDate}</td>
+                <td><button class="btn secondary" onclick="openHistory('${p.id}')">View</button></td>
+            </tr>
+        `);
     });
-}// Rename group **only for dashboard display**
-function renameGroup(groupName){
-    const newName = prompt('Enter new display name for "' + groupName + '"');
-    if(!newName) return;
-
-    renamedGroups[groupName] = newName;
-    saveRenamedGroups(); // save to localStorage
-    renderDashboardGrouped(); // re-render dashboard
-}
-
-
-
-
-// Read Excel
-document.getElementById('fgExcelInput').addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if(!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        const data = new Uint8Array(event.target.result);
-        const wb = XLSX.read(data, {type:'array'});
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json(ws, {defval:''});
-
-        fgProducts = json.map((row, i) => {
-            // find keys case-insensitively
-            const descKey = Object.keys(row).find(k => k.toLowerCase() === 'description');
-            const volKey = Object.keys(row).find(k => k.toLowerCase() === 'volume');
-            const balKey = Object.keys(row).find(k => k.toLowerCase() === 'balance');
-
-            const daily = {};
-            Object.keys(row).forEach(k => {
-                if(/\d{2}\/\d{2}\/\d{4}/.test(k)) daily[k] = Number(row[k] || 0);
-            });
-
-            return {
-                id: 'fg_' + i,
-                description: descKey ? row[descKey] : `Unknown ${i+1}`,
-                volume: volKey ? row[volKey] : '',
-                balance: balKey ? Number(row[balKey] || 0) : 0,
-                dailyStock: daily
-            };
-        });
-
-        renderFGStock();
-    };
-    reader.readAsArrayBuffer(file);
-});
-
-// Render Table
-function renderFGStock() {
-    const tbody = document.querySelector('#fgTable tbody');
-    tbody.innerHTML = '';
-    const search = (document.getElementById('fgSearch').value || '').toLowerCase().trim();
-
-    // Group by first word of description (case-insensitive)
-    const groups = {};
-    fgProducts.forEach(p => {
-        const desc = p.description.trim();
-        if(search && !desc.toLowerCase().includes(search)) return;
-        const key = desc.split(' ')[0].toUpperCase(); // CAPITAL letters
-        if(!groups[key]) groups[key] = [];
-        groups[key].push(p);
-    });
-
-    let index = 1;
-    Object.keys(groups).sort().forEach(key => {
-        groups[key].forEach(p => {
-            tbody.insertAdjacentHTML('beforeend', `
-                <tr>
-                    <td>${index++}</td>
-                    <td>${key}</td>
-                    <td>${p.description}</td>
-                    <td>${p.volume}</td>
-                    <td>${p.balance}</td>
-                    <td><button onclick="showModal('${p.id}')">View</button></td>
-                </tr>
-            `);
-        });
-    });
-}
-
-// Search input
-document.getElementById('fgSearch').addEventListener('input', renderFGStock);
-
-// Show Modal for daily stock
-function showModal(id){
-    const product = fgProducts.find(p=>p.id===id);
-    if(!product) return;
-
-    document.getElementById('fgModalTitle').innerText = product.description;
-    const modalHead = document.getElementById('modalHead');
-    const modalBody = document.getElementById('modalBody');
-
-    modalHead.innerHTML = '<th>Date</th><th>Stock</th>';
-    modalBody.innerHTML = '';
-
-    Object.entries(product.dailyStock).forEach(([date, val])=>{
-        modalBody.insertAdjacentHTML('beforeend', `<tr><td>${date}</td><td>${val}</td></tr>`);
-    });
-
-    document.getElementById('fgModal').style.display = 'flex';
-}
-
-// Helper
-function escapeHtml(text){
-    return text.replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
 function renderProductsTable() {
@@ -964,8 +402,8 @@ function renderProductsTable() {
     <td>${p.threshold || 5}</td>
     <td>${escapeHtml(p.barcode || '')}</td>
     <td><button class="btn secondary" onclick="openHistory('${p.id}')">History</button></td>
-    <td><button class="btn secondary admin-only" onclick="editProduct('${p.id}')">Edit</button></td>
-    <td><button class="btn secondary admin-only" onclick="deleteProduct('${p.id}')">Delete</button></td>
+    <td><button class="btn secondary" onclick="editProduct('${p.id}')">Edit</button></td>
+    <td><button class="btn secondary" onclick="deleteProduct('${p.id}')">Delete</button></td>
 </tr>
 `);
 
@@ -1064,41 +502,32 @@ document.querySelectorAll('.submenu').forEach(sm=>{sm.addEventListener('click',(
 document.getElementById('addProductBtn').addEventListener('click', () => {
     const code = document.getElementById('newCode').value.trim();
     const name = document.getElementById('newName').value.trim();
-    const category = document.getElementById('newCategory').value.trim();
+    const cat = document.getElementById('newCategory').value.trim();
     const threshold = Number(document.getElementById('newThreshold').value || 5);
     const barcode = document.getElementById('newBarcode').value.trim();
-    const groupsInput = document.getElementById('newGroups').value.trim();
-    const exclusive = document.getElementById('newExclusive').checked;
 
-    if (!name) { alert("Product name required"); return; }
+    if(!name) return alert('Enter product name');
+    if(!code) return alert('Enter product code');
 
-    // Split groups by comma
-    const groups = groupsInput ? groupsInput.split(',').map(g => g.trim()).filter(g => g) : [];
-
-    const newProduct = {
+    products.push({
         id: genId(),
         code,
         name,
-        category,
+        category: cat,
         threshold,
-        barcode,
-        groups,
-        exclusive  // new field to mark exclusive product
-    };
-
-    products.push(newProduct);
+        barcode
+    });
+    
     saveAll();
-    renderProductsTable();
-    renderDashboardGrouped();
 
-    // Clear form
-    document.getElementById('newCode').value = '';
-    document.getElementById('newName').value = '';
-    document.getElementById('newCategory').value = '';
-    document.getElementById('newThreshold').value = '';
-    document.getElementById('newBarcode').value = '';
-    document.getElementById('newGroups').value = '';
-    document.getElementById('newExclusive').checked = false;
+    // Clear inputs
+    document.getElementById('newCode').value='';
+    document.getElementById('newName').value='';
+    document.getElementById('newCategory').value='';
+    document.getElementById('newThreshold').value='';
+    document.getElementById('newBarcode').value='';
+
+    refreshAll();
 });
 
 
@@ -1107,10 +536,10 @@ document.getElementById('productSearch').addEventListener('input',renderProducts
 document.getElementById('inSearch').addEventListener('input',renderStockIn);
 document.getElementById('outSearch').addEventListener('input',renderStockOut);
 document.getElementById('historySearch').addEventListener('input',renderCombinedHistory);
-document.getElementById('globalSearch').addEventListener('input',()=>{renderDashboardGrouped();renderProductsTable();renderStockIn();renderStockOut();renderCombinedHistory();});
+document.getElementById('globalSearch').addEventListener('input',()=>{renderDashboard();renderProductsTable();renderStockIn();renderStockOut();renderCombinedHistory();});
 document.getElementById('categoryFilter').addEventListener('change', () => {
-    renderDashboardGrouped();
-});document.getElementById('globalThreshold').addEventListener('input',renderDashboardGrouped);
+    renderDashboard();
+});document.getElementById('globalThreshold').addEventListener('input',renderDashboard);
 
 // EXPORT / IMPORT
 function exportExcel(){const wb=XLSX.utils.book_new();const ws=XLSX.utils.json_to_sheet(products.map(p=>({Name:p.name,Category:p.category,Threshold:p.threshold,Balance:computeBalance(p.id)})));XLSX.utils.book_append_sheet(wb,ws,'Products');XLSX.writeFile(wb,'products.xlsx');}
@@ -1200,7 +629,7 @@ function editProduct(productId){
     if(!prod) return;
 
     const newCode = prompt("Edit product code:", prod.code || "");
-    if(newCode === null) return;
+    if(newCode === null || !newCode.trim()) return alert("Code required");
 
     const newName = prompt("Edit product name:", prod.name);
     if(newName === null || !newName.trim()) return alert("Name required");
@@ -1209,29 +638,16 @@ function editProduct(productId){
     if(newCategory === null) return;
 
     const newThreshold = prompt("Edit threshold:", prod.threshold || 5);
-    if(newThreshold === null || isNaN(newThreshold)) return alert("Invalid threshold");
+    if(newThreshold === null || isNaN(Number(newThreshold))) return alert("Invalid threshold");
 
     const newBarcode = prompt("Edit barcode:", prod.barcode || "");
     if(newBarcode === null) return;
-
-    const newGroupsInput = prompt(
-        "Edit groups (comma separated):",
-        Array.isArray(prod.groups) ? prod.groups.join(', ') : ''
-    );
-    if(newGroupsInput === null) return;
-
-    const newExclusive = confirm("Exclusive to first group?");
 
     prod.code = newCode.trim();
     prod.name = newName.trim();
     prod.category = newCategory.trim();
     prod.threshold = Number(newThreshold);
     prod.barcode = newBarcode.trim();
-    prod.groups = newGroupsInput
-        .split(',')
-        .map(g => g.trim())
-        .filter(Boolean);
-    prod.exclusive = newExclusive;
 
     saveAll();
     refreshAll();
@@ -1249,6 +665,22 @@ function deleteProduct(productId){
    ☁️ CLOUD SYNC MODULE
 ========================== */
 
+/* 🔴 REPLACE WITH YOUR FIREBASE CONFIG */
+const firebaseConfig = {
+  apiKey: "AIzaSyBTtsOeQTpPwTEn_T9EDqt5i_0eyQuzGOA",
+  authDomain: "stock-manager-703e6.firebaseapp.com",
+  databaseURL: "https://stock-manager-703e6-default-rtdb.firebaseio.com",
+  projectId: "stock-manager-703e6",
+  storageBucket: "stock-manager-703e6.firebasestorage.app",
+  messagingSenderId: "778548519096",
+  appId: "1:778548519096:web:716f903fee993f4d85544d",
+  measurementId: "G-G735N8XCQ2"
+};
+
+firebase.initializeApp(firebaseConfig);
+const cloudDB = firebase.database(); // Use the same variable as in your functions
+window.cloudDB = cloudDB;  
+console.log("✅ Firebase initialized");
 
 // ================================
 // ☁️ AUTO CLOUD SYNC MODULE
@@ -1314,15 +746,7 @@ window.addEventListener("load", () => {
 });
 
 // UTILITY
-function refreshAll(){
-    renderProductsTable();
-    renderStockIn();
-    renderStockOut();
-    renderCombinedHistory();
-    populateCategoryFilter();
-    applyPermissions();
-}
-
+function refreshAll(){renderDashboard();renderProductsTable();renderStockIn();renderStockOut();renderCombinedHistory();populateCategoryFilter();}
 refreshAll();
 const sidebar = document.querySelector('.sidebar');
 const mainContent = document.querySelector('.main');

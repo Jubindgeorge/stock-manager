@@ -162,7 +162,13 @@ body::before {
   font-weight: 700;
   background: rgba(0, 0, 0, 0.05);
 }
+.modal-box{
+background-color:white; 
+padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
 
+}  
 .menu-title.collapsible {
   display: flex;
   justify-content: space-between;
@@ -380,6 +386,30 @@ th {
 .toast.out {
     background-color: #dc2626; /* red for stock OUT if needed */
 }
+.dashboard-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:15px;
+  margin-top:15px;
+}
+
+.dash-card{
+  background:#fff;
+  border-radius:8px;
+  padding:16px;
+  box-shadow:0 4px 12px rgba(0,0,0,.08);
+  text-align:center;
+}
+.dash-card h3{
+  font-size:14px;
+  color:#555;
+}
+.dash-card div{
+  font-size:28px;
+  font-weight:700;
+  margin-top:6px;
+}
+
 
 </style>
 </head>
@@ -438,21 +468,26 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 <ul class="subgroup admin-only">
   <li class="submenu" data-page="userManagement">Manage Users</li>
 </ul>
-<li class="menu-title collapsible" data-page="dashboard">📊 Dashboard<span class="arrow">▾</span></li>
+<li class="menu-title collapsible" data-page="dashboardPage">📊 Dashboard<span class="arrow">▾</span></li>
 <ul class="subgroup">
-<li class="submenu" data-page="dashboard">📊 Dashboard</li>
+<li class="submenu" data-page="dashboardPage">📊Dashboard</li>
+
+</ul>
+<li class="menu-title collapsible" data-page="dashboard">📊 Bill Of Materials<span class="arrow">▾</span></li>
+<ul class="subgroup">
+<li class="submenu" data-page="dashboard">📊BOM</li>
 
 </ul>
 <li class="menu-title collapsible">📈 Production <span class="arrow">▾</span></li>
 <ul class="subgroup">
-<li class="submenu" data-page="products">📦 Add Raw Products</li>
-<li class="submenu" data-page="stockIn">⬆ RAW Stock In</li>
-<li class="submenu" data-page="stockOut">⬇ RAW Stock Out</li>
+<li class="submenu" data-page="products">📦  RM List</li>
+<li class="submenu" data-page="stockIn">⬆ RM Stock In</li>
+<li class="submenu" data-page="stockOut">⬇ RM Stock Out</li>
 </ul>
 
-  <li class="menu-title collapsible">🧾 FG Stock <span class="arrow">▾</span></li>
+  <li class="menu-title collapsible">🧾 FG  <span class="arrow">▾</span></li>
 <ul class="subgroup">
-  <li class="submenu" data-page="fgStock">📦 FG Stock</li>
+  <li class="submenu" data-page="fgStock">📦 FG Stock List</li>
 </ul>
 
  <li class="menu-title collapsible">🧾 Suppliers <span class="arrow">▾</span></li>
@@ -461,7 +496,7 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 </ul>
 
             
-<li class="menu-title collapsible">💾 Reprots <span class="arrow">▾</span></li>
+<li class="menu-title collapsible">💾 Report <span class="arrow">▾</span></li>
 <ul class="subgroup">
 <li class="submenu" data-page="history">📚 Combined History</li>
 <li class="submenu" data-action="importExcel">📥 Import Excel</li>
@@ -500,7 +535,7 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 </section>
 
 <section id="dashboard" class="page" style="display:block">
-<h2>Dashboard</h2>
+<h2>Bill Of Materials</h2>
 <div class="top">
 <div class="dash-search">
    <input type="text" id="dashboardSearch" class="search" placeholder="Search product..."
@@ -525,6 +560,41 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 </table>
 </div>
 </section>
+
+
+<div id="dashboardPage" class="page" style="display:none">
+
+  <h2>Dashboard</h2>
+
+  <div class="dashboard-grid">
+
+    <div class="dash-card">
+      <h3>Total Products</h3>
+      <div id="dashTotalProducts">0</div>
+    </div>
+
+    <div class="dash-card">
+      <h3>Total Stock</h3>
+      <div id="dashTotalStock">0</div>
+    </div>
+
+    <div class="dash-card">
+      <h3>Low Stock Items</h3>
+      <div id="dashLowStock">0</div>
+    </div>
+
+    <div class="dash-card">
+      <h3>FG Balance</h3>
+      <div id="dashFGBalance">0</div>
+    </div>
+
+  </div>
+
+</div>
+
+
+
+
 <section id="fgStock" class="page" style="display:none">
   <h2>Finished Goods Stock</h2>
   <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
@@ -563,7 +633,7 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 
 <!-- PRODUCTS -->
 <section id="products" class="page" style="display:none">
-<h2>Add RAW Products</h2>
+<h2>RM List</h2>
   <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
     <input id="newCode" class="small" placeholder="Product Code" style="width:120px">
     <input id="newName" class="small" placeholder="Product Name">
@@ -862,7 +932,7 @@ async function login() {
     loginMsg.textContent="Login failed";
   }
 document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
-document.getElementById('dashboard').style.display = 'block';
+document.getElementById('dashboardPage').style.display = 'block';
 renderDashboardGrouped();
 }
 
@@ -990,24 +1060,27 @@ function saveGroupAliases() {
     localStorage.setItem(KEY_GROUP_ALIASES, JSON.stringify(groupAliases));
 }
 
-const KEY_PRODUCTS='sms_products_final_v1';
-const KEY_MOVES='sms_movements_final_v1';
-let products=JSON.parse(localStorage.getItem(KEY_PRODUCTS)||'[]');
-let stockMovements=JSON.parse(localStorage.getItem(KEY_MOVES)||'[]');
-if(!localStorage.getItem(KEY_PRODUCTS)){
-let products = [
-    {id:'p1', name:'Product A', category:'Cat1', threshold:5, groups:['Group1'], exclusive:true},
-    {id:'p2', name:'Product B', category:'Cat1', threshold:10, groups:['Group1','Group2'], exclusive:false},
-    {id:'p3', name:'Product C', category:'Cat2', threshold:8, groups:['Group2'], exclusive:true},
-    {id:'p4', name:'Product D', category:'Cat2', threshold:7, groups:['Group2','Group3'], exclusive:false},
-    {id:'p5', name:'Product E', category:'Cat3', threshold:12, groups:['Group3'], exclusive:true}
-];
+const KEY_PRODUCTS = 'sms_products_final_v1';
+const KEY_MOVES    = 'sms_movements_final_v1';
+
+let products = JSON.parse(localStorage.getItem(KEY_PRODUCTS) || '[]');
+let stockMovements = JSON.parse(localStorage.getItem(KEY_MOVES) || '[]');
+
+if (!products.length) {
+    products = [
+        {id:'p1', name:'Product A', category:'Cat1', threshold:5, groups:['Group1'], exclusive:true},
+        {id:'p2', name:'Product B', category:'Cat1', threshold:10, groups:['Group1','Group2'], exclusive:false},
+        {id:'p3', name:'Product C', category:'Cat2', threshold:8, groups:['Group2'], exclusive:true},
+        {id:'p4', name:'Product D', category:'Cat2', threshold:7, groups:['Group2','Group3'], exclusive:false},
+        {id:'p5', name:'Product E', category:'Cat3', threshold:12, groups:['Group3'], exclusive:true}
+    ];
 
     stockMovements = [
-        {id:genId(),productId:products[0].id,type:'IN',quantity:20,date:todayISO()},
-        {id:genId(),productId:products[1].id,type:'IN',quantity:15,date:todayISO()},
-        {id:genId(),productId:products[2].id,type:'IN',quantity:100,date:todayISO()}
+        {id:genId(), productId:'p1', type:'IN',  quantity:20,  date:todayISO()},
+        {id:genId(), productId:'p2', type:'IN',  quantity:15,  date:todayISO()},
+        {id:genId(), productId:'p3', type:'IN',  quantity:100, date:todayISO()}
     ];
+
     saveAll();
 }
 
@@ -1078,6 +1151,27 @@ function handleDashboardSearch(value){
     selectedDashboardGroup = null;
     renderDashboardGrouped();
 }
+
+function renderMainDashboard(){
+
+    document.getElementById('dashTotalProducts').textContent = products.length;
+
+    let totalStock = 0;
+    let lowStock = 0;
+
+    products.forEach(p => {
+        const bal = computeBalance(p.id);
+        totalStock += bal;
+        if (bal <= (p.threshold || 5)) lowStock++;
+    });
+
+    document.getElementById('dashTotalStock').textContent = totalStock;
+    document.getElementById('dashLowStock').textContent = lowStock;
+
+    const fgTotal = fgProducts.reduce((sum,f)=>sum + Number(f.balance || 0),0);
+    document.getElementById('dashFGBalance').textContent = fgTotal;
+}
+
 
 
 let dashboardSearchText = "";
@@ -1367,22 +1461,33 @@ function escapeHtml(text){
 
 function renderProductsTable() {
     const tbody = document.querySelector('#productsTable tbody');
-    if(!tbody) return;
+    if (!tbody) return;
+
+    // Clear previous rows  🔥 THIS FIXES MOST OF YOUR ISSUE
+    tbody.innerHTML = '';
 
     const globalSearchEl = document.getElementById('globalSearch');
-    const globalSearch = globalSearchEl ? globalSearchEl.value.trim().toLowerCase() : '';
-    const localSearch = (document.getElementById('productSearch').value || '').trim().toLowerCase();
+    const productSearchEl = document.getElementById('productSearch');
 
-    products.forEach((p,i) => {
+    const globalSearch = globalSearchEl ? globalSearchEl.value.trim().toLowerCase() : '';
+    const localSearch  = productSearchEl ? productSearchEl.value.trim().toLowerCase() : '';
+
+    let index = 1;
+
+    products.forEach(p => {
         const name = p.name.toLowerCase();
-        const cat = (p.category || '').toLowerCase();
-        if((localSearch && !name.includes(localSearch) && !cat.includes(localSearch)) ||
-           (globalSearch && !name.includes(globalSearch) && !cat.includes(globalSearch))) return;
+        const cat  = (p.category || '').toLowerCase();
+
+        if (
+            (localSearch  && !name.includes(localSearch)  && !cat.includes(localSearch)) ||
+            (globalSearch && !name.includes(globalSearch) && !cat.includes(globalSearch))
+        ) return;
 
         const bal = computeBalance(p.id);
-        tbody.insertAdjacentHTML('beforeend',`
+
+        tbody.insertAdjacentHTML('beforeend', `
             <tr>
-                <td>${i+1}</td>
+                <td>${index++}</td>
                 <td>${escapeHtml(p.code || '')}</td>
                 <td>${escapeHtml(p.name)}</td>
                 <td>${escapeHtml(p.category)}</td>
@@ -1395,7 +1500,10 @@ function renderProductsTable() {
             </tr>
         `);
     });
+applyPermissions();
+
 }
+
 
 function renderStockIn() {
     const tbody = document.querySelector('#stockInBody tbody'); // Correct
@@ -1886,7 +1994,6 @@ function autoPullFromCloud() {
       localStorage.setItem(KEY_MOVES, JSON.stringify(stockMovements));
 
       refreshAll();
-
       const status = document.getElementById("status");
       if (status) status.textContent = "Status: Auto-loaded from Cloud ☁️";
 

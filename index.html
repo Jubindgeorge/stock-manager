@@ -2167,6 +2167,85 @@ function renderDashboardGrouped(){
   applyPermissions();
 }
 
+/* =========================
+   ✅ EDIT / DELETE RM PRODUCT
+========================= */
+function editProduct(productId){
+  if(!canEdit()){
+    showToast("No permission to edit", true);
+    return;
+  }
+
+  const prod = products.find(p => p.id === productId);
+  if(!prod) return;
+
+  const newCode = prompt("Edit product code:", prod.code || "");
+  if(newCode === null) return;
+
+  const newName = prompt("Edit product name:", prod.name || "");
+  if(newName === null || !newName.trim()){
+    showToast("Name required", true);
+    return;
+  }
+
+  const newCategory = prompt("Edit category:", prod.category || "");
+  if(newCategory === null) return;
+
+  const newThreshold = prompt("Edit threshold:", prod.threshold ?? 5);
+  if(newThreshold === null || isNaN(Number(newThreshold))){
+    showToast("Invalid threshold", true);
+    return;
+  }
+
+  const newBarcode = prompt("Edit barcode:", prod.barcode || "");
+  if(newBarcode === null) return;
+
+  const newGroupsInput = prompt(
+    "Edit groups (comma separated):",
+    Array.isArray(prod.groups) ? prod.groups.join(', ') : ''
+  );
+  if(newGroupsInput === null) return;
+
+  const newExclusive = confirm("Exclusive to first group?");
+
+  prod.code = newCode.trim();
+  prod.name = newName.trim();
+  prod.category = (newCategory || '').trim();
+  prod.threshold = Number(newThreshold);
+  prod.barcode = (newBarcode || '').trim();
+  prod.groups = (newGroupsInput || '')
+    .split(',')
+    .map(g => g.trim())
+    .filter(Boolean);
+  prod.exclusive = newExclusive;
+
+  saveAll();
+  autoPushToCloud?.();     // if you have cloud push
+  refreshAll();
+
+  showToast("Product updated ✅");
+}
+
+function deleteProduct(productId){
+  if(!canDelete()){
+    showToast("No permission to delete", true);
+    return;
+  }
+
+  const prod = products.find(p => p.id === productId);
+  if(!prod) return;
+
+  if(!confirm(`Delete "${prod.name}"?\nThis will remove all its stock history.`)) return;
+
+  products = products.filter(p => p.id !== productId);
+  stockMovements = stockMovements.filter(m => m.productId !== productId);
+
+  saveAll();
+  autoPushToCloud?.();     // if you have cloud push
+  refreshAll();
+
+  showToast("Product deleted ✅");
+}
 
 /* =========================
    ✅ REFRESH ALL

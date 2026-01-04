@@ -57,7 +57,7 @@ body::before {
 
 /* App layout */
 .app {
-  display: flex;
+  display: none; /* shown after login / restore */
   min-height: 100vh;
 }
 
@@ -156,21 +156,21 @@ body::before {
   border-left-color: #fff;
   font-weight: 700;
 }
-.sidebar.minimized + .main {
-    margin-left: 60px;
-}
+
+.sidebar.minimized + .main { margin-left: 60px; }
 
 .menu-title {
   font-weight: 700;
   background: rgba(0, 0, 0, 0.05);
 }
+
 .modal-box{
-background-color:white; 
-padding: 8px 10px;
+  background-color:white; 
+  padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid rgba(0, 0, 0, 0.08);
-
 }  
+
 .menu-title.collapsible {
   display: flex;
   justify-content: space-between;
@@ -183,14 +183,9 @@ padding: 8px 10px;
   transition: transform 0.2s ease;
 }
 
-.menu-title.open .arrow {
-  transform: rotate(180deg);
-}
+.menu-title.open .arrow { transform: rotate(180deg); }
 
-.submenu {
-  padding-left: 36px !important;
-  font-size: 14px;
-}
+.submenu { padding-left: 36px !important; font-size: 14px; }
 
 .subgroup {
   list-style: none;
@@ -199,9 +194,7 @@ padding: 8px 10px;
   display: none;
 }
 
-.subgroup.open {
-  display: block;
-}
+.subgroup.open { display: block; }
 
 .sidebar-footer {
   margin-top: 18px;
@@ -209,9 +202,7 @@ padding: 8px 10px;
   color: var(--muted);
 }
 
-.admin-only {
-  display: none;
-}
+.admin-only { display: none; }
 
 /* Main content */
 .main {
@@ -223,9 +214,7 @@ padding: 8px 10px;
   transition: margin-left 0.3s ease;
 }
 
-.main.sidebar-minimized {
-  margin-left: 60px;
-}
+.main.sidebar-minimized { margin-left: 60px; }
 
 .top {
   display: flex;
@@ -241,13 +230,15 @@ padding: 8px 10px;
   width: 320px;
   background: rgba(255, 255, 255, 0.55);
 }
+
 .small {
-    padding: 8px 10px;
-    border-radius: 8px;
-    border: 2px solid rgba(0, 0, 0, 0.08);
-    width: 220px;
-    background: rgba(255, 255, 255, 0.66);
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 2px solid rgba(0, 0, 0, 0.08);
+  width: 220px;
+  background: rgba(255, 255, 255, 0.66);
 }
+
 .btn {
   background: var(--accent);
   color: #fff;
@@ -257,17 +248,9 @@ padding: 8px 10px;
   cursor: pointer;
 }
 
-.btn.secondary {
-  background: var(--accent-2);
-}
-
-.btn.out {
-  background: #dc2626;
-}
-
-.btn.info {
-  background: #16a34a;
-}
+.btn.secondary { background: var(--accent-2); }
+.btn.out { background: #dc2626; }
+.btn.info { background: #16a34a; }
 
 /* Pages & tables */
 .page {
@@ -296,16 +279,11 @@ th, td {
 th {
   background: #007bff;
   font-weight: 700;
+  color: #fff;
 }
 
-.low-stock {
-  color: var(--danger);
-  font-weight: 700;
-}
-
-.balance-qty {
-  font-weight: bold;
-}
+.low-stock { color: var(--danger); font-weight: 700; }
+.balance-qty { font-weight: bold; }
 
 /* Modals */
 .modal-backdrop {
@@ -324,12 +302,10 @@ th {
   border-radius: 12px;
   max-height: 80%;
   overflow-y: auto;
-  width: 500px;
+  width: 700px;
+  max-width: 92vw;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-  justify-content:center;
-  align-items:center; z-index:2000;
 }
-
 
 .modal-header {
   display: flex;
@@ -363,7 +339,6 @@ th {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-
   .print-bg {
     background-image: url('banner.png') !important;
     background-size: cover !important;
@@ -371,30 +346,29 @@ th {
     background-position: center !important;
   }
 }
+
 .toast {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background-color: #16a34a; /* green for success */
-    color: #fff;
-    padding: 10px 20px;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    font-weight: bold;
-    z-index: 10000;
-    opacity: 0;
-    transition: opacity 0.3s ease;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: #16a34a;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  font-weight: bold;
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
-.toast.out {
-    background-color: #dc2626; /* red for stock OUT if needed */
-}
+.toast.out { background-color: #dc2626; }
+
 .dashboard-grid{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
   gap:15px;
   margin-top:15px;
 }
-
 .dash-card{
   background:#fff;
   border-radius:8px;
@@ -402,15 +376,9 @@ th {
   box-shadow:0 4px 12px rgba(0,0,0,.08);
   text-align:center;
 }
-.dash-card h3{
-  font-size:14px;
-  color:#555;
-}
-.dash-card div{
-  font-size:28px;
-  font-weight:700;
-  margin-top:6px;
-}
+.dash-card h3{ font-size:14px; color:#555; }
+.dash-card div{ font-size:28px; font-weight:700; margin-top:6px; }
+
 .fg-chart-box {
   height: 260px;
   max-height: 260px;
@@ -420,25 +388,29 @@ th {
   padding: 10px;
   box-shadow: 0 4px 12px rgba(0,0,0,.08);
 }
-
-
-
 </style>
 </head>
 
 <body>
+
+<!-- LOGIN SCREEN -->
 <div id="loginScreen" style="position:fixed; inset:0; background:#f3f4f6;
 display:flex; align-items:center; justify-content:center; z-index:99999;">
   <div style="width:350px; background:white; padding:25px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.15)">
     <h2 style="text-align:center">Stock Manager</h2>
-    
+
     <div id="loginForm">
       <input id="loginUser" placeholder="Username" style="width:100%;padding:8px 10px;margin:10px 0;border: 1px solid rgba(0, 0, 0, 0.08);">
       <input id="loginPass" type="password" placeholder="Password" style="width:100%;padding:8px 10px;margin:10px 0;border: 1px solid rgba(0, 0, 0, 0.08);">
       <button class="btn" style="width:100%;" onclick="login()">Login</button>
-      <p style="text-align:center;margin:10px 0;">Don't have an account? <span style="color:blue;cursor:pointer;" onclick="showSignup()">Sign Up</span></p><p style="text-align:center;margin:10px 0;">
-    <span style="color:blue;cursor:pointer;" onclick="forgotPassword()">Forgot Password?</span>
-</p>
+
+      <p style="text-align:center;margin:10px 0;">Don't have an account?
+        <span style="color:blue;cursor:pointer;" onclick="showSignup()">Sign Up</span>
+      </p>
+
+      <p style="text-align:center;margin:10px 0;">
+        <span style="color:blue;cursor:pointer;" onclick="forgotPassword()">Forgot Password?</span>
+      </p>
 
       <p id="loginMsg" style="color:red;text-align:center;margin-top:10px"></p>
     </div>
@@ -448,461 +420,447 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
       <input id="signupPass" type="password" placeholder="Password" style="width:90%;padding:10px;margin-bottom:10px">
       <select id="signupRole" style="width:100%;padding:10px;margin-bottom:10px">
         <option value="user">User</option>
-              </select>
+      </select>
       <button class="btn" style="width:98%" onclick="signup()">Create Account</button>
-      <p style="text-align:center;margin:10px 0;">Already have an account? <span style="color:blue;cursor:pointer;" onclick="showLogin()">Login</span></p>
-
+      <p style="text-align:center;margin:10px 0;">Already have an account?
+        <span style="color:blue;cursor:pointer;" onclick="showLogin()">Login</span>
+      </p>
       <p id="signupMsg" style="color:red;text-align:center;margin-top:10px"></p>
-
     </div>
-
   </div>
 </div>
-
 
 <div class="app">
-<aside id="sidebar" class="sidebar">
-<div class="sidebar-header">
-    <img src="banner.png" class="sidebar-logo" onerror="this.style.display='none'">
-    <div>
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+      <img id="brandBanner" src="banner.png" class="sidebar-logo" onerror="this.style.display='none'">
+      <div>
         <div class="brand-title">STOCK</div>
         <div class="brand-sub">Inventory • Public Sheet</div>
-    </div>
-    <button id="sidebarToggle" class="btn secondary" style="margin-left:auto;padding:4px 6px;font-size:14px">←</button>
-</div>
-
-
-<ul class="sidebar-menu" id="menu">
-
-<li id="usersMenu" class="menu-title collapsible admin-only">
-  👥 Users <span class="arrow">▾</span>
-</li>
-<ul class="subgroup admin-only">
-  <li class="submenu" data-page="userManagement">Manage Users</li>
-</ul>
-<li class="menu-title collapsible" data-page="dashboardPage">📊 Dashboard<span class="arrow">▾</span></li>
-<ul class="subgroup">
-<li class="submenu" data-page="dashboardPage">📊Dashboard</li>
-
-</ul>
-<li class="menu-title collapsible" data-page="dashboard">📊 Bill Of Materials<span class="arrow">▾</span></li>
-<ul class="subgroup">
-<li class="submenu" data-page="dashboard">📊BOM</li>
-
-</ul>
-<li class="menu-title collapsible">📈 Store <span class="arrow">▾</span></li>
-<ul class="subgroup">
-<li class="submenu" data-page="products">📦  RM List</li>
-  <li class="submenu admin-only" data-page="rmAddProduct">➕ Add RM Product</li>
-<li class="submenu" data-page="stockIn">⬆ RM Stock In</li>
-<li class="submenu" data-page="stockOut">⬇ RM Stock Out</li>
-</ul>
-
- <li class="menu-title collapsible">🧾 FG <span class="arrow">▾</span></li>
-<ul class="subgroup">
-  <li class="submenu" data-page="fgStock">📦 FG Stock List</li>
-<li class="submenu admin-only" data-page="fgAddProduct">➕ Add FG Product</li>
-  <li class="submenu" data-page="fgStockIn">⬆ FG Stock In</li>
-  <li class="submenu" data-page="fgStockOut">⬇ FG Stock Out</li>
-</ul>
-
-
- <li class="menu-title collapsible">🧾 Suppliers <span class="arrow">▾</span></li>
-<ul class="subgroup">
-     <li class="submenu" data-page="suppliers">📋 Manage Raw Suppliers</li>
-</ul>
-
-            
-<li class="menu-title collapsible">💾 Report <span class="arrow">▾</span></li>
-<ul class="subgroup">
-<li class="submenu" data-page="history">📚 RM History</li>
-<li class="submenu" data-action="importExcel">📥 Import Excel</li>
-<li class="submenu" data-action="exportExcel">📤 Export Excel</li>
-<li class="submenu" data-action="printStockReport">🖨️ Print Stock Report</li>
-<li class="submenu" data-action="exportPDF">📄 Export PDF</li>
-</ul>
-<div class="sidebar-footer">Data stored locally; cloud optional.</div>
-</ul>
-</aside>
-
-<main class="main">
-<button onclick="logout()" class="btn out" style="position:fixed;top:10px;right:20px;z-index:999">Logout</button>
-<section id="userManagement" class="page" style="display:none">
-  <h2>Manage Users</h2>
-  <table id="usersTable">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Username</th>
-        <th>Role</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-  <div style="margin-top:12px;">
-    <input id="newUsername" placeholder="Username">
-    <input id="newPassword" type="password" placeholder="Password">
-    <select id="newRole">
-      <option value="user">User</option>
-      <option value="admin">Admin</option>
-    </select>
-    <button class="btn admin-only" onclick="addUser()">Add User</button>
-  </div>
-</section>
-
-<section id="dashboard" class="page" style="display:block">
-<h2>Bill Of Materials</h2>
-<div class="top">
-<div class="dash-search">
-   <input type="text" id="dashboardSearch" class="search" placeholder="Search product..."
-       oninput="handleDashboardSearch(this.value)">
-
-</div></div>
-<div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
-<div style="overflow:auto">
-<table id="dashTable">
-<thead>
-<tr>
-    <th>Product </th>
- <th>Balance</th>
-   <th>threshold</th>
-<th>Last IN</th><th>Last OUT</th>
-    <th colspan="3">Actions</th>
-   
-
-</tr>
-</thead>
-<tbody></tbody>
-</table>
-</div>
-</section>
-
-
-<section id="dashboardPage" class="page" style="display:none">
-   <h2>Dashboard</h3>
-<div class="dashboard-grid">
-
-  <div class="dash-card">
-    <h3>Total RM Products</h3>
-    <div id="dashTotalProducts">0</div>
-  </div>
-
-  <div class="dash-card">
-    <h3>Total RM Stock</h3>
-    <div id="dashTotalStock">0</div>
-  </div>
-
-  <div class="dash-card">
-    <h3>Low Stock Items</h3>
-    <div id="dashLowStock">0</div>
-  </div>
-
-<div class="dash-card" onclick="openFGFromDashboard()" style="cursor:pointer">
-  <h3>Total FG Balance</h3>
-  <div id="dashFGBalance">0</div>
-</div>
-
-<div class="dash-card" onclick="openFGFromDashboard()" style="cursor:pointer">
-  <h3>FG Products</h3>
-  <div id="dashFGTotalProducts">0</div>
-</div>
-
-<div class="dash-card" onclick="openLowFGFromDashboard()" style="cursor:pointer">
-  <h3>Low FG Stock</h3>
-  <div id="dashFGLowStock">0</div>
-</div>
-  <div class="dash-card">
-    <h3>Max FG Balance</h3>
-    <div id="dashFGMaxBalance">-</div>
-  </div>
-
-  <div class="dash-card">
-    <h3>Min FG Balance</h3>
-    <div id="dashFGMinBalance">-</div>
-  </div>
-
-</div>
-<div>
-<div id="fgVolumeFilter"
-     style="display:flex;gap:12px;flex-wrap:wrap;margin:10px 0;font-size:14px">
-
-</div>
-<div class="fg-chart-box">
-  <canvas id="fgStockChart"></canvas>
-</div>
-
-</section>
-
-
-
-<section id="fgStock" class="page" style="display:none">
-  <h2>Finished Goods Stock</h2>
-  <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
-    <input id="fgSearch" class="search" placeholder="Search FG products...">
-  </div>
-  <div style="overflow:auto; height: calc(100% - 140px);">
-    <table id="fgTable">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Product</th>
-          <th>Volume</th>
-          <th>Balance</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</section>
-
-<!-- Modal for daily stock -->
-<div id="fgModal" style="display:none; position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
-  <div style="background:#fff;padding:20px;max-height:80%;overflow:auto; width:90%;">
-    <h3 id="fgModalTitle">Product Stock Details</h3>
-    <table id="modalTable">
-      <thead>
-        <tr id="modalHead"></tr>
-      </thead>
-      <tbody id="modalBody"></tbody>
-    </table>
-    <button onclick="document.getElementById('fgModal').style.display='none'">Close</button>
-  </div>
-</div>
-
-<!-- PRODUCTS -->
-<section id="products" class="page" style="display:none">
-  <h2>Raw Material List</h2>
-
-  <div style="margin-bottom:12px">
-    <input id="productSearch" class="search" placeholder="Search products...">
-  </div>
-
-  <div style="overflow:auto;height:calc(100% - 120px)">
-    <table id="productsTable">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Code</th>
-          <th>Name</th>
-          <th>Category</th>
-          <th>Balance</th>
-          <th>Threshold</th>
-          <th>Barcode</th>
-          <th>History</th>
-          <th>Edit</th>
-          <th>Delete</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</section>
-<section id="rmAddProduct" class="page" style="display:none">
-  <h2>Add Raw Material Product</h2>
-
-  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px">
-    <input id="newCode" class="small" placeholder="Product Code">
-    <input id="newName" class="small" placeholder="Product Name">
-    <input id="newCategory" class="small" placeholder="Category">
-    <input id="newThreshold" class="small" type="number" placeholder="Low Stock Threshold">
-    <input id="newBarcode" class="small" placeholder="Barcode">
-    <input id="newGroups" class="small" placeholder="Groups (comma separated)">
-    <label style="display:flex;align-items:center;gap:6px">
-      <input type="checkbox" id="newExclusive"> Exclusive to first group
-    </label>
-  </div>
-
-  <button class="btn btn-add" onclick="addRMProduct()">Add Product</button>
-</section>
-
-
-<!-- STOCK IN -->
-<section id="stockIn" class="page" style="display:none">
-<h2>Stock In</h2>
-<input id="inSearch" class="search" placeholder="Search product">
-<button class="btn secondary" onclick="stockInHistoryModal()">View Stock IN History</button>
-<table id="stockInBody">
-<thead><tr><th>Product</th><th>Balance</th><th>Last IN</th><th>Action</th></tr></thead>
-<tbody></tbody>
-</table>
-</section>
-
-<!-- STOCK OUT -->
-<section id="stockOut" class="page" style="display:none">
-<h2>Stock Out</h2>
-<input id="outSearch" class="search" placeholder="Search product">
-<button class="btn info" onclick="stockOutHistoryModal()">View Stock OUT History</button>
-<table id="stockOutBody">
-<thead><tr><th>Product</th><th>Balance</th><th>Last OUT</th><th>Action</th></tr></thead>
-<tbody></tbody>
-</table>
-</section>
-
-<!-- COMBINED HISTORY -->
-<section id="history" class="page" style="display:none">
-<h2>Combined History</h2>
-<div style="margin-bottom:12px">
-<input id="historySearch" class="search" placeholder="Search combined history...">
-</div>
-<div style="overflow:auto; height: calc(100% - 120px);">
-<table id="historyTable"><thead><tr>
-  <th>Date</th><th>Product</th><th>Type</th><th>Qty</th><th>Remark</th>
-</tr>
-</thead><tbody></tbody></table>
-</div>
-</section>
- <!-- SUPPLIERS PAGE -->
-        <section id="suppliers" class="page" style="display:none">
-            <h2>Raw Material Suppliers</h2>
-            <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
-                <input id="newSupplierName" class="small" placeholder="Supplier Name">
-                <input id="newSupplierContact" class="small" placeholder="Contact Info">
-                <button id="addSupplierBtn" class="btn btn-add">Add Supplier</button>
-            </div>
-            <div style="margin-bottom:12px">
-                <input id="supplierSearch" class="search" placeholder="Search suppliers...">
-            </div>
-            <div style="overflow:auto; height: calc(100% - 150px);">
-                <table id="suppliersTable">
-                    <thead><tr><th>#</th><th>Name</th><th>Contact</th><th>Edit</th><th>Delete</th></tr></thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </section>
-<!-- MODALS -->
-<div id="historyModal" class="modal-backdrop">
-<div class="modal-box">
-<div class="modal-header">
-<h3 id="modalTitle">Product History</h3>
-<button onclick="closeHistoryModal()" class="modal-close">✖</button>
-</div>
-<div class="modal-body">
-<table class="modal-table"><thead>
-  <tr>
-    <th>Date</th>
-    <th>Product</th>   <!-- ✅ NAME ADDED -->
-    <th>Type</th>
-    <th>Qty</th>
-    <th>Batch</th>
-    <th>Expiry</th>
-    <th>Remark</th>
-  </tr>
-</thead>
-
-<tbody id="modalHistoryBody"></tbody></table>
-</div>
-</div>
-</div>
-
-<div id="stockInHistoryModal" class="modal-backdrop">
-<div class="modal">
-<div class="modal-header"><h3>Stock IN History</h3><button onclick="closeStockInHistory()" class="modal-close">✖</button></div>
-<div class="modal-body">
-<table class="modal-table"><thead><tr><th>Date</th><th>Product</th><th>Qty</th><th>Remark</th></tr>
-</thead>
-<tbody id="stockInHistoryPopupBody"></tbody>
-</table>
-</div>
-</div>
-</div>
-
-<div id="stockOutHistoryModal" class="modal-backdrop">
-<div class="modal">
-<div class="modal-header"><h3>Stock OUT History</h3><button onclick="closeStockOutHistory()" class="modal-close">✖</button></div>
-<div class="modal-body">
-<table class="modal-table"><thead><tr><th>Date</th><th>Product</th><th>Qty</th><th>Remark</th></tr>
-</thead>
-<tbody id="stockOutHistoryPopupBody"></tbody>
-</table>
-</div>
-</div>
-</div>
-
-<!-- Stock Modal -->
-<div id="stockModal" class="modal-backdrop">
-  <div class="modal">
-    <div class="modal-header">
-      <h3 id="modalProductName">Product Name</h3>
-      <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <button id="sidebarToggle" class="btn secondary" style="margin-left:auto;padding:4px 6px;font-size:14px">←</button>
     </div>
 
-    <p>Balance: <span id="modalProductBalance" style="font-weight:bold;">0</span>  PCS</p>
+    <ul class="sidebar-menu" id="menu">
 
-    <div class="modal-inputs" style="padding:10px;">
-      <input id="modalQty" class="small" type="number"  placeholder="Enter quantity">
-      <input id="modalRemark" class="small"  placeholder="Enter remark (optional)"></input>
+      <li id="usersMenu" class="menu-title collapsible admin-only">
+        👥 Users <span class="arrow">▾</span>
+      </li>
+      <ul class="subgroup admin-only">
+        <li class="submenu" data-page="userManagement">Manage Users</li>
+      </ul>
+
+      <li class="menu-title collapsible">📊 Dashboard <span class="arrow">▾</span></li>
+      <ul class="subgroup">
+        <li class="submenu" data-page="dashboardPage">📊 Dashboard</li>
+      </ul>
+
+      <li class="menu-title collapsible">📊 Bill Of Materials <span class="arrow">▾</span></li>
+      <ul class="subgroup">
+        <li class="submenu" data-page="dashboard">📊 BOM</li>
+      </ul>
+
+      <li class="menu-title collapsible">📈 Store <span class="arrow">▾</span></li>
+      <ul class="subgroup">
+        <li class="submenu" data-page="products">📦 RM List</li>
+        <li class="submenu admin-only" data-page="rmAddProduct">➕ Add RM Product</li>
+        <li class="submenu" data-page="stockIn">⬆ RM Stock In</li>
+        <li class="submenu" data-page="stockOut">⬇ RM Stock Out</li>
+      </ul>
+
+      <li class="menu-title collapsible">🧾 FG <span class="arrow">▾</span></li>
+      <ul class="subgroup">
+        <li class="submenu" data-page="fgStock">📦 FG Stock List</li>
+        <li class="submenu admin-only" data-page="fgAddProduct">➕ Add FG Product</li>
+        <li class="submenu" data-page="fgStockIn">⬆ FG Stock In</li>
+        <li class="submenu" data-page="fgStockOut">⬇ FG Stock Out</li>
+      </ul>
+
+      <li class="menu-title collapsible">🧾 Suppliers <span class="arrow">▾</span></li>
+      <ul class="subgroup">
+        <li class="submenu" data-page="suppliers">📋 Manage Raw Suppliers</li>
+      </ul>
+
+      <li class="menu-title collapsible">💾 Report <span class="arrow">▾</span></li>
+      <ul class="subgroup">
+        <li class="submenu" data-page="history">📚 RM History</li>
+        <li class="submenu" data-action="importExcel">📥 Import Excel</li>
+        <li class="submenu" data-action="exportExcel">📤 Export Excel</li>
+        <li class="submenu" data-action="printStockReport">🖨️ Print RM Stock Report</li>
+        <li class="submenu" data-action="printFGStockReport">🖨️ Print FG Stock Report</li>
+        <li class="submenu" data-action="exportPDF">📄 Export PDF</li>
+      </ul>
+
+      <div class="sidebar-footer">Data stored locally; cloud optional.</div>
+    </ul>
+  </aside>
+
+  <main class="main">
+    <button onclick="logout()" class="btn out" style="position:fixed;top:10px;right:20px;z-index:999">Logout</button>
+
+    <!-- USER MANAGEMENT -->
+    <section id="userManagement" class="page" style="display:none">
+      <h2>Manage Users</h2>
+      <table id="usersTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Username</th>
+            <th>Role/Permission</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <div style="margin-top:12px;">
+        <input id="newUsername" placeholder="Username">
+        <input id="newPassword" type="password" placeholder="Password">
+        <select id="newRole">
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button class="btn admin-only" onclick="addUser()">Add User</button>
+      </div>
+    </section>
+
+    <!-- BOM / DASH TABLE -->
+    <section id="dashboard" class="page" style="display:block">
+      <h2>Bill Of Materials</h2>
+
+      <div class="top">
+        <div class="dash-search">
+          <input type="text" id="dashboardSearch" class="search" placeholder="Search product / group..."
+            oninput="handleDashboardSearch(this.value)">
+          <button class="btn secondary" onclick="clearDashboardSearch()">Clear</button>
+        </div>
+      </div>
+
+      <div style="overflow:auto">
+        <table id="dashTable">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Balance</th>
+              <th>Threshold</th>
+              <th>Last IN</th>
+              <th>Last OUT</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- MAIN DASHBOARD -->
+    <section id="dashboardPage" class="page" style="display:none">
+      <h2>Dashboard</h2>
+
+      <div class="dashboard-grid">
+        <div class="dash-card">
+          <h3>Total RM Products</h3>
+          <div id="dashTotalProducts">0</div>
+        </div>
+
+        <div class="dash-card">
+          <h3>Total RM Stock</h3>
+          <div id="dashTotalStock">0</div>
+        </div>
+
+        <div class="dash-card">
+          <h3>Low Stock Items</h3>
+          <div id="dashLowStock">0</div>
+        </div>
+
+        <div class="dash-card" onclick="openFGFromDashboard()" style="cursor:pointer">
+          <h3>Total FG Balance</h3>
+          <div id="dashFGBalance">0</div>
+        </div>
+
+        <div class="dash-card" onclick="openFGFromDashboard()" style="cursor:pointer">
+          <h3>FG Products</h3>
+          <div id="dashFGTotalProducts">0</div>
+        </div>
+
+        <div class="dash-card" onclick="openLowFGFromDashboard()" style="cursor:pointer">
+          <h3>Low FG Stock</h3>
+          <div id="dashFGLowStock">0</div>
+        </div>
+
+        <div class="dash-card">
+          <h3>Max FG Balance</h3>
+          <div id="dashFGMaxBalance">-</div>
+        </div>
+
+        <div class="dash-card">
+          <h3>Min FG Balance</h3>
+          <div id="dashFGMinBalance">-</div>
+        </div>
+      </div>
+
+      <div id="fgVolumeFilter" style="display:flex;gap:12px;flex-wrap:wrap;margin:10px 0;font-size:14px"></div>
+
+      <div class="fg-chart-box">
+        <canvas id="fgStockChart"></canvas>
+      </div>
+    </section>
+
+    <!-- FG STOCK LIST -->
+    <section id="fgStock" class="page" style="display:none">
+      <h2>Finished Goods Stock</h2>
+      <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
+        <input id="fgSearch" class="search" placeholder="Search FG products...">
+      </div>
+      <div style="overflow:auto; height: calc(100% - 140px);">
+        <table id="fgTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Product</th>
+              <th>Volume</th>
+              <th>Balance</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- PRODUCTS (RM) -->
+    <section id="products" class="page" style="display:none">
+      <h2>Raw Material List</h2>
+
+      <div style="margin-bottom:12px">
+        <input id="productSearch" class="search" placeholder="Search products...">
+      </div>
+
+      <div style="overflow:auto;height:calc(100% - 120px)">
+        <table id="productsTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Code</th>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Balance</th>
+              <th>Threshold</th>
+              <th>Barcode</th>
+              <th>History</th>
+              <th>Edit</th>
+              <th>Delete</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ADD RM PRODUCT -->
+    <section id="rmAddProduct" class="page" style="display:none">
+      <h2>Add Raw Material Product</h2>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px">
+        <input id="newCode" class="small" placeholder="Product Code">
+        <input id="newName" class="small" placeholder="Product Name">
+        <input id="newCategory" class="small" placeholder="Category">
+        <input id="newThreshold" class="small" type="number" placeholder="Low Stock Threshold">
+        <input id="newBarcode" class="small" placeholder="Barcode">
+        <input id="newGroups" class="small" placeholder="Groups (comma separated)">
+        <label style="display:flex;align-items:center;gap:6px">
+          <input type="checkbox" id="newExclusive"> Exclusive to first group
+        </label>
+      </div>
+
+      <button class="btn btn-add" onclick="addRMProduct()">Add Product</button>
+    </section>
+
+    <!-- STOCK IN -->
+    <section id="stockIn" class="page" style="display:none">
+      <h2>RM Stock In</h2>
+      <input id="inSearch" class="search" placeholder="Search product">
+      <button class="btn secondary" onclick="stockInHistoryModal()">View Stock IN History</button>
+      <table id="stockInBody">
+        <thead><tr><th>Product</th><th>Balance</th><th>Last IN</th><th>Action</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- STOCK OUT -->
+    <section id="stockOut" class="page" style="display:none">
+      <h2>RM Stock Out</h2>
+      <input id="outSearch" class="search" placeholder="Search product">
+      <button class="btn info" onclick="stockOutHistoryModal()">View Stock OUT History</button>
+      <table id="stockOutBody">
+        <thead><tr><th>Product</th><th>Balance</th><th>Last OUT</th><th>Action</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- COMBINED HISTORY -->
+    <section id="history" class="page" style="display:none">
+      <h2>RM Combined History</h2>
+      <div style="margin-bottom:12px">
+        <input id="historySearch" class="search" placeholder="Search combined history...">
+      </div>
+      <div style="overflow:auto; height: calc(100% - 120px);">
+        <table id="historyTable">
+          <thead>
+            <tr><th>Date</th><th>Product</th><th>Type</th><th>Qty</th><th>Remark</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SUPPLIERS -->
+    <section id="suppliers" class="page" style="display:none">
+      <h2>Raw Material Suppliers</h2>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+        <input id="newSupplierName" class="small" placeholder="Supplier Name">
+        <input id="newSupplierContact" class="small" placeholder="Contact Info">
+        <button id="addSupplierBtn" class="btn btn-add">Add Supplier</button>
+      </div>
+      <div style="margin-bottom:12px">
+        <input id="supplierSearch" class="search" placeholder="Search suppliers...">
+      </div>
+      <div style="overflow:auto; height: calc(100% - 150px);">
+        <table id="suppliersTable">
+          <thead><tr><th>#</th><th>Name</th><th>Contact</th><th>Edit</th><th>Delete</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- MODALS -->
+    <div id="historyModal" class="modal-backdrop">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 id="modalTitle">Product History</h3>
+          <button onclick="closeHistoryModal()" class="modal-close">✖</button>
+        </div>
+        <div class="modal-body">
+          <table class="modal-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Product</th>
+                <th>Type</th>
+                <th>Qty</th>
+                <th>Batch</th>
+                <th>Expiry</th>
+                <th>Remark</th>
+              </tr>
+            </thead>
+            <tbody id="modalHistoryBody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
-    <div  style="padding:10px;" class="modal-actions">
-      <button id="modalSave" class="btn">Submit</button>
-      <button onclick="closeModal()" class="btn secondary">Close</button>
+    <div id="stockInHistoryModal" class="modal-backdrop">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Stock IN History</h3>
+          <button onclick="closeStockInHistory()" class="modal-close">✖</button>
+        </div>
+        <div class="modal-body">
+          <table class="modal-table">
+            <thead><tr><th>Date</th><th>Product</th><th>Qty</th><th>Remark</th></tr></thead>
+            <tbody id="stockInHistoryPopupBody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
-  </div>
+
+    <div id="stockOutHistoryModal" class="modal-backdrop">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Stock OUT History</h3>
+          <button onclick="closeStockOutHistory()" class="modal-close">✖</button>
+        </div>
+        <div class="modal-body">
+          <table class="modal-table">
+            <thead><tr><th>Date</th><th>Product</th><th>Qty</th><th>Remark</th></tr></thead>
+            <tbody id="stockOutHistoryPopupBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stock Modal (RM + FG) -->
+    <div id="stockModal" class="modal-backdrop">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 id="modalProductName">Product Name</h3>
+          <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+
+        <p>Balance: <span id="modalProductBalance" style="font-weight:bold;">0</span> PCS</p>
+
+        <div class="modal-inputs" style="padding:10px;">
+          <input id="modalQty" class="small" type="number" placeholder="Enter quantity">
+          <input id="modalRemark" class="small" placeholder="Enter remark (optional)">
+        </div>
+
+        <div style="padding:10px;" class="modal-actions">
+          <button id="modalSave" class="btn">Submit</button>
+          <button onclick="closeModal()" class="btn secondary">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Success Toast -->
+    <div id="stockToast" class="toast" style="display:none;"></div>
+
+    <!-- FG STOCK IN -->
+    <section id="fgStockIn" class="page" style="display:none">
+      <h2>FG Stock In</h2>
+      <input id="fgInSearch" class="search" placeholder="Search FG product...">
+      <button class="btn secondary" onclick="fgStockInHistoryModal()">View FG IN History</button>
+
+      <table>
+        <thead>
+          <tr><th>#</th><th>Product</th><th>Balance</th><th>Action</th></tr>
+        </thead>
+        <tbody id="fgStockInBody"></tbody>
+      </table>
+    </section>
+
+    <!-- FG STOCK OUT -->
+    <section id="fgStockOut" class="page" style="display:none">
+      <h2>FG Stock Out</h2>
+      <input id="fgOutSearch" class="search" placeholder="Search FG product...">
+      <button class="btn info" onclick="fgStockOutHistoryModal()">View FG OUT History</button>
+
+      <table>
+        <thead>
+          <tr><th>#</th><th>Product</th><th>Balance</th><th>Action</th></tr>
+        </thead>
+        <tbody id="fgStockOutBody"></tbody>
+      </table>
+    </section>
+
+    <!-- ADD FG PRODUCT -->
+    <section id="fgAddProduct" class="page" style="display:none">
+      <h2>Add Finished Goods Product</h2>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px">
+        <input id="fgNewName" class="small" placeholder="Product Name">
+        <input id="fgNewVolume" class="small" placeholder="Volume / Size">
+        <input id="fgNewGroup" class="small" placeholder="Group Prefix (ALKHOR)">
+        <input id="fgNewBatch" class="small" placeholder="Batch / Lot No">
+        <input id="fgNewExpiry" class="small" type="date">
+        <input id="fgNewThreshold" class="small" type="number" placeholder="Low Stock Threshold">
+      </div>
+
+      <button class="btn btn-add" onclick="addFGProduct()">Add FG Product</button>
+      <hr style="margin:20px 0">
+    </section>
+
+  </main>
 </div>
-
-<!-- Success Toast -->
-<div id="stockToast" class="toast" style="display:none;"></div>
-
-<section id="fgStockIn" class="page" style="display:none">
-  <h2>FG Stock In</h2>
-
-  <input id="fgInSearch" class="search" placeholder="Search FG product...">
-<button class="btn secondary" onclick="fgStockInHistoryModal()">
-  View FG IN History
-</button>
-
-  <table>
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Product</th>
-        <th>Balance</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody id="fgStockInBody"></tbody>
-  </table>
-</section>
-<section id="fgStockOut" class="page" style="display:none">
-  <h2>FG Stock Out</h2>
-
-  <input id="fgOutSearch" class="search" placeholder="Search FG product...">
-<button class="btn info" onclick="fgStockOutHistoryModal()">
-  View FG OUT History
-</button>
-
-  <table>
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Product</th>
-        <th>Balance</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody id="fgStockOutBody"></tbody>
-  </table>
-</section>
-<section id="fgAddProduct" class="page" style="display:none">
-  <h2>Add Finished Goods Product</h2>
-
-  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px">
-    <input id="fgNewName" class="small" placeholder="Product Name">
-<input id="fgNewVolume" class="small" placeholder="Volume / Size">
-<input id="fgNewGroup" class="small" placeholder="Group Prefix (ALKHOR)">
-<input id="fgNewBatch" class="small" placeholder="Batch / Lot No">
-<input id="fgNewExpiry" class="small" type="date">
-<input id="fgNewThreshold" class="small" type="number" placeholder="Low Stock Threshold">
-</div>
-
-  <button class="btn btn-add" onclick="addFGProduct()">Add FG Product</button>
-
-  <hr style="margin:20px 0">
-
- 
-</section>
 
 <script>
 /* =========================
@@ -910,6 +868,7 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 ========================= */
 let selectedFGVolumes = new Set();
 let currentUser = null;
+let fgChartInstance = null;
 
 const loginScreen = document.getElementById('loginScreen');
 const loginForm   = document.getElementById('loginForm');
@@ -943,6 +902,7 @@ function todayISO(){ return new Date().toISOString().split('T')[0]; }
 function fmtDate(iso){
   if(!iso) return '-';
   const p = String(iso).split('-');
+  if(p.length !== 3) return String(iso);
   return `${p[2]}/${p[1]}/${p[0]}`;
 }
 function escapeHtml(s){
@@ -968,19 +928,39 @@ function showToast(message, isError=false){
 }
 
 /* =========================
+   ✅ OPTIONAL: FIX bannerUrl template issue
+   (If you ever used src="${bannerUrl}" it won't work in HTML.)
+========================= */
+function setBanner(url){
+  const img = document.getElementById('brandBanner');
+  if(img) img.src = url || 'banner.png';
+  // set background watermark
+  document.body.style.setProperty('--banner-url', url || 'banner.png');
+}
+setBanner('banner.png');
+
+/* =========================
    ✅ PAGE NAV
 ========================= */
 function openPage(pageId){
   document.querySelectorAll('.page').forEach(p=>p.style.display='none');
   const el = document.getElementById(pageId);
   if(el) el.style.display='block';
-  refreshAll();
 
+  // page-specific renders
   if(pageId === 'dashboardPage'){
     renderMainDashboard();
     renderFGVolumeFilter();
     renderFGChart();
   }
+  if(pageId === 'dashboard'){
+    renderDashboardGrouped();
+  }
+  if(pageId === 'suppliers'){
+    renderSuppliers();
+  }
+
+  refreshAll();
 }
 
 /* =========================
@@ -1009,7 +989,7 @@ async function ensureAdminExists(){
 ensureAdminExists();
 
 /* =========================
-   ✅ ROLE PERMISSIONS
+   ✅ ROLE PERMISSIONS (ADMIN ALWAYS FULL POWER)
 ========================= */
 const ROLE_PERMISSIONS = {
   full: { stockIn:true, stockOut:true,  add:true,  edit:true,  delete:true },
@@ -1018,12 +998,9 @@ const ROLE_PERMISSIONS = {
 };
 
 function getPerms(){
-  // ✅ Admin always has FULL power
   if(currentUser?.role === 'admin') return ROLE_PERMISSIONS.full;
-
   return ROLE_PERMISSIONS[currentUser?.permissionLevel] || ROLE_PERMISSIONS.view;
 }
-
 function canStockOut(){ return !!getPerms().stockOut; }
 function canAdd(){ return !!getPerms().add; }
 function canEdit(){ return !!getPerms().edit; }
@@ -1110,7 +1087,7 @@ async function login(){
 
     applyPermissions();
 
-    // ✅ Open correct page
+    // ✅ open pages
     if(currentUser.role === 'admin'){
       openPage('userManagement');
       renderUsersTable();
@@ -1159,8 +1136,6 @@ function changeUserPermission(username, level){
     showToast("Only admin can change roles", true);
     return;
   }
-
-  // ✅ Never allow changing ADMIN permission
   if(username === 'admin'){
     showToast("Admin permission cannot be changed", true);
     return;
@@ -1204,45 +1179,75 @@ async function renderUsersTable(){
   const users = snap.val() ? Object.values(snap.val()) : [];
 
   users.forEach((u,i)=>{
-    const tr = document.createElement('tr');
     const perm = u.permissionLevel || 'view';
+    const isAdminRow = (u.role === 'admin' || u.username === 'admin');
 
-const isAdminRow = (u.role === 'admin' || u.username === 'admin');
-
-tr.innerHTML = `
-  <td>${i+1}</td>
-  <td>${escapeHtml(u.username)}</td>
-  <td>
-    ${
-      isAdminRow
-        ? `<b>Full (Admin)</b>`
-        : (currentUser?.role === 'admin'
-            ? `
-              <select onchange="changeUserPermission('${escapeHtml(u.username)}', this.value)">
-                <option value="full" ${perm==='full'?'selected':''}>Full</option>
-                <option value="half" ${perm==='half'?'selected':''}>Half</option>
-                <option value="view" ${perm==='view'?'selected':''}>View</option>
-              </select>
-            `
-            : escapeHtml(perm)
-          )
-    }
-  </td>
-  <td>
-    ${
-      (!isAdminRow && currentUser?.role === 'admin')
-        ? `<button class="btn out" onclick="deleteUser('${escapeHtml(u.username)}')">Delete</button>`
-        : ''
-    }
-  </td>
-`;
-
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td>${escapeHtml(u.username)}</td>
+      <td>
+        ${
+          isAdminRow
+            ? `<b>Full (Admin)</b>`
+            : (currentUser?.role === 'admin'
+                ? `
+                  <select onchange="changeUserPermission('${escapeHtml(u.username)}', this.value)">
+                    <option value="full" ${perm==='full'?'selected':''}>Full</option>
+                    <option value="half" ${perm==='half'?'selected':''}>Half</option>
+                    <option value="view" ${perm==='view'?'selected':''}>View</option>
+                  </select>
+                `
+                : escapeHtml(perm)
+              )
+        }
+      </td>
+      <td>
+        ${
+          (!isAdminRow && currentUser?.role === 'admin')
+            ? `<button class="btn out" onclick="deleteUser('${escapeHtml(u.username)}')">Delete</button>`
+            : ''
+        }
+      </td>
+    `;
     tbody.appendChild(tr);
   });
-} // ✅ IMPORTANT: THIS CLOSING BRACE WAS MISSING IN YOUR CODE
+}
+
+async function addUser(){
+  if(currentUser?.role !== 'admin'){
+    showToast("Only admin can add users", true);
+    return;
+  }
+
+  const u = (document.getElementById('newUsername')?.value || '').trim();
+  const p = (document.getElementById('newPassword')?.value || '');
+  const role = (document.getElementById('newRole')?.value || 'user');
+
+  if(!u || !p){ showToast("Username & password required", true); return; }
+
+  const snap = await cloudDB.ref('users').orderByChild('username').equalTo(u).once('value');
+  if(snap.exists()){ showToast("Username already exists", true); return; }
+
+  const userId = 'u_'+Date.now().toString(36)+'_'+Math.floor(Math.random()*1000);
+  await cloudDB.ref('users/'+userId).set({
+    username: u,
+    password: p,
+    role,
+    permissionLevel: (role === 'admin' ? 'full' : 'view'),
+    createdAt: new Date().toISOString()
+  });
+
+  document.getElementById('newUsername').value = '';
+  document.getElementById('newPassword').value = '';
+  document.getElementById('newRole').value = 'user';
+
+  showToast("User added ✅");
+  renderUsersTable();
+}
 
 /* =========================
-   ✅ LOCAL STORAGE DATA
+   ✅ LOCAL STORAGE DATA (RM)
 ========================= */
 const KEY_PRODUCTS = 'sms_products_final_v1';
 const KEY_MOVES    = 'sms_movements_final_v1';
@@ -1266,7 +1271,7 @@ function computeBalance(productId){
 function lastMovement(productId, type){
   const moves = stockMovements.filter(m=>m.productId===productId && m.type===type);
   if(!moves.length) return '-';
-  return moves[moves.length-1].date;
+  return moves[moves.length-1].date || '-';
 }
 
 /* =========================
@@ -1300,8 +1305,6 @@ function initFGVolumeSelection(){
 /* =========================
    ✅ DASHBOARD (MAIN CARDS)
 ========================= */
-let fgChartInstance = null;
-
 function getFGLowStockCount(){
   return fgProducts.filter(f => computeFGBalance(f.id) <= (Number(f.threshold ?? 5))).length;
 }
@@ -1338,7 +1341,7 @@ function renderMainDashboard(){
   fgBalanceEl.textContent = fgTotal;
 
   if(fgTotalEl) fgTotalEl.textContent = fgProducts.length;
-  if(fgLowEl) fgLowEl.textContent = getFGLowStockCount();  // ✅ FIXED
+  if(fgLowEl) fgLowEl.textContent = getFGLowStockCount();
 
   if(fgMaxEl){
     const maxFG = fgProducts.reduce((max, f)=>{
@@ -1367,7 +1370,7 @@ function renderFGVolumeFilter(){
   const volumes = [...new Set(fgProducts.map(f=>(f.volume||'').trim()).filter(v=>v))].sort();
   wrap.innerHTML = '';
 
-  // ✅ fallback: if nothing selected, select all
+  // if nothing selected, select all
   if(!selectedFGVolumes.size){
     volumes.forEach(v=> selectedFGVolumes.add(v));
   }
@@ -1434,8 +1437,13 @@ function renderFGChart(){
 }
 
 /* =========================
-   ✅ FG PAGES
+   ✅ FG PAGES (with LOW filter from dashboard)
 ========================= */
+let fgOnlyLow = false;
+
+function openFGFromDashboard(){ fgOnlyLow = false; openPage('fgStock'); }
+function openLowFGFromDashboard(){ fgOnlyLow = true; openPage('fgStock'); }
+
 function renderFGStock(){
   const tbody = document.querySelector('#fgTable tbody');
   if(!tbody) return;
@@ -1447,14 +1455,18 @@ function renderFGStock(){
   let i=1;
   sorted.forEach(p=>{
     if(search && !(p.name||'').toLowerCase().includes(search)) return;
+
     const bal = computeFGBalance(p.id);
+    const thr = Number(p.threshold ?? 5);
+
+    if(fgOnlyLow && !(bal <= thr)) return;
 
     tbody.insertAdjacentHTML('beforeend',`
       <tr>
         <td>${i++}</td>
-        <td>${escapeHtml(p.name)}</td>
+        <td class="${bal <= thr ? 'low-stock' : ''}">${escapeHtml(p.name)}</td>
         <td>${escapeHtml(p.volume||'-')}</td>
-        <td>${bal}</td>
+        <td class="${bal <= thr ? 'low-stock' : ''}">${bal}</td>
         <td>
           <button class="btn info" onclick="viewFGHistory('${p.id}')">👁 View</button>
           ${currentUser?.role === 'admin' ? `
@@ -1530,6 +1542,7 @@ function viewFGHistory(fgId){
 
   fgMovements
     .filter(m=>m.fgId===fgId)
+    .slice()
     .sort((a,b)=>new Date(b.date)-new Date(a.date))
     .forEach(m=>{
       tbody.insertAdjacentHTML('beforeend',`
@@ -1538,8 +1551,8 @@ function viewFGHistory(fgId){
           <td>${escapeHtml(fg.name)}</td>
           <td>${escapeHtml(m.type)}</td>
           <td>${Number(m.qty||0)}</td>
-          <td>${escapeHtml(m.batch||'-')}</td>
-          <td>${escapeHtml(m.expiry||'-')}</td>
+          <td>${escapeHtml(m.batch||fg.batch||'-')}</td>
+          <td>${escapeHtml(m.expiry||fg.expiry||'-')}</td>
           <td>${escapeHtml(m.remark||'')}</td>
         </tr>
       `);
@@ -1660,7 +1673,7 @@ function renderProductsTable(){
         <td>${escapeHtml(p.barcode||'')}</td>
         <td><button class="btn secondary" onclick="openHistory('${p.id}')">History</button></td>
         <td><button class="btn secondary btn-edit admin-only" onclick="editProduct('${p.id}')">Edit</button></td>
-        <td><button class="btn secondary btn-delete admin-only" onclick="deleteProduct('${p.id}')">Delete</button></td>
+        <td><button class="btn out btn-delete admin-only" onclick="deleteProduct('${p.id}')">Delete</button></td>
       </tr>
     `);
   });
@@ -1751,7 +1764,6 @@ function renderCombinedHistory(){
 let modalCurrent = null;
 
 function openStockModal(productId, type){
-  // ✅ permission BEFORE opening
   if(type === 'OUT' && !canStockOut()){
     showToast("Stock OUT not allowed for your role", true);
     return;
@@ -1785,7 +1797,6 @@ function openStockModal(productId, type){
 }
 
 function openFGModal(fgId, type){
-  // ✅ permission BEFORE opening
   if(type === 'OUT' && !canStockOut()){
     showToast("Stock OUT not allowed for your role", true);
     return;
@@ -1831,7 +1842,7 @@ function closeModal(){
   modalCurrent = null;
 }
 
-/* ✅ RM history modal fixed to match your table columns */
+/* RM history modal */
 function openHistory(productId){
   const prod = products.find(p=>p.id===productId);
   if(!prod) return;
@@ -1846,6 +1857,7 @@ function openHistory(productId){
 
   stockMovements
     .filter(m=>m.productId===productId)
+    .slice()
     .sort((a,b)=>new Date(b.date)-new Date(a.date))
     .forEach(m=>{
       tbody.insertAdjacentHTML('beforeend',`
@@ -1866,9 +1878,7 @@ function closeHistoryModal(){
   document.getElementById('historyModal').style.display='none';
 }
 
-/* =========================
-   ✅ STOCK IN/OUT HISTORY POPUPS
-========================= */
+/* RM Stock IN/OUT History modals */
 function stockInHistoryModal(){
   const modal=document.getElementById('stockInHistoryModal');
   modal.style.display='flex';
@@ -1877,6 +1887,7 @@ function stockInHistoryModal(){
 
   stockMovements
     .filter(m=>m.type==='IN')
+    .slice()
     .sort((a,b)=>new Date(b.date)-new Date(a.date))
     .forEach(m=>{
       const prod = products.find(p=>p.id===m.productId);
@@ -1901,6 +1912,7 @@ function stockOutHistoryModal(){
 
   stockMovements
     .filter(m=>m.type==='OUT')
+    .slice()
     .sort((a,b)=>new Date(b.date)-new Date(a.date))
     .forEach(m=>{
       const prod = products.find(p=>p.id===m.productId);
@@ -1917,259 +1929,105 @@ function stockOutHistoryModal(){
 }
 function closeStockOutHistory(){ document.getElementById('stockOutHistoryModal').style.display='none'; }
 
+/* FG IN/OUT History (use historyModal) */
+function fgStockInHistoryModal(){
+  const modal = document.getElementById("historyModal");
+  modal.style.display = "flex";
+  document.getElementById("modalTitle").textContent = "FG Stock IN History";
+
+  const tbody = document.getElementById("modalHistoryBody");
+  tbody.innerHTML = "";
+
+  fgMovements
+    .filter(m => m.type === "IN")
+    .slice()
+    .sort((a,b)=> new Date(b.date) - new Date(a.date))
+    .forEach(m=>{
+      const fg = fgProducts.find(f=>f.id === m.fgId);
+      if(!fg) return;
+      tbody.insertAdjacentHTML("beforeend", `
+        <tr>
+          <td>${fmtDate(m.date)}</td>
+          <td>${escapeHtml(fg.name)}</td>
+          <td>IN</td>
+          <td>${Number(m.qty || 0)}</td>
+          <td>${escapeHtml(m.batch || fg.batch || '-')}</td>
+          <td>${escapeHtml(m.expiry || fg.expiry || '-')}</td>
+          <td>${escapeHtml(m.remark || '')}</td>
+        </tr>
+      `);
+    });
+}
+
+function fgStockOutHistoryModal(){
+  const modal = document.getElementById("historyModal");
+  modal.style.display = "flex";
+  document.getElementById("modalTitle").textContent = "FG Stock OUT History";
+
+  const tbody = document.getElementById("modalHistoryBody");
+  tbody.innerHTML = "";
+
+  fgMovements
+    .filter(m => m.type === "OUT")
+    .slice()
+    .sort((a,b)=> new Date(b.date) - new Date(a.date))
+    .forEach(m=>{
+      const fg = fgProducts.find(f=>f.id === m.fgId);
+      if(!fg) return;
+      tbody.insertAdjacentHTML("beforeend", `
+        <tr>
+          <td>${fmtDate(m.date)}</td>
+          <td>${escapeHtml(fg.name)}</td>
+          <td>OUT</td>
+          <td>${Number(m.qty || 0)}</td>
+          <td>${escapeHtml(m.batch || fg.batch || '-')}</td>
+          <td>${escapeHtml(m.expiry || fg.expiry || '-')}</td>
+          <td>${escapeHtml(m.remark || '')}</td>
+        </tr>
+      `);
+    });
+}
+
 /* =========================
-   ✅ FG CLOUD SYNC
+   ✅ RM ADD / EDIT / DELETE
 ========================= */
-function autoPushFGToCloud(){
-  if(!cloudDB) return;
-  cloudDB.ref('fgManager').set({
-    products: fgProducts,
-    movements: fgMovements,
-    syncedAt: new Date().toISOString()
+function addRMProduct(){
+  if(!canAdd()){ showToast("No permission to add", true); return; }
+
+  const code = (document.getElementById('newCode')?.value || '').trim();
+  const name = (document.getElementById('newName')?.value || '').trim();
+  const category = (document.getElementById('newCategory')?.value || '').trim();
+  const threshold = Number(document.getElementById('newThreshold')?.value || 5);
+  const barcode = (document.getElementById('newBarcode')?.value || '').trim();
+  const groupsStr = (document.getElementById('newGroups')?.value || '').trim();
+  const exclusive = !!document.getElementById('newExclusive')?.checked;
+
+  if(!name){ showToast("Product name required", true); return; }
+
+  const groups = groupsStr
+    ? groupsStr.split(',').map(g=>g.trim()).filter(Boolean)
+    : [];
+
+  products.push({
+    id: 'rm_' + genId(),
+    code, name, category,
+    threshold: isNaN(threshold) ? 5 : threshold,
+    barcode,
+    groups,
+    exclusive
   });
-}
-function autoPullFGFromCloud(){
-  if(!cloudDB) return;
-  cloudDB.ref('fgManager').once('value').then(snap=>{
-    if(!snap.exists()) return;
-    fgProducts = snap.val().products || [];
-    fgMovements = snap.val().movements || [];
-    saveFGLocal();
-    initFGVolumeSelection();
-    refreshAll();
-  });
-}
 
-/* =========================
-   ✅ RM CLOUD SYNC
-========================= */
-function autoPullFromCloud(){
-  if(!cloudDB) return;
-
-  cloudDB.ref("stockManager").once("value")
-    .then(snapshot=>{
-      const data = snapshot.val();
-      if(!data) return;
-      products = data.products || [];
-      stockMovements = data.stockMovements || [];
-      saveAll();
-      refreshAll();
-    })
-    .catch(err=> console.error("Auto pull failed:", err));
-}
-function autoPushToCloud(){
-  if(!cloudDB) return;
-  cloudDB.ref("stockManager").set({
-    products,
-    stockMovements,
-    syncedAt: new Date().toISOString()
-  });
-}
-
-/* =========================
-   ✅ EVENTS / MENU / INIT
-========================= */
-// Sidebar collapsible
-document.querySelectorAll('.menu-title.collapsible').forEach(m=>{
-  m.addEventListener('click', ()=>{
-    m.classList.toggle('open');
-    m.nextElementSibling?.classList.toggle('open');
-  });
-});
-
-// submenu navigation
-document.querySelectorAll('.submenu').forEach(sm=>{
-  sm.addEventListener('click', ()=>{
-    const page = sm.dataset.page;
-    const action = sm.dataset.action;
-    if(page) openPage(page);
-    if(action && typeof window[action]==='function') window[action]();
-  });
-});
-
-// Searches
-document.getElementById('productSearch')?.addEventListener('input', renderProductsTable);
-document.getElementById('inSearch')?.addEventListener('input', renderStockIn);
-document.getElementById('outSearch')?.addEventListener('input', renderStockOut);
-document.getElementById('historySearch')?.addEventListener('input', renderCombinedHistory);
-document.getElementById('fgSearch')?.addEventListener('input', renderFGStock);
-document.getElementById('fgInSearch')?.addEventListener('input', renderFGStockIn);
-document.getElementById('fgOutSearch')?.addEventListener('input', renderFGStockOut);
-
-// Sidebar toggle
-const sidebarToggle = document.getElementById('sidebarToggle');
-const sidebar = document.getElementById('sidebar');
-const mainWrap = document.querySelector('.main');
-
-if(sidebarToggle && sidebar){
-  sidebarToggle.addEventListener('click', ()=>{
-    sidebar.classList.toggle('minimized');
-    if(mainWrap) mainWrap.classList.toggle('sidebar-minimized');
-    sidebarToggle.textContent = sidebar.classList.contains('minimized') ? '→' : '←';
-  });
-}
-
-// ✅ session restore
-const savedUser = localStorage.getItem('sms_currentUser');
-if(savedUser){
-  currentUser = JSON.parse(savedUser);
-  loginScreen.style.display='none';
-  document.querySelector('.app').style.display='flex';
-  applyPermissions();
-  openPage('dashboardPage');
-}
-
-// ✅ Initial pulls
-window.addEventListener('load', ()=>{
-  initFGVolumeSelection();
-  autoPullFGFromCloud();
-  autoPullFromCloud();
+  saveAll();
+  autoPushToCloud();
   refreshAll();
-});
-let dashboardSearchText = "";
-let selectedDashboardGroup = null;
 
-// renamed group display names (cloud + local)
-let renamedGroups = JSON.parse(localStorage.getItem('renamedGroups') || '{}');
+  newCode.value=''; newName.value=''; newCategory.value='';
+  newThreshold.value=''; newBarcode.value=''; newGroups.value='';
+  newExclusive.checked=false;
 
-function handleDashboardSearch(value){
-  dashboardSearchText = (value || "").toLowerCase().trim();
-  selectedDashboardGroup = null;
-  renderDashboardGrouped();
+  showToast("RM product added ✅");
 }
 
-function selectDashboardGroup(groupName){
-  selectedDashboardGroup = groupName;
-  renderDashboardGrouped();
-}
-
-function getFGStock(groupName){
-  const key = normalizeGroup(groupName);
-  let total = 0;
-  fgProducts.forEach(fg=>{
-    if(normalizeGroup(fg.group) === key){
-      total += computeFGBalance(fg.id);
-    }
-  });
-  return total;
-}
-
-function renameGroup(groupName){
-  if(currentUser?.role !== 'admin'){
-    showToast("Only admin can rename groups", true);
-    return;
-  }
-  const newName = prompt(`Enter new display name for "${groupName}"`, renamedGroups[groupName] || groupName);
-  if(!newName) return;
-
-  renamedGroups[groupName] = newName.trim();
-  localStorage.setItem('renamedGroups', JSON.stringify(renamedGroups));
-  saveRenamedGroupsToCloud();
-  renderDashboardGrouped();
-}
-
-function saveRenamedGroupsToCloud(){
-  if(!window.cloudDB) return;
-  cloudDB.ref("dashboardRenamedGroups").set(renamedGroups);
-}
-
-function loadRenamedGroupsFromCloud(){
-  if(!window.cloudDB) return;
-  cloudDB.ref("dashboardRenamedGroups").once("value").then(snap=>{
-    if(snap.exists()){
-      renamedGroups = snap.val() || {};
-      localStorage.setItem('renamedGroups', JSON.stringify(renamedGroups));
-      renderDashboardGrouped();
-    }
-  });
-}
-
-// ✅ grouped BOM render
-function renderDashboardGrouped(){
-  const tbody = document.querySelector('#dashTable tbody');
-  if(!tbody) return;
-  tbody.innerHTML = '';
-
-  // if nothing typed and no selected group -> show nothing
-  if(!dashboardSearchText && !selectedDashboardGroup) return;
-
-  const groupsMap = {};
-
-  products.forEach(p=>{
-    if(!Array.isArray(p.groups)) return;
-
-    p.groups.forEach(g=>{
-      if(!groupsMap[g]) groupsMap[g] = [];
-
-      // exclusive products only show in first group
-      if(p.exclusive && p.groups[0] !== g) return;
-
-      groupsMap[g].push(p);
-    });
-  });
-
-  Object.keys(groupsMap).sort().forEach(groupName=>{
-    const displayName = renamedGroups[groupName] || groupName;
-
-    const groupProducts = groupsMap[groupName].filter(p=>{
-      const nm = (p.name||'').toLowerCase();
-      const gp = displayName.toLowerCase();
-      return nm.includes(dashboardSearchText) || gp.includes(dashboardSearchText);
-    });
-
-    if(!groupProducts.length) return;
-    if(selectedDashboardGroup && selectedDashboardGroup !== groupName) return;
-
-    const fgBalance = getFGStock(groupName);
-
-    const groupRow = document.createElement('tr');
-    groupRow.innerHTML = `
-      <td colspan="6" style="padding:18px;cursor:pointer"
-          onclick="selectDashboardGroup('${groupName}')">
-        <b>${escapeHtml(displayName).toUpperCase()}</b>
-        <span style="margin-left:40px;color:green;font-weight:bold">
-          FG BALANCE: ${fgBalance}
-        </span>
-        ${
-          currentUser?.role === 'admin'
-            ? `<button style="margin-left:15px"
-                 onclick="event.stopPropagation(); renameGroup('${groupName}')">
-                 Rename
-               </button>`
-            : ''
-        }
-      </td>
-    `;
-    tbody.appendChild(groupRow);
-
-    // show products only when group is selected
-    if(selectedDashboardGroup === groupName){
-      groupProducts.forEach(p=>{
-        const bal = computeBalance(p.id);
-        tbody.insertAdjacentHTML('beforeend', `
-          <tr>
-            <td style="padding-left:25px">${escapeHtml(p.name||'')}</td>
-            <td>${bal}</td>
-            <td>${Number(p.threshold ?? 5)}</td>
-            <td>${lastMovement(p.id,'IN')}</td>
-            <td>${lastMovement(p.id,'OUT')}</td>
-            <td>
-              <button class="btn secondary" onclick="openHistory('${p.id}')">View</button>
-              <button class="btn" onclick="openStockModal('${p.id}','IN')">Add IN</button>
-              <button class="btn out btn-stock-out" onclick="openStockModal('${p.id}','OUT')">Stock OUT</button>
-            </td>
-          </tr>
-        `);
-      });
-    }
-  });
-
-  applyPermissions();
-}
-
-/* =========================
-   ✅ EDIT / DELETE RM PRODUCT
-========================= */
 function editProduct(productId){
   if(!canEdit()){
     showToast("No permission to edit", true);
@@ -2220,7 +2078,7 @@ function editProduct(productId){
   prod.exclusive = newExclusive;
 
   saveAll();
-  autoPushToCloud?.();     // if you have cloud push
+  autoPushToCloud();
   refreshAll();
 
   showToast("Product updated ✅");
@@ -2241,11 +2099,572 @@ function deleteProduct(productId){
   stockMovements = stockMovements.filter(m => m.productId !== productId);
 
   saveAll();
-  autoPushToCloud?.();     // if you have cloud push
+  autoPushToCloud();
   refreshAll();
 
   showToast("Product deleted ✅");
 }
+
+/* =========================
+   ✅ BOM / DASHBOARD GROUPED TABLE
+========================= */
+let dashboardSearchText = "";
+let selectedDashboardGroup = null;
+let renamedGroups = JSON.parse(localStorage.getItem('renamedGroups') || '{}');
+
+function handleDashboardSearch(value){
+  dashboardSearchText = (value || "").toLowerCase().trim();
+  selectedDashboardGroup = null;
+  renderDashboardGrouped();
+}
+function clearDashboardSearch(){
+  const inp = document.getElementById('dashboardSearch');
+  if(inp) inp.value = '';
+  dashboardSearchText = '';
+  selectedDashboardGroup = null;
+  renderDashboardGrouped();
+}
+function selectDashboardGroup(groupName){
+  selectedDashboardGroup = groupName;
+  renderDashboardGrouped();
+}
+function getFGStock(groupName){
+  const key = normalizeGroup(groupName);
+  let total = 0;
+  fgProducts.forEach(fg=>{
+    if(normalizeGroup(fg.group) === key){
+      total += computeFGBalance(fg.id);
+    }
+  });
+  return total;
+}
+function renameGroup(groupName){
+  if(currentUser?.role !== 'admin'){
+    showToast("Only admin can rename groups", true);
+    return;
+  }
+  const newName = prompt(`Enter new display name for "${groupName}"`, renamedGroups[groupName] || groupName);
+  if(!newName) return;
+
+  renamedGroups[groupName] = newName.trim();
+  localStorage.setItem('renamedGroups', JSON.stringify(renamedGroups));
+  saveRenamedGroupsToCloud();
+  renderDashboardGrouped();
+}
+function saveRenamedGroupsToCloud(){
+  cloudDB.ref("dashboardRenamedGroups").set(renamedGroups);
+}
+function loadRenamedGroupsFromCloud(){
+  cloudDB.ref("dashboardRenamedGroups").once("value").then(snap=>{
+    if(snap.exists()){
+      renamedGroups = snap.val() || {};
+      localStorage.setItem('renamedGroups', JSON.stringify(renamedGroups));
+      renderDashboardGrouped();
+    }
+  });
+}
+
+// Grouped BOM render (shows groups by default)
+function renderDashboardGrouped(){
+  const tbody = document.querySelector('#dashTable tbody');
+  if(!tbody) return;
+  tbody.innerHTML = '';
+
+  const groupsMap = {};
+
+  products.forEach(p=>{
+    if(!Array.isArray(p.groups) || !p.groups.length) return;
+
+    p.groups.forEach(g=>{
+      if(!groupsMap[g]) groupsMap[g] = [];
+
+      // exclusive products only show in first group
+      if(p.exclusive && p.groups[0] !== g) return;
+
+      groupsMap[g].push(p);
+    });
+  });
+
+  const allGroups = Object.keys(groupsMap).sort((a,b)=>a.localeCompare(b));
+  const search = dashboardSearchText;
+
+  // If no groups configured, show info row
+  if(!allGroups.length){
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr><td colspan="6"><b>No BOM groups found.</b> Add "Groups" to RM products (comma separated).</td></tr>
+    `);
+    return;
+  }
+
+  allGroups.forEach(groupName=>{
+    const displayName = renamedGroups[groupName] || groupName;
+
+    const groupProducts = groupsMap[groupName].filter(p=>{
+      const nm = (p.name||'').toLowerCase();
+      const gp = displayName.toLowerCase();
+      return !search || nm.includes(search) || gp.includes(search);
+    });
+
+    if(!groupProducts.length) return;
+    if(selectedDashboardGroup && selectedDashboardGroup !== groupName) return;
+
+    const fgBalance = getFGStock(groupName);
+
+    const groupRow = document.createElement('tr');
+    groupRow.innerHTML = `
+      <td colspan="6" style="padding:18px;cursor:pointer;background:rgba(0,0,0,0.03)"
+          onclick="selectDashboardGroup('${escapeHtml(groupName)}')">
+        <b>${escapeHtml(displayName).toUpperCase()}</b>
+        <span style="margin-left:40px;color:green;font-weight:bold">
+          FG BALANCE: ${fgBalance}
+        </span>
+        ${
+          currentUser?.role === 'admin'
+            ? `<button class="btn secondary" style="margin-left:15px;padding:6px 10px"
+                 onclick="event.stopPropagation(); renameGroup('${escapeHtml(groupName)}')">
+                 Rename
+               </button>`
+            : ''
+        }
+      </td>
+    `;
+    tbody.appendChild(groupRow);
+
+    // show products only when group is selected
+    if(selectedDashboardGroup === groupName){
+      groupProducts.forEach(p=>{
+        const bal = computeBalance(p.id);
+        tbody.insertAdjacentHTML('beforeend', `
+          <tr>
+            <td style="padding-left:25px">${escapeHtml(p.name||'')}</td>
+            <td class="${bal <= Number(p.threshold ?? 5) ? 'low-stock':''}">${bal}</td>
+            <td>${Number(p.threshold ?? 5)}</td>
+            <td>${lastMovement(p.id,'IN')}</td>
+            <td>${lastMovement(p.id,'OUT')}</td>
+            <td>
+              <button class="btn secondary" onclick="openHistory('${p.id}')">View</button>
+              <button class="btn" onclick="openStockModal('${p.id}','IN')">Add IN</button>
+              <button class="btn out btn-stock-out" onclick="openStockModal('${p.id}','OUT')">Stock OUT</button>
+            </td>
+          </tr>
+        `);
+      });
+    }
+  });
+
+  applyPermissions();
+}
+
+/* =========================
+   ✅ CLOUD SYNC (RM + FG)
+========================= */
+function autoPushFGToCloud(){
+  cloudDB.ref('fgManager').set({
+    products: fgProducts,
+    movements: fgMovements,
+    syncedAt: new Date().toISOString()
+  });
+}
+function autoPullFGFromCloud(){
+  cloudDB.ref('fgManager').once('value').then(snap=>{
+    if(!snap.exists()) return;
+    fgProducts = snap.val().products || [];
+    fgMovements = snap.val().movements || [];
+    saveFGLocal();
+    initFGVolumeSelection();
+    refreshAll();
+  });
+}
+
+function autoPullFromCloud(){
+  cloudDB.ref("stockManager").once("value")
+    .then(snapshot=>{
+      const data = snapshot.val();
+      if(!data) return;
+      products = data.products || [];
+      stockMovements = data.stockMovements || [];
+      saveAll();
+      refreshAll();
+    })
+    .catch(err=> console.error("Auto pull failed:", err));
+}
+function autoPushToCloud(){
+  cloudDB.ref("stockManager").set({
+    products,
+    stockMovements,
+    syncedAt: new Date().toISOString()
+  });
+}
+
+/* =========================
+   ✅ REPORTS + EXPORT/IMPORT
+========================= */
+function printStockReport(){
+  const rows = products
+    .slice()
+    .sort((a,b)=>(a.name||'').localeCompare(b.name||''))
+    .map(p=>({
+      Code: p.code || '',
+      Product: p.name || '',
+      Category: p.category || '',
+      Balance: computeBalance(p.id),
+      Threshold: Number(p.threshold ?? 5),
+      LastIN: lastMovement(p.id,'IN'),
+      LastOUT: lastMovement(p.id,'OUT')
+    }));
+
+  const w = window.open('', '_blank');
+  if(!w) { showToast("Popup blocked by browser", true); return; }
+
+  w.document.write(`
+    <html><head><title>RM Stock Report</title>
+    <style>
+      body{font-family:Arial;padding:18px}
+      h2{margin:0 0 12px}
+      table{width:100%;border-collapse:collapse}
+      th,td{border:1px solid #ccc;padding:8px;text-align:left}
+      th{background:#007bff;color:#fff}
+    </style>
+    </head><body class="print-bg">
+    <h2>RM Stock Report</h2>
+    <p>Date: ${new Date().toLocaleString()}</p>
+    <table>
+      <thead><tr>
+        <th>Code</th><th>Product</th><th>Category</th><th>Balance</th><th>Threshold</th><th>Last IN</th><th>Last OUT</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(r=>`
+          <tr>
+            <td>${escapeHtml(r.Code)}</td>
+            <td>${escapeHtml(r.Product)}</td>
+            <td>${escapeHtml(r.Category)}</td>
+            <td>${r.Balance}</td>
+            <td>${r.Threshold}</td>
+            <td>${escapeHtml(r.LastIN)}</td>
+            <td>${escapeHtml(r.LastOUT)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    <script>window.onload=()=>window.print();<\/script>
+    </body></html>
+  `);
+  w.document.close();
+}
+
+function printFGStockReport(){
+  const rows = fgProducts
+    .slice()
+    .sort((a,b)=>(a.name||'').localeCompare(b.name||''))
+    .map(f=>({
+      Product: f.name || '',
+      Volume: f.volume || '',
+      Group: f.group || '',
+      Balance: computeFGBalance(f.id),
+      Threshold: Number(f.threshold ?? 5),
+      Batch: f.batch || '',
+      Expiry: f.expiry || ''
+    }));
+
+  const w = window.open('', '_blank');
+  if(!w) { showToast("Popup blocked by browser", true); return; }
+
+  w.document.write(`
+    <html><head><title>FG Stock Report</title>
+    <style>
+      body{font-family:Arial;padding:18px}
+      h2{margin:0 0 12px}
+      table{width:100%;border-collapse:collapse}
+      th,td{border:1px solid #ccc;padding:8px;text-align:left}
+      th{background:#16a34a;color:#fff}
+    </style>
+    </head><body>
+    <h2>FG Stock Report</h2>
+    <p>Date: ${new Date().toLocaleString()}</p>
+    <table>
+      <thead><tr>
+        <th>Product</th><th>Volume</th><th>Group</th><th>Balance</th><th>Threshold</th><th>Batch</th><th>Expiry</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(r=>`
+          <tr>
+            <td>${escapeHtml(r.Product)}</td>
+            <td>${escapeHtml(r.Volume)}</td>
+            <td>${escapeHtml(r.Group)}</td>
+            <td>${r.Balance}</td>
+            <td>${r.Threshold}</td>
+            <td>${escapeHtml(r.Batch)}</td>
+            <td>${escapeHtml(r.Expiry)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    <script>window.onload=()=>window.print();<\/script>
+    </body></html>
+  `);
+  w.document.close();
+}
+
+function exportExcel(){
+  try{
+    const wb = XLSX.utils.book_new();
+
+    const rmProducts = products.map(p=>({
+      id:p.id, code:p.code||'', name:p.name||'', category:p.category||'',
+      threshold:Number(p.threshold ?? 5), barcode:p.barcode||'',
+      groups: Array.isArray(p.groups)? p.groups.join(', ') : '',
+      exclusive: !!p.exclusive
+    }));
+    const rmMoves = stockMovements.map(m=>({
+      id:m.id, productId:m.productId, type:m.type, quantity:Number(m.quantity||0),
+      date:m.date||'', remark:m.remark||''
+    }));
+    const fgProds = fgProducts.map(f=>({
+      id:f.id, name:f.name||'', volume:f.volume||'', group:f.group||'',
+      threshold:Number(f.threshold ?? 5), batch:f.batch||'', expiry:f.expiry||''
+    }));
+    const fgMoves = fgMovements.map(m=>({
+      id:m.id, fgId:m.fgId, type:m.type, qty:Number(m.qty||0),
+      date:m.date||'', batch:m.batch||'', expiry:m.expiry||'', remark:m.remark||''
+    }));
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rmProducts), 'RM_Products');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rmMoves), 'RM_Movements');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fgProds), 'FG_Products');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fgMoves), 'FG_Movements');
+
+    XLSX.writeFile(wb, `StockManager_${todayISO()}.xlsx`);
+    showToast("Excel exported ✅");
+  }catch(e){
+    console.error(e);
+    showToast("Excel export failed", true);
+  }
+}
+
+function importExcel(){
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = '.xlsx,.xls';
+  inp.onchange = (ev)=>{
+    const file = ev.target.files?.[0];
+    if(!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      try{
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+        const firstSheetName = wb.SheetNames[0];
+        const ws = wb.Sheets[firstSheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+
+        let added = 0;
+        rows.forEach(r=>{
+          const name = String(r.name || r.Name || r.PRODUCT || r.Product || '').trim();
+          if(!name) return;
+
+          products.push({
+            id: 'rm_' + genId(),
+            code: String(r.code || r.Code || '').trim(),
+            name,
+            category: String(r.category || r.Category || '').trim(),
+            threshold: Number(r.threshold || r.Threshold || 5) || 5,
+            barcode: String(r.barcode || r.Barcode || '').trim(),
+            groups: String(r.groups || r.Groups || '').split(',').map(x=>x.trim()).filter(Boolean),
+            exclusive: String(r.exclusive || r.Exclusive || '').toLowerCase() === 'true'
+          });
+          added++;
+        });
+
+        saveAll();
+        autoPushToCloud();
+        refreshAll();
+        showToast(`Imported ${added} RM products ✅`);
+      }catch(err){
+        console.error(err);
+        showToast("Import failed", true);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  inp.click();
+}
+
+function exportPDF(){
+  try{
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p','pt','a4');
+
+    const rows = products
+      .slice()
+      .sort((a,b)=>(a.name||'').localeCompare(b.name||''))
+      .map(p=>[
+        p.code||'',
+        p.name||'',
+        p.category||'',
+        String(computeBalance(p.id)),
+        String(Number(p.threshold ?? 5)),
+        lastMovement(p.id,'IN'),
+        lastMovement(p.id,'OUT')
+      ]);
+
+    doc.text(`RM Stock Report - ${todayISO()}`, 40, 40);
+
+    doc.autoTable({
+      startY: 60,
+      head: [['Code','Product','Category','Balance','Threshold','Last IN','Last OUT']],
+      body: rows,
+      styles: { fontSize: 9 }
+    });
+
+    doc.save(`RM_Stock_Report_${todayISO()}.pdf`);
+    showToast("PDF exported ✅");
+  }catch(e){
+    console.error(e);
+    showToast("PDF export failed", true);
+  }
+}
+
+/* =========================
+   ✅ SUPPLIERS (local)
+========================= */
+const KEY_SUPPLIERS = 'sms_suppliers_v1';
+let suppliers = JSON.parse(localStorage.getItem(KEY_SUPPLIERS) || '[]');
+
+function saveSuppliers(){
+  localStorage.setItem(KEY_SUPPLIERS, JSON.stringify(suppliers));
+}
+
+function renderSuppliers(){
+  const tbody = document.querySelector('#suppliersTable tbody');
+  if(!tbody) return;
+
+  const q = (document.getElementById('supplierSearch')?.value || '').toLowerCase().trim();
+  tbody.innerHTML = '';
+
+  const list = suppliers.filter(s=>{
+    if(!q) return true;
+    return (s.name||'').toLowerCase().includes(q) || (s.contact||'').toLowerCase().includes(q);
+  });
+
+  list.forEach((s, idx)=>{
+    tbody.insertAdjacentHTML('beforeend',`
+      <tr>
+        <td>${idx+1}</td>
+        <td>${escapeHtml(s.name||'')}</td>
+        <td>${escapeHtml(s.contact||'')}</td>
+        <td><button class="btn secondary btn-edit" onclick="editSupplier('${s.id}')">Edit</button></td>
+        <td><button class="btn out btn-delete" onclick="deleteSupplier('${s.id}')">Delete</button></td>
+      </tr>
+    `);
+  });
+
+  applyPermissions();
+}
+
+function addSupplier(){
+  if(!canAdd()){ showToast("No permission to add", true); return; }
+  const name = (document.getElementById('newSupplierName')?.value || '').trim();
+  const contact = (document.getElementById('newSupplierContact')?.value || '').trim();
+  if(!name){ showToast("Supplier name required", true); return; }
+
+  suppliers.push({ id:'sup_'+genId(), name, contact });
+  saveSuppliers();
+  renderSuppliers();
+  document.getElementById('newSupplierName').value='';
+  document.getElementById('newSupplierContact').value='';
+  showToast("Supplier added ✅");
+}
+function editSupplier(id){
+  if(!canEdit()){ showToast("No permission to edit", true); return; }
+  const s = suppliers.find(x=>x.id===id);
+  if(!s) return;
+
+  const name = prompt("Supplier name:", s.name||'');
+  if(name === null || !name.trim()) return;
+
+  const contact = prompt("Contact info:", s.contact||'');
+  if(contact === null) return;
+
+  s.name = name.trim();
+  s.contact = contact.trim();
+  saveSuppliers();
+  renderSuppliers();
+  showToast("Supplier updated ✅");
+}
+function deleteSupplier(id){
+  if(!canDelete()){ showToast("No permission to delete", true); return; }
+  if(!confirm("Delete this supplier?")) return;
+
+  suppliers = suppliers.filter(x=>x.id!==id);
+  saveSuppliers();
+  renderSuppliers();
+  showToast("Supplier deleted ✅");
+}
+
+/* =========================
+   ✅ EVENTS / MENU / INIT
+========================= */
+// Sidebar collapsible
+document.querySelectorAll('.menu-title.collapsible').forEach(m=>{
+  m.addEventListener('click', ()=>{
+    m.classList.toggle('open');
+    m.nextElementSibling?.classList.toggle('open');
+  });
+});
+
+// submenu navigation
+document.querySelectorAll('.submenu').forEach(sm=>{
+  sm.addEventListener('click', ()=>{
+    const page = sm.dataset.page;
+    const action = sm.dataset.action;
+    if(page) openPage(page);
+    if(action && typeof window[action]==='function') window[action]();
+  });
+});
+
+// Searches
+document.getElementById('productSearch')?.addEventListener('input', renderProductsTable);
+document.getElementById('inSearch')?.addEventListener('input', renderStockIn);
+document.getElementById('outSearch')?.addEventListener('input', renderStockOut);
+document.getElementById('historySearch')?.addEventListener('input', renderCombinedHistory);
+document.getElementById('fgSearch')?.addEventListener('input', renderFGStock);
+document.getElementById('fgInSearch')?.addEventListener('input', renderFGStockIn);
+document.getElementById('fgOutSearch')?.addEventListener('input', renderFGStockOut);
+document.getElementById('supplierSearch')?.addEventListener('input', renderSuppliers);
+document.getElementById('addSupplierBtn')?.addEventListener('click', addSupplier);
+
+// Sidebar toggle
+const sidebarToggle = document.getElementById('sidebarToggle');
+const sidebar = document.getElementById('sidebar');
+const mainWrap = document.querySelector('.main');
+
+if(sidebarToggle && sidebar){
+  sidebarToggle.addEventListener('click', ()=>{
+    sidebar.classList.toggle('minimized');
+    if(mainWrap) mainWrap.classList.toggle('sidebar-minimized');
+    sidebarToggle.textContent = sidebar.classList.contains('minimized') ? '→' : '←';
+  });
+}
+
+// ✅ session restore
+const savedUser = localStorage.getItem('sms_currentUser');
+if(savedUser){
+  currentUser = JSON.parse(savedUser);
+  loginScreen.style.display='none';
+  document.querySelector('.app').style.display='flex';
+  applyPermissions();
+  openPage('dashboardPage');
+}
+
+/* initial pulls */
+window.addEventListener('load', ()=>{
+  initFGVolumeSelection();
+  loadRenamedGroupsFromCloud();
+  autoPullFGFromCloud();
+  autoPullFromCloud();
+  refreshAll();
+});
 
 /* =========================
    ✅ REFRESH ALL
@@ -2261,12 +2680,23 @@ function refreshAll(){
   renderFGStockOut();
 
   renderMainDashboard();
+  renderDashboardGrouped();
   applyPermissions();
 }
+
+/* Expose to window (safe) */
+window.handleDashboardSearch = handleDashboardSearch;
+window.clearDashboardSearch = clearDashboardSearch;
+window.fgStockInHistoryModal = fgStockInHistoryModal;
+window.fgStockOutHistoryModal = fgStockOutHistoryModal;
+window.printStockReport = printStockReport;
+window.printFGStockReport = printFGStockReport;
+window.exportExcel = exportExcel;
+window.importExcel = importExcel;
+window.exportPDF = exportPDF;
+window.openFGFromDashboard = openFGFromDashboard;
+window.openLowFGFromDashboard = openLowFGFromDashboard;
 </script>
 
-
-</main>
-</div>
 </body>
 </html>

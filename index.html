@@ -14,6 +14,8 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
 :root {
   --sidebar-w: 260px;
@@ -478,17 +480,22 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 <li class="submenu" data-page="dashboard">📊BOM</li>
 
 </ul>
-<li class="menu-title collapsible">📈 Production <span class="arrow">▾</span></li>
+<li class="menu-title collapsible">📈 Store <span class="arrow">▾</span></li>
 <ul class="subgroup">
 <li class="submenu" data-page="products">📦  RM List</li>
+  <li class="submenu admin-only" data-page="rmAddProduct">➕ Add RM Product</li>
 <li class="submenu" data-page="stockIn">⬆ RM Stock In</li>
 <li class="submenu" data-page="stockOut">⬇ RM Stock Out</li>
 </ul>
 
-  <li class="menu-title collapsible">🧾 FG  <span class="arrow">▾</span></li>
+ <li class="menu-title collapsible">🧾 FG <span class="arrow">▾</span></li>
 <ul class="subgroup">
   <li class="submenu" data-page="fgStock">📦 FG Stock List</li>
+<li class="submenu admin-only" data-page="fgAddProduct">➕ Add FG Product</li>
+  <li class="submenu" data-page="fgStockIn">⬆ FG Stock In</li>
+  <li class="submenu" data-page="fgStockOut">⬇ FG Stock Out</li>
 </ul>
+
 
  <li class="menu-title collapsible">🧾 Suppliers <span class="arrow">▾</span></li>
 <ul class="subgroup">
@@ -498,7 +505,7 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
             
 <li class="menu-title collapsible">💾 Report <span class="arrow">▾</span></li>
 <ul class="subgroup">
-<li class="submenu" data-page="history">📚 Combined History</li>
+<li class="submenu" data-page="history">📚 RM History</li>
 <li class="submenu" data-action="importExcel">📥 Import Excel</li>
 <li class="submenu" data-action="exportExcel">📤 Export Excel</li>
 <li class="submenu" data-action="printStockReport">🖨️ Print Stock Report</li>
@@ -564,32 +571,52 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 
 <div id="dashboardPage" class="page" style="display:none">
 
-  <h2>Dashboard</h2>
+<div class="dashboard-grid">
 
-  <div class="dashboard-grid">
-
-    <div class="dash-card">
-      <h3>Total Products</h3>
-      <div id="dashTotalProducts">0</div>
-    </div>
-
-    <div class="dash-card">
-      <h3>Total Stock</h3>
-      <div id="dashTotalStock">0</div>
-    </div>
-
-    <div class="dash-card">
-      <h3>Low Stock Items</h3>
-      <div id="dashLowStock">0</div>
-    </div>
-
-    <div class="dash-card">
-      <h3>FG Balance</h3>
-      <div id="dashFGBalance">0</div>
-    </div>
-
+  <div class="dash-card">
+    <h3>Total RM Products</h3>
+    <div id="dashTotalProducts">0</div>
   </div>
 
+  <div class="dash-card">
+    <h3>Total RM Stock</h3>
+    <div id="dashTotalStock">0</div>
+  </div>
+
+  <div class="dash-card">
+    <h3>Low Stock Items</h3>
+    <div id="dashLowStock">0</div>
+  </div>
+
+  <div class="dash-card">
+    <h3>Total FG Balance</h3>
+    <div id="dashFGBalance">0</div>
+  </div>
+
+  <div class="dash-card">
+    <h3>FG Products</h3>
+    <div id="dashFGTotalProducts">0</div>
+  </div>
+
+  <div class="dash-card">
+    <h3>Low FG Stock</h3>
+    <div id="dashFGLowStock">0</div>
+  </div>
+
+  <div class="dash-card">
+    <h3>Max FG Balance</h3>
+    <div id="dashFGMaxBalance">-</div>
+  </div>
+
+  <div class="dash-card">
+    <h3>Min FG Balance</h3>
+    <div id="dashFGMinBalance">-</div>
+  </div>
+
+</div>
+<div>
+<canvas id="fgStockChart" width="400" height="200"></canvas>
+</div>
 </div>
 
 
@@ -598,7 +625,6 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 <section id="fgStock" class="page" style="display:none">
   <h2>Finished Goods Stock</h2>
   <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
-    <input type="file" id="fgExcelInput" accept=".xlsx,.xls">
     <input id="fgSearch" class="search" placeholder="Search FG products...">
   </div>
   <div style="overflow:auto; height: calc(100% - 140px);">
@@ -633,45 +659,50 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 
 <!-- PRODUCTS -->
 <section id="products" class="page" style="display:none">
-<h2>RM List</h2>
-  <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
-    <input id="newCode" class="small" placeholder="Product Code" style="width:120px">
+  <h2>Raw Material List</h2>
+
+  <div style="margin-bottom:12px">
+    <input id="productSearch" class="search" placeholder="Search products...">
+  </div>
+
+  <div style="overflow:auto;height:calc(100% - 120px)">
+    <table id="productsTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Code</th>
+          <th>Name</th>
+          <th>Category</th>
+          <th>Balance</th>
+          <th>Threshold</th>
+          <th>Barcode</th>
+          <th>History</th>
+          <th>Edit</th>
+          <th>Delete</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+<section id="rmAddProduct" class="page" style="display:none">
+  <h2>Add Raw Material Product</h2>
+
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px">
+    <input id="newCode" class="small" placeholder="Product Code">
     <input id="newName" class="small" placeholder="Product Name">
     <input id="newCategory" class="small" placeholder="Category">
-    <input id="newThreshold" class="small" placeholder="Threshold" type="number" style="width:110px">
-    <input id="newBarcode" class="small" placeholder="Barcode" style="width:150px">
+    <input id="newThreshold" class="small" type="number" placeholder="Low Stock Threshold">
+    <input id="newBarcode" class="small" placeholder="Barcode">
     <input id="newGroups" class="small" placeholder="Groups (comma separated)">
-    <label style="display:flex;align-items:center;gap:4px;">
+    <label style="display:flex;align-items:center;gap:6px">
       <input type="checkbox" id="newExclusive"> Exclusive to first group
     </label>
-    <button id="addProductBtn" class="btn admin-only">Add Product</button>
-</div>
+  </div>
 
-
-
-<div style="margin-bottom:12px">
-<input id="productSearch" class="search" placeholder="Search products...">
-</div>
-<div style="overflow:auto; height: calc(100% - 170px);width:auto;">
-<table id="productsTable">
-<thead>
-<tr>
-    <th>#</th>
-    <th>Product Code</th>
-    <th>Name</th>
-    <th>Category</th>
-    <th>Balance</th>
-    <th>Threshold</th>
-    <th>Barcode</th>
-    <th>History</th>
-    <th>Edit</th>
-    <th>Delete</th>
-</tr>
-</thead>
-<tbody></tbody>
-</table>
-</div>
+  <button class="btn admin-only" onclick="addRMProduct()">Add Product</button>
 </section>
+
 
 <!-- STOCK IN -->
 <section id="stockIn" class="page" style="display:none">
@@ -734,7 +765,18 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 <button onclick="closeHistoryModal()" class="modal-close">✖</button>
 </div>
 <div class="modal-body">
-<table class="modal-table"><thead><tr><th>Date</th><th>Type</th><th>Qty</th>  <th>Remark</th></tr></thead>
+<table class="modal-table"><thead>
+  <tr>
+    <th>Date</th>
+    <th>Product</th>   <!-- ✅ NAME ADDED -->
+    <th>Type</th>
+    <th>Qty</th>
+    <th>Batch</th>
+    <th>Expiry</th>
+    <th>Remark</th>
+  </tr>
+</thead>
+
 <tbody id="modalHistoryBody"></tbody></table>
 </div>
 </div>
@@ -789,9 +831,67 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 <!-- Success Toast -->
 <div id="stockToast" class="toast" style="display:none;"></div>
 
+<section id="fgStockIn" class="page" style="display:none">
+  <h2>FG Stock In</h2>
+
+  <input id="fgInSearch" class="search" placeholder="Search FG product...">
+<button class="btn secondary" onclick="fgStockInHistoryModal()">
+  View FG IN History
+</button>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Product</th>
+        <th>Balance</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="fgStockInBody"></tbody>
+  </table>
+</section>
+<section id="fgStockOut" class="page" style="display:none">
+  <h2>FG Stock Out</h2>
+
+  <input id="fgOutSearch" class="search" placeholder="Search FG product...">
+<button class="btn info" onclick="fgStockOutHistoryModal()">
+  View FG OUT History
+</button>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Product</th>
+        <th>Balance</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="fgStockOutBody"></tbody>
+  </table>
+</section>
+<section id="fgAddProduct" class="page" style="display:none">
+  <h2>Add Finished Goods Product</h2>
+
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px">
+    <input id="fgNewName" class="small" placeholder="Product Name">
+<input id="fgNewVolume" class="small" placeholder="Volume / Size">
+<input id="fgNewGroup" class="small" placeholder="Group Prefix (ALKHOR)">
+<input id="fgNewBatch" class="small" placeholder="Batch / Lot No">
+<input id="fgNewExpiry" class="small" type="date">
+<input id="fgNewThreshold" class="small" type="number" placeholder="Low Stock Threshold">
+</div>
+
+  <button class="btn" onclick="addFGProduct()">Add FG Product</button>
+
+  <hr style="margin:20px 0">
+
+ 
+</section>
 
 <script>
-let fgProducts = [];
+
 
 let currentUser = null;
 const savedUser = localStorage.getItem('sms_currentUser');
@@ -1115,23 +1215,26 @@ function lastMovement(productId,type){
 }
 
 
-// FG stock for a group of products
+function normalizeGroup(g){
+  return String(g || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g,'');
+}
+
 function getFGStock(groupName) {
+    const key = normalizeGroup(groupName);
     let total = 0;
 
-    const key = groupName.toUpperCase();
-
     fgProducts.forEach(fg => {
-        const desc = fg.description.trim().toUpperCase();
-
-        // match by first word (same logic as your FG table grouping)
-        if (desc.startsWith(key + " ")) {
-            total += Number(fg.balance || 0);
+        if (normalizeGroup(fg.group) === key) {
+            total += computeFGBalance(fg.id);
         }
     });
 
     return total;
 }
+
 
 // Render dashboard (products RAW only)
 // Load renamed groups from localStorage
@@ -1150,26 +1253,6 @@ function handleDashboardSearch(value){
     dashboardSearchText = value.toLowerCase().trim();
     selectedDashboardGroup = null;
     renderDashboardGrouped();
-}
-
-function renderMainDashboard(){
-
-    document.getElementById('dashTotalProducts').textContent = products.length;
-
-    let totalStock = 0;
-    let lowStock = 0;
-
-    products.forEach(p => {
-        const bal = computeBalance(p.id);
-        totalStock += bal;
-        if (bal <= (p.threshold || 5)) lowStock++;
-    });
-
-    document.getElementById('dashTotalStock').textContent = totalStock;
-    document.getElementById('dashLowStock').textContent = lowStock;
-
-    const fgTotal = fgProducts.reduce((sum,f)=>sum + Number(f.balance || 0),0);
-    document.getElementById('dashFGBalance').textContent = fgTotal;
 }
 
 
@@ -1257,6 +1340,127 @@ function renderDashboardGrouped(){
 
     });
 }
+let fgChartInstance = null; // Keep chart instance to update later
+
+function renderMainDashboard() {
+    // ----------------------------
+    // Elements
+    // ----------------------------
+    const totalProductsEl = document.getElementById('dashTotalProducts');
+    const totalStockEl = document.getElementById('dashTotalStock');
+    const lowStockEl = document.getElementById('dashLowStock');
+    const fgBalanceEl = document.getElementById('dashFGBalance');
+
+    const fgTotalEl = document.getElementById('dashFGTotalProducts');
+    const fgLowEl = document.getElementById('dashFGLowStock');
+    const fgMaxEl = document.getElementById('dashFGMaxBalance');
+    const fgMinEl = document.getElementById('dashFGMinBalance');
+    const fgChartEl = document.getElementById('fgStockChart');
+
+    if (!totalProductsEl || !totalStockEl || !lowStockEl || !fgBalanceEl) {
+        console.warn('Dashboard elements not found!');
+        return;
+    }
+
+    const safeProducts = Array.isArray(products) ? products : [];
+    const safeFGProducts = Array.isArray(fgProducts) ? fgProducts : [];
+
+    // ----------------------------
+    // Main Products
+    // ----------------------------
+    totalProductsEl.textContent = safeProducts.length;
+
+    let totalStock = 0;
+    let lowStock = 0;
+
+    safeProducts.forEach(p => {
+        const bal = typeof computeBalance === 'function' ? computeBalance(p.id) : 0;
+        const numericBal = Number(bal) || 0;
+        totalStock += numericBal;
+        if (numericBal <= (p.threshold ?? 5)) lowStock++;
+    });
+dashFGLowStock.textContent = getFGLowStockCount();
+
+    totalStockEl.textContent = totalStock;
+    lowStockEl.textContent = lowStock;
+
+    // ----------------------------
+    // Finished Goods Analysis
+    // ----------------------------
+const fgTotal = safeFGProducts.reduce(
+  (sum, f) => sum + computeFGBalance(f.id),
+  0
+);
+    fgBalanceEl.textContent = fgTotal;
+
+    if (fgTotalEl) fgTotalEl.textContent = safeFGProducts.length;
+
+    if (fgLowEl) {
+       const lowFG = safeFGProducts.filter(
+  f => computeFGBalance(f.id) <= (f.threshold ?? 5)
+);
+
+    }
+
+    if (fgMaxEl) {
+        const maxFG = safeFGProducts.reduce((max, f) => {
+  const bal = computeFGBalance(f.id);
+  return bal > max.balance ? { name: f.name, balance: bal } : max;
+}, { name: '-', balance: 0 });
+        fgMaxEl.textContent = `${maxFG.name} (${maxFG.balance})`;
+    }
+
+    if (fgMinEl) {
+        const minFG = safeFGProducts.reduce((min, f) => {
+  const bal = computeFGBalance(f.id);
+  return bal < min.balance ? { name: f.name, balance: bal } : min;
+}, { name: '-', balance: Infinity });
+        fgMinEl.textContent = minFG.balance === Infinity ? '-' : `${minFG.name} (${minFG.balance})`;
+    }
+
+    // ----------------------------
+    // FG Stock Chart
+    // ----------------------------
+    if (fgChartEl) {
+        const labels = safeFGProducts.map(f => f.name);
+        const data = safeFGProducts.map(f => Number(f.balance) || 0);
+
+        const chartData = {
+            labels: labels,
+            datasets: [{
+                label: 'FG Stock Balance',
+                data: data,
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        };
+
+        const chartOptions = {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: { enabled: true }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        };
+
+        // Destroy previous chart if exists
+        if (fgChartInstance) fgChartInstance.destroy();
+
+        fgChartInstance = new Chart(fgChartEl, {
+            type: 'bar', // or 'pie'
+            data: chartData,
+            options: chartOptions
+        });
+    }
+}
+
+// Call after DOM is loaded
+window.addEventListener('DOMContentLoaded', renderMainDashboard);
+
 
 // Rename group **only for dashboard display**
 function renameGroup(groupName){
@@ -1366,71 +1570,422 @@ function selectDashboardGroup(groupName){
 
 
 
-// Read Excel
-document.addEventListener('DOMContentLoaded', () => {
-  const fgExcelInput = document.getElementById('fgExcelInput');
-  if (fgExcelInput) {
-    fgExcelInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const data = new Uint8Array(event.target.result);
-        const wb = XLSX.read(data, { type: 'array' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json(ws, { defval: '' });
-        
-        fgProducts = json.map((row, i) => ({
-          id: 'fg_' + i,
-          description: row.Description || `Unknown ${i + 1}`,
-          volume: row.Volume || '',
-          balance: Number(row.Balance || 0),
-          dailyStock: Object.fromEntries(
-            Object.entries(row).filter(([k]) => /\d{2}\/\d{2}\/\d{4}/.test(k))
-          )
-        }));
-
-        renderFGStock();
-      };
-      reader.readAsArrayBuffer(file);
-    });
-  }
-});
 
 
 // Render Table
 function renderFGStock() {
-    const tbody = document.querySelector('#fgTable tbody');
-    tbody.innerHTML = '';
-    const search = (document.getElementById('fgSearch').value || '').toLowerCase().trim();
+  const tbody = document.querySelector('#fgTable tbody');
+  if (!tbody) return;
 
-    // Group by first word of description (case-insensitive)
-    const groups = {};
-    fgProducts.forEach(p => {
-        const desc = p.description.trim();
-        if(search && !desc.toLowerCase().includes(search)) return;
-        const key = desc.split(' ')[0].toUpperCase(); // CAPITAL letters
-        if(!groups[key]) groups[key] = [];
-        groups[key].push(p);
-    });
+  tbody.innerHTML = '';
+  const search = (document.getElementById('fgSearch').value || '')
+    .toLowerCase().trim();
 
-    let index = 1;
-    Object.keys(groups).sort().forEach(key => {
-        groups[key].forEach(p => {
-            tbody.insertAdjacentHTML('beforeend', `
-                <tr>
-                    <td>${index++}</td>
-                 
-                    <td>${p.description}</td>
-                    <td>${p.volume}</td>
-                    <td>${p.balance}</td>
-                    <td><button onclick="showModal('${p.id}')">View</button></td>
-                </tr>
-            `);
-        });
+  let index = 1;
+
+  // ✅ SORT FG PRODUCTS ALPHABETICALLY
+  const sortedFG = [...fgProducts].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+
+  sortedFG.forEach(p => {
+    const name = (p.name || '').toLowerCase();
+    if (search && !name.includes(search)) return;
+
+    const bal = computeFGBalance(p.id);
+
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>${index++}</td>
+        <td>${escapeHtml(p.name)}</td>
+        <td>${escapeHtml(p.volume || '-')}</td>
+        <td>${bal}</td>
+        <td>
+          <button class="btn info" onclick="viewFGHistory('${p.id}')">👁 View</button>
+          ${currentUser?.role === 'admin' ? `
+            <button class="btn secondary" onclick="editFGProduct('${p.id}')">✏️ Edit</button>
+            <button class="btn out" onclick="deleteFGProduct('${p.id}')">🗑 Delete</button>
+          ` : ''}
+        </td>
+      </tr>
+    `);
+  });
+}
+
+function fgStockInHistoryModal(){
+  const modal = document.getElementById('historyModal');
+  modal.style.display = 'flex';
+
+  document.getElementById('modalTitle').textContent = 'FG Stock IN History';
+
+  const tbody = document.getElementById('modalHistoryBody');
+  tbody.innerHTML = '';
+
+  fgMovements
+    .filter(m => m.type === 'IN')
+    .sort((a,b)=>new Date(b.date)-new Date(a.date))
+    .forEach(m=>{
+      const fg = fgProducts.find(f=>f.id===m.fgId);
+      if(!fg) return;
+
+      tbody.insertAdjacentHTML('beforeend',`
+        <tr>
+          <td>${fmtDate(m.date)}</td>
+          <td>${escapeHtml(fg.name)}</td> <!-- ✅ NAME -->
+          <td>IN</td>
+          <td>${m.qty}</td>
+          <td>${escapeHtml(m.batch || '-')}</td>
+          <td>${escapeHtml(m.expiry || '-')}</td>
+          <td>${escapeHtml(m.remark || '')}</td>
+        </tr>
+      `);
     });
 }
+
+function fgStockOutHistoryModal(){
+  const modal = document.getElementById('historyModal');
+  modal.style.display = 'flex';
+
+  document.getElementById('modalTitle').textContent = 'FG Stock OUT History';
+
+  const tbody = document.getElementById('modalHistoryBody');
+  tbody.innerHTML = '';
+
+  fgMovements
+    .filter(m => m.type === 'OUT')
+    .sort((a,b)=>new Date(b.date)-new Date(a.date))
+    .forEach(m=>{
+      const fg = fgProducts.find(f=>f.id===m.fgId);
+      if(!fg) return;
+
+      tbody.insertAdjacentHTML('beforeend',`
+        <tr>
+          <td>${fmtDate(m.date)}</td>
+          <td>${escapeHtml(fg.name)}</td> <!-- ✅ NAME -->
+          <td>OUT</td>
+          <td>${m.qty}</td>
+          <td>${escapeHtml(m.batch || '-')}</td>
+          <td>${escapeHtml(m.expiry || '-')}</td>
+          <td>${escapeHtml(m.remark || '')}</td>
+        </tr>
+      `);
+    });
+}
+
+function viewFGHistory(fgId){
+  const fg = fgProducts.find(f => f.id === fgId);
+  if(!fg) return;
+
+  const modal = document.getElementById('historyModal');
+  modal.style.display = 'flex';
+
+  document.getElementById('modalTitle').textContent =
+    `FG History — ${fg.name}`;
+
+  const tbody = document.getElementById('modalHistoryBody');
+  tbody.innerHTML = '';
+
+  fgMovements
+    .filter(m => m.fgId === fgId)
+    .sort((a,b)=>new Date(b.date)-new Date(a.date))
+    .forEach(m=>{
+      tbody.insertAdjacentHTML('beforeend',`
+        <tr>
+          <td>${fmtDate(m.date)}</td>
+          <td>${escapeHtml(fg.name)}</td>
+          <td>${m.type}</td>
+          <td>${m.qty}</td>
+          <td>${escapeHtml(m.batch || '-')}</td>
+          <td>${escapeHtml(m.expiry || '-')}</td>
+          <td>${escapeHtml(m.remark || '')}</td>
+        </tr>
+      `);
+    });
+}
+
+let fgMovements = JSON.parse(localStorage.getItem('sms_fg_movements') || '[]');
+
+function saveFGMovements(){
+  localStorage.setItem('sms_fg_movements', JSON.stringify(fgMovements));
+}
+function computeFGBalance(fgId){
+  return fgMovements.reduce((sum,m)=>{
+    if(m.fgId===fgId){
+      return sum + (m.type==='IN'? m.qty : -m.qty);
+    }
+    return sum;
+  },0);
+}
+/* ==========================
+   💾 FG LOCAL SAVE FUNCTION
+========================== */
+function saveFGLocal(){
+  localStorage.setItem('sms_fg_products', JSON.stringify(fgProducts));
+  localStorage.setItem('sms_fg_movements', JSON.stringify(fgMovements));
+}
+
+function renderFGStockIn(){
+  const tbody = document.getElementById('fgStockInBody');
+  if(!tbody) return;
+
+  tbody.innerHTML = '';
+  const search = (fgInSearch.value || '').toLowerCase();
+
+  // ✅ SORT ALPHABETICALLY
+  const sortedFG = [...fgProducts].sort((a,b)=>
+    a.name.localeCompare(b.name)
+  );
+
+  sortedFG.forEach((p,i)=>{
+    if(search && !p.name.toLowerCase().includes(search)) return;
+
+    const bal = computeFGBalance(p.id);
+
+    tbody.insertAdjacentHTML('beforeend',`
+      <tr>
+        <td>${i+1}</td>
+        <td>${escapeHtml(p.name)}</td>
+        <td>${bal}</td>
+        <td>
+          <button class="btn" onclick="openFGModal('${p.id}','IN')">
+            Stock In
+          </button>
+        </td>
+      </tr>
+    `);
+  });
+}
+function renderFGStockOut(){
+  const tbody = document.getElementById('fgStockOutBody');
+  if(!tbody) return;
+
+  tbody.innerHTML = '';
+  const search = (fgOutSearch.value || '').toLowerCase();
+
+  // ✅ SORT ALPHABETICALLY
+  const sortedFG = [...fgProducts].sort((a,b)=>
+    a.name.localeCompare(b.name)
+  );
+
+  sortedFG.forEach((p,i)=>{
+    if(search && !p.name.toLowerCase().includes(search)) return;
+
+    const bal = computeFGBalance(p.id);
+
+    tbody.insertAdjacentHTML('beforeend',`
+      <tr>
+        <td>${i+1}</td>
+        <td>${escapeHtml(p.name)}</td>
+        <td>${bal}</td>
+        <td>
+          <button class="btn out" onclick="openFGModal('${p.id}','OUT')">
+            Stock Out
+          </button>
+        </td>
+      </tr>
+    `);
+  });
+}
+
+function openFGModal(fgId,type){
+  const fg = fgProducts.find(f=>f.id===fgId);
+  if(!fg) return;
+
+document.getElementById('modalProductName').textContent = fg.name;
+  document.getElementById('modalProductBalance').textContent = computeFGBalance(fgId);
+  stockModal.style.display='flex';
+
+  modalSave.onclick = ()=>{
+    const qty = Number(modalQty.value);
+    const remark = modalRemark.value.trim();
+
+    if(qty<=0) return alert("Invalid qty");
+    if(type==='OUT' && qty > computeFGBalance(fgId))
+      return alert("Exceeds balance");
+
+    fgMovements.push({
+      id: genId(),
+      fgId,
+      type,
+      qty,
+      batch: fg.batch,
+      expiry: fg.expiry,
+      date: todayISO(),
+      remark
+    });
+
+    saveFGLocal();
+    autoPushFGToCloud();
+    closeModal();
+    refreshAll();
+  };
+}
+function normalizeGroup(g){
+  return String(g || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g,'');
+}
+function addFGProduct(){
+  const name = fgNewName.value.trim();
+  const rawGroup = fgNewGroup.value.trim();
+
+  if(!name || !rawGroup){
+    showToast("Name & Group required", true);
+    return;
+  }
+
+  const group = normalizeGroup(rawGroup);
+
+  fgProducts.push({
+    id: 'fg_' + genId(),
+    name,
+    group,
+    volume: fgNewVolume.value.trim(),
+    batch: fgNewBatch.value.trim(),
+    expiry: fgNewExpiry.value,
+    threshold: Number(fgNewThreshold.value || 5)
+  });
+
+  saveFGLocal();
+  autoPushFGToCloud();
+  refreshAll();
+
+  // ✅ CLEAR INPUTS
+  fgNewName.value = '';
+  fgNewVolume.value = '';
+  fgNewGroup.value = '';
+  fgNewBatch.value = '';
+  fgNewExpiry.value = '';
+  fgNewThreshold.value = '';
+
+  // ✅ SUCCESS TOAST
+  showToast("FG product added successfully ✅");
+}
+
+function renderFGHistory(){
+  const tbody = document.getElementById('fgHistoryBody');
+  if(!tbody) return;
+  tbody.innerHTML='';
+
+  fgMovements
+    .slice()
+    .sort((a,b)=>new Date(b.date)-new Date(a.date))
+    .forEach(m=>{
+      const fg = fgProducts.find(f=>f.id===m.fgId);
+      if(!fg) return;
+
+      tbody.insertAdjacentHTML('beforeend',`
+        <tr>
+          <td>${fmtDate(m.date)}</td>
+          <td>${escapeHtml(fg.name)}</td>
+          <td>${m.type}</td>
+          <td>${m.qty}</td>
+          <td>${m.batch||'-'}</td>
+          <td>${m.expiry||'-'}</td>
+          <td>${escapeHtml(m.remark||'')}</td>
+        </tr>
+      `);
+    });
+}
+function getFGLowStockCount(){
+  return fgProducts.filter(f=>computeFGBalance(f.id)<=f.threshold).length;
+}
+function editFGProduct(fgId){
+  const fg = fgProducts.find(f => f.id === fgId);
+  if (!fg) return;
+
+  const newName = prompt("Edit Product Name:", fg.name);
+  if (newName === null || !newName.trim()) return;
+
+  const newVolume = prompt("Edit Volume / Size:", fg.volume || '');
+  if (newVolume === null) return;
+
+const newGroup = prompt(
+  "Edit Group Prefix:",
+  fg.group || ''
+);
+
+  if (newGroup === null || !newGroup.trim()) return;
+
+  const newBatch = prompt("Edit Batch / Lot No:", fg.batch || '');
+  if (newBatch === null) return;
+
+  const newExpiry = prompt("Edit Expiry Date (YYYY-MM-DD):", fg.expiry || '');
+  if (newExpiry === null) return;
+
+  const newThreshold = prompt("Edit Low Stock Threshold:", fg.threshold || 5);
+  if (newThreshold === null || isNaN(newThreshold)) return;
+
+  fg.name = newName.trim();
+  fg.volume = newVolume.trim();
+  fg.batch = newBatch.trim();
+  fg.expiry = newExpiry.trim();
+  fg.threshold = Number(newThreshold);
+  fg.group = newGroup.trim().toUpperCase();
+
+
+  saveFGLocal();
+  autoPushFGToCloud();
+  refreshAll();
+}
+function deleteFGProduct(fgId){
+  const fg = fgProducts.find(f => f.id === fgId);
+  if (!fg) return;
+
+  if (!confirm(`Delete FG product "${fg.name}"?\nThis will also delete its stock history.`)) {
+    return;
+  }
+
+  // Remove product
+  fgProducts = fgProducts.filter(f => f.id !== fgId);
+
+  // Remove related movements
+  fgMovements = fgMovements.filter(m => m.fgId !== fgId);
+
+  saveFGLocal();
+  autoPushFGToCloud();
+  refreshAll();
+}
+
+function getFGExpiringSoon(days=30){
+  const now = new Date();
+  return fgProducts.filter(f=>{
+    if(!f.expiry) return false;
+    const diff = (new Date(f.expiry)-now)/(1000*60*60*24);
+    return diff<=days;
+  }).length;
+}
+function autoPushFGToCloud(){
+  if(!cloudDB) return;
+  cloudDB.ref('fgManager').set({
+    products: fgProducts,
+    movements: fgMovements,
+    syncedAt: new Date().toISOString()
+  });
+}
+
+function autoPullFGFromCloud(){
+  if(!cloudDB) return;
+
+  cloudDB.ref('fgManager').once('value').then(snap=>{
+    if(!snap.exists()) return;
+
+    fgProducts = snap.val().products || [];
+    fgMovements = snap.val().movements || [];
+
+    saveFGLocal();
+
+    // 🔥 FORCE BOM & DASHBOARD UPDATE
+    renderDashboardGrouped();
+    renderMainDashboard();
+  });
+}
+
+
+window.addEventListener('load', autoPullFGFromCloud);
+let fgProducts = JSON.parse(localStorage.getItem('sms_fg_products') || '[]');
 
 // Search input
 document.getElementById('fgSearch').addEventListener('input', renderFGStock);
@@ -1440,7 +1995,7 @@ function showModal(id){
     const product = fgProducts.find(p=>p.id===id);
     if(!product) return;
 
-    document.getElementById('fgModalTitle').innerText = product.description;
+    document.getElementById('fgModalTitle').innerText = product.name;
     const modalHead = document.getElementById('modalHead');
     const modalBody = document.getElementById('modalBody');
 
@@ -1502,6 +2057,46 @@ function renderProductsTable() {
     });
 applyPermissions();
 
+}
+function addRMProduct(){
+  const code = newCode.value.trim();
+  const name = newName.value.trim();
+  const category = newCategory.value.trim();
+  const threshold = Number(newThreshold.value || 5);
+  const barcode = newBarcode.value.trim();
+  const groups = newGroups.value
+    .split(',')
+    .map(g => g.trim())
+    .filter(Boolean);
+  const exclusive = newExclusive.checked;
+
+  if(!name){
+    alert("Product name required");
+    return;
+  }
+
+  products.push({
+    id: genId(),
+    code,
+    name,
+    category,
+    threshold,
+    barcode,
+    groups,
+    exclusive
+  });
+
+  saveAll();
+  refreshAll();
+showToast("Raw material product added successfully");
+  // clear inputs
+  newCode.value = '';
+  newName.value = '';
+  newCategory.value = '';
+  newThreshold.value = '';
+  newBarcode.value = '';
+  newGroups.value = '';
+  newExclusive.checked = false;
 }
 
 
@@ -1643,6 +2238,23 @@ function openStockModal(productId, type) {
         setTimeout(() => toast.style.display = 'none', 300);
     }, 2000); // 1000ms = 1 second
 }};
+function showToast(message, isError = false) {
+  const toast = document.getElementById('stockToast');
+  if (!toast) return;
+
+  toast.textContent = message;
+  toast.classList.toggle('out', isError);
+  toast.style.display = 'block';
+
+  requestAnimationFrame(() => {
+    toast.style.opacity = '1';
+  });
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => toast.style.display = 'none', 300);
+  }, 2000);
+}
 
 
 function closeModal(){document.getElementById('stockModal').style.display='none';modalCurrent=null;}
@@ -1729,7 +2341,38 @@ document.querySelectorAll('.menu-title.collapsible').forEach(m=>{
         m.nextElementSibling.classList.toggle('open');
     });
 });
-document.querySelectorAll('.submenu').forEach(sm=>{sm.addEventListener('click',()=>{const page=sm.dataset.page;const action=sm.dataset.action;if(page){document.querySelectorAll('.page').forEach(p=>p.style.display='none');document.getElementById(page).style.display='block';refreshAll();}if(action){window[action]?.();}});});
+document.querySelectorAll('.submenu').forEach(sm => {
+  sm.addEventListener('click', () => {
+
+    const page = sm.dataset.page;
+    const action = sm.dataset.action;
+
+    // Handle page navigation
+    if (page) {
+      // Hide all pages
+      document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+
+      // Show selected page
+      const target = document.getElementById(page);
+      if (target) target.style.display = 'block';
+
+      // Refresh common data
+      refreshAll();
+
+      // ✅ VERY IMPORTANT: force dashboard refresh
+      if (page === 'dashboardPage') {
+        renderMainDashboard();
+      }
+    }
+
+    // Handle actions (export, print, import, etc.)
+    if (action && typeof window[action] === 'function') {
+      window[action]();
+    }
+
+  });
+});
+
 
 
 // SIDEBAR TOGGLE
@@ -2060,14 +2703,21 @@ function saveRenamedGroupsToCloud() {
 
 // UTILITY
 function refreshAll(){
-    renderProductsTable();
-    renderStockIn();
-    renderStockOut();
-    renderCombinedHistory();
-    populateCategoryFilter();
-    applyPermissions();
-renderSuppliersTable();
+  renderProductsTable();
+  renderStockIn();
+  renderStockOut();
+  renderCombinedHistory();
+
+  renderFGStock();
+  renderFGStockIn();
+  renderFGStockOut();
+  renderFGHistory();
+
+  renderMainDashboard();
+  applyPermissions();
 }
+
+
 
 refreshAll();
 

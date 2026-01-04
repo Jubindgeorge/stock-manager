@@ -411,6 +411,16 @@ th {
   font-weight:700;
   margin-top:6px;
 }
+.fg-chart-box {
+  height: 260px;
+  max-height: 260px;
+  overflow: hidden;
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+
 
 
 </style>
@@ -475,9 +485,9 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 <li class="submenu" data-page="dashboardPage">📊Dashboard</li>
 
 </ul>
-<li class="menu-title collapsible" data-page="dashboard">📜 Bill Of Materials<span class="arrow">▾</span></li>
+<li class="menu-title collapsible" data-page="dashboard">📊 Bill Of Materials<span class="arrow">▾</span></li>
 <ul class="subgroup">
-<li class="submenu" data-page="dashboard">📋BOM</li>
+<li class="submenu" data-page="dashboard">📊BOM</li>
 
 </ul>
 <li class="menu-title collapsible">📈 Store <span class="arrow">▾</span></li>
@@ -569,8 +579,8 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 </section>
 
 
-<div id="dashboardPage" class="page" style="display:none">
-
+<section id="dashboardPage" class="page" style="display:none">
+   <h2>Dashboard</h3>
 <div class="dashboard-grid">
 
   <div class="dash-card">
@@ -588,21 +598,20 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
     <div id="dashLowStock">0</div>
   </div>
 
-  <div class="dash-card">
-    <h3>Total FG Balance</h3>
-    <div id="dashFGBalance">0</div>
-  </div>
+<div class="dash-card" onclick="openFGFromDashboard()" style="cursor:pointer">
+  <h3>Total FG Balance</h3>
+  <div id="dashFGBalance">0</div>
+</div>
 
-  <div class="dash-card">
-    <h3>FG Products</h3>
-    <div id="dashFGTotalProducts">0</div>
-  </div>
+<div class="dash-card" onclick="openFGFromDashboard()" style="cursor:pointer">
+  <h3>FG Products</h3>
+  <div id="dashFGTotalProducts">0</div>
+</div>
 
-  <div class="dash-card">
-    <h3>Low FG Stock</h3>
-    <div id="dashFGLowStock">0</div>
-  </div>
-
+<div class="dash-card" onclick="openLowFGFromDashboard()" style="cursor:pointer">
+  <h3>Low FG Stock</h3>
+  <div id="dashFGLowStock">0</div>
+</div>
   <div class="dash-card">
     <h3>Max FG Balance</h3>
     <div id="dashFGMaxBalance">-</div>
@@ -615,10 +624,15 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 
 </div>
 <div>
-<canvas id="fgStockChart" width="400" height="200"></canvas>
+<div id="fgVolumeFilter"
+     style="display:flex;gap:12px;flex-wrap:wrap;margin:10px 0;font-size:14px">
+
 </div>
+<div class="fg-chart-box">
+  <canvas id="fgStockChart"></canvas>
 </div>
 
+</section>
 
 
 
@@ -700,7 +714,7 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
     </label>
   </div>
 
-  <button class="btn admin-only" onclick="addRMProduct()">Add Product</button>
+  <button class="btn btn-add" onclick="addRMProduct()">Add Product</button>
 </section>
 
 
@@ -745,7 +759,7 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
             <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
                 <input id="newSupplierName" class="small" placeholder="Supplier Name">
                 <input id="newSupplierContact" class="small" placeholder="Contact Info">
-                <button id="addSupplierBtn" class="btn">Add Supplier</button>
+                <button id="addSupplierBtn" class="btn btn-add">Add Supplier</button>
             </div>
             <div style="margin-bottom:12px">
                 <input id="supplierSearch" class="search" placeholder="Search suppliers...">
@@ -883,7 +897,7 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 <input id="fgNewThreshold" class="small" type="number" placeholder="Low Stock Threshold">
 </div>
 
-  <button class="btn" onclick="addFGProduct()">Add FG Product</button>
+  <button class="btn btn-add" onclick="addFGProduct()">Add FG Product</button>
 
   <hr style="margin:20px 0">
 
@@ -891,18 +905,21 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 </section>
 
 <script>
-
-
+/* =========================
+   ✅ GLOBALS
+========================= */
+let selectedFGVolumes = new Set();
 let currentUser = null;
-const savedUser = localStorage.getItem('sms_currentUser');
-if (savedUser) {
-    currentUser = JSON.parse(savedUser);
-    document.getElementById('loginScreen').style.display = 'none';
-    document.querySelector('.app').style.display = 'flex';
-}
 
+const loginScreen = document.getElementById('loginScreen');
+const loginForm   = document.getElementById('loginForm');
+const signupForm  = document.getElementById('signupForm');
+const loginMsg    = document.getElementById('loginMsg');
+const signupMsg   = document.getElementById('signupMsg');
 
-/* 🔴 REPLACE WITH YOUR FIREBASE CONFIG */
+/* =========================
+   ✅ FIREBASE INIT
+========================= */
 const firebaseConfig = {
   apiKey: "AIzaSyBTtsOeQTpPwTEn_T9EDqt5i_0eyQuzGOA",
   authDomain: "stock-manager-703e6.firebaseapp.com",
@@ -915,102 +932,174 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-const cloudDB = firebase.database(); // Use the same variable as in your functions
-window.cloudDB = cloudDB;  
-console.log("✅ Firebase initialized");
-loadRenamedGroupsFromCloud();
+const cloudDB = firebase.database();
+window.cloudDB = cloudDB;
 
-
-async function ensureAdminExists() {
-    try {
-        const snapshot = await cloudDB.ref('users').orderByChild('role').equalTo('admin').once('value');
-        if(!snapshot.exists()) {
-            const userId = 'admin_' + Date.now().toString(36);
-            await cloudDB.ref('users/' + userId).set(DEFAULT_ADMIN);
-            console.log("Default admin created");
-        } else {
-            console.log("Admin already exists");
-        }
-    } catch(err) {
-        console.error("Error checking/creating admin:", err);
-    }
+/* =========================
+   ✅ UTILITIES
+========================= */
+function genId(){ return 'id_' + Date.now().toString(36) + '_' + Math.floor(Math.random()*1000); }
+function todayISO(){ return new Date().toISOString().split('T')[0]; }
+function fmtDate(iso){
+  if(!iso) return '-';
+  const p = String(iso).split('-');
+  return `${p[2]}/${p[1]}/${p[0]}`;
+}
+function escapeHtml(s){
+  if(s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+function normalizeGroup(g){
+  return String(g || '').trim().toUpperCase().replace(/\s+/g,'');
+}
+function showToast(message, isError=false){
+  const toast = document.getElementById('stockToast');
+  if(!toast) return;
+  toast.textContent = message;
+  toast.classList.toggle('out', isError);
+  toast.style.display = 'block';
+  requestAnimationFrame(()=> toast.style.opacity = '1');
+  setTimeout(()=>{
+    toast.style.opacity = '0';
+    setTimeout(()=> toast.style.display='none', 300);
+  }, 2000);
 }
 
-// Call this on app load
-ensureAdminExists();
+/* =========================
+   ✅ PAGE NAV
+========================= */
+function openPage(pageId){
+  document.querySelectorAll('.page').forEach(p=>p.style.display='none');
+  const el = document.getElementById(pageId);
+  if(el) el.style.display='block';
+  refreshAll();
 
-
-
-function applyPermissions() {
-    if (!currentUser) return;
-
-    const isAdmin = currentUser.role === 'admin';
-
-    document.querySelectorAll('.admin-only').forEach(el => {
-        // Use inline-block to make buttons appear properly
-        el.style.display = isAdmin ? 'inline-block' : 'none';
-    });
-
-    // Protect admin-only pages
-    if (!isAdmin && document.getElementById('userManagement').style.display === 'block') {
-        document.getElementById('userManagement').style.display = 'none';
-        document.getElementById('dashboard').style.display = 'block';
-    }
+  if(pageId === 'dashboardPage'){
+    renderMainDashboard();
+    renderFGVolumeFilter();
+    renderFGChart();
+  }
 }
 
-/* ==========================
-   🔐 ADVANCED LOGIN SYSTEM
-========================== */
+/* =========================
+   ✅ ADMIN DEFAULT USER
+========================= */
 const DEFAULT_ADMIN = {
-    username: "admin",
-    password: "admin123",  // change this after first login
-    role: "admin",
-    createdAt: new Date().toISOString()
+  username: "admin",
+  password: "admin123",
+  role: "admin",
+  permissionLevel: "full",
+  createdAt: new Date().toISOString()
 };
 
+async function ensureAdminExists(){
+  try{
+    const snap = await cloudDB.ref('users').orderByChild('role').equalTo('admin').once('value');
+    if(!snap.exists()){
+      const userId = 'admin_' + Date.now().toString(36);
+      await cloudDB.ref('users/' + userId).set(DEFAULT_ADMIN);
+      console.log("✅ Default admin created");
+    }
+  }catch(err){
+    console.error("❌ ensureAdminExists error:", err);
+  }
+}
+ensureAdminExists();
 
-// Show forms
-function showSignup(){ loginForm.style.display='none'; signupForm.style.display='block'; loginMsg.textContent=''; }
-function showLogin(){ loginForm.style.display='block'; signupForm.style.display='none'; signupMsg.textContent=''; }
+/* =========================
+   ✅ ROLE PERMISSIONS
+========================= */
+const ROLE_PERMISSIONS = {
+  full: { stockIn:true, stockOut:true,  add:true,  edit:true,  delete:true },
+  half: { stockIn:true, stockOut:true, add:true,  edit:true,  delete:false },
+  view: { stockIn:true, stockOut:true, add:false, edit:false, delete:false }
+};
 
-const loginForm = document.getElementById('loginForm');
-const signupForm = document.getElementById('signupForm');
-const loginMsg = document.getElementById('loginMsg');
-const signupMsg = document.getElementById('signupMsg');
+function getPerms(){
+  // ✅ Admin always has FULL power
+  if(currentUser?.role === 'admin') return ROLE_PERMISSIONS.full;
 
-async function signup() {
+  return ROLE_PERMISSIONS[currentUser?.permissionLevel] || ROLE_PERMISSIONS.view;
+}
+
+function canStockOut(){ return !!getPerms().stockOut; }
+function canAdd(){ return !!getPerms().add; }
+function canEdit(){ return !!getPerms().edit; }
+function canDelete(){ return !!getPerms().delete; }
+
+function showAdminUI(){
+  const isAdmin = currentUser?.role === 'admin';
+  document.querySelectorAll('.admin-only').forEach(el=>{
+    el.style.display = isAdmin ? '' : 'none';
+  });
+}
+
+function applyPermissions(){
+  showAdminUI();
+  const p = getPerms();
+
+  document.querySelectorAll('.btn-add').forEach(b => b.style.display = p.add ? 'inline-block' : 'none');
+  document.querySelectorAll('.btn-edit').forEach(b => b.style.display = p.edit ? 'inline-block' : 'none');
+  document.querySelectorAll('.btn-delete').forEach(b => b.style.display = p.delete ? 'inline-block' : 'none');
+  document.querySelectorAll('.btn-stock-out').forEach(b => b.style.display = p.stockOut ? 'inline-block' : 'none');
+}
+
+/* =========================
+   ✅ AUTH UI
+========================= */
+function showSignup(){
+  loginForm.style.display='none';
+  signupForm.style.display='block';
+  loginMsg.textContent='';
+}
+function showLogin(){
+  loginForm.style.display='block';
+  signupForm.style.display='none';
+  signupMsg.textContent='';
+}
+
+async function signup(){
   const u = signupUser.value.trim();
   const p = signupPass.value;
   const role = signupRole.value;
 
-  if(!u || !p) { signupMsg.textContent="Enter username & password"; return; }
+  if(!u || !p){ signupMsg.textContent="Enter username & password"; return; }
 
-  try {
-    const snapshot = await cloudDB.ref('users').orderByChild('username').equalTo(u).once('value');
-    if(snapshot.exists()){ signupMsg.textContent="Username already taken"; return; }
+  try{
+    const snap = await cloudDB.ref('users').orderByChild('username').equalTo(u).once('value');
+    if(snap.exists()){ signupMsg.textContent="Username already taken"; return; }
 
     const userId = 'u_'+Date.now().toString(36)+'_'+Math.floor(Math.random()*1000);
-    await cloudDB.ref('users/'+userId).set({username:u,password:p,role,createdAt:new Date().toISOString()});
+    await cloudDB.ref('users/'+userId).set({
+      username:u,
+      password:p,
+      role,
+      permissionLevel:'view',
+      createdAt:new Date().toISOString()
+    });
 
-    signupMsg.style.color="green"; signupMsg.textContent="Account created! Please login.";
+    signupMsg.style.color="green";
+    signupMsg.textContent="Account created! Please login.";
     showLogin();
-  } catch(err){
+  }catch(err){
     console.error(err);
     signupMsg.textContent="Signup failed";
   }
 }
 
-async function login() {
+async function login(){
   const u = loginUser.value.trim();
   const p = loginPass.value;
 
   if(!u || !p){ loginMsg.textContent="Enter username & password"; return; }
 
-  try {
-    const snapshot = await cloudDB.ref('users').orderByChild('username').equalTo(u).once('value');
-    if(!snapshot.exists()){ loginMsg.textContent="Invalid login"; return; }
+  try{
+    const snap = await cloudDB.ref('users').orderByChild('username').equalTo(u).once('value');
+    if(!snap.exists()){ loginMsg.textContent="Invalid login"; return; }
 
-    const userData = Object.values(snapshot.val())[0]; // get first match
+    const userData = Object.values(snap.val())[0];
     if(userData.password !== p){ loginMsg.textContent="Invalid login"; return; }
 
     currentUser = userData;
@@ -1018,22 +1107,21 @@ async function login() {
 
     loginScreen.style.display='none';
     document.querySelector('.app').style.display='flex';
+
     applyPermissions();
 
-    // Show Users page automatically if admin
-    if(currentUser.role === 'admin') {
-        document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
-        document.getElementById('userManagement').style.display = 'block';
-        renderUsersTable();
+    // ✅ Open correct page
+    if(currentUser.role === 'admin'){
+      openPage('userManagement');
+      renderUsersTable();
+    }else{
+      openPage('dashboardPage');
     }
 
-  } catch(err){
+  }catch(err){
     console.error(err);
     loginMsg.textContent="Login failed";
   }
-document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
-document.getElementById('dashboardPage').style.display = 'block';
-renderDashboardGrouped();
 }
 
 function logout(){
@@ -1041,805 +1129,434 @@ function logout(){
   location.reload();
 }
 
-async function addUser() {
-    const username = document.getElementById('newUsername').value.trim();
-    const password = document.getElementById('newPassword').value;
-    const role = document.getElementById('newRole').value;
+async function forgotPassword(){
+  const username = prompt("Enter your username to reset password:");
+  if(!username || !username.trim()) return;
 
-    if(!username || !password) {
-        alert("Enter username and password");
-        return;
-    }
+  try{
+    const snap = await cloudDB.ref('users').orderByChild('username').equalTo(username.trim()).once('value');
+    if(!snap.exists()){ alert("Username not found"); return; }
 
-    try {
-        // Check if username exists
-        const snapshot = await cloudDB.ref('users').orderByChild('username').equalTo(username).once('value');
-        if(snapshot.exists()) {
-            alert("Username already taken");
-            return;
-        }
+    const userId = Object.keys(snap.val())[0];
+    const userData = snap.val()[userId];
 
-        const userId = 'u_' + Date.now().toString(36) + '_' + Math.floor(Math.random()*1000);
-        await cloudDB.ref('users/' + userId).set({
-            username,
-            password,
-            role,
-            createdAt: new Date().toISOString()
-        });
+    const newPass = prompt(`Enter new password for "${userData.username}":`);
+    if(!newPass || !newPass.trim()) return alert("Password cannot be empty");
 
-        alert("User added successfully!");
-        // Optionally, clear inputs
-        document.getElementById('newUsername').value = '';
-        document.getElementById('newPassword').value = '';
-
-        // Refresh users table if you have a function for that
-        renderUsersTable();
-
-    } catch(err) {
-        console.error(err);
-        alert("Failed to add user");
-    }
+    await cloudDB.ref('users/'+userId+'/password').set(newPass.trim());
+    alert("Password reset success. Login with new password.");
+  }catch(err){
+    console.error(err);
+    alert("Failed to reset password");
+  }
 }
 
-async function forgotPassword() {
-    const username = prompt("Enter your username to reset password:");
-    if(!username || !username.trim()) return;
+/* =========================
+   ✅ USER MANAGEMENT
+========================= */
+function changeUserPermission(username, level){
+  if(currentUser?.role !== 'admin'){
+    showToast("Only admin can change roles", true);
+    return;
+  }
 
-    try {
-        const snapshot = await cloudDB.ref('users').orderByChild('username').equalTo(username.trim()).once('value');
-        if(!snapshot.exists()){
-            alert("Username not found");
-            return;
-        }
+  // ✅ Never allow changing ADMIN permission
+  if(username === 'admin'){
+    showToast("Admin permission cannot be changed", true);
+    return;
+  }
 
-        const userId = Object.keys(snapshot.val())[0];
-        const userData = snapshot.val()[userId];
-
-        // For simplicity, we just ask for a new password
-        const newPass = prompt(`Enter new password for "${userData.username}":`);
-        if(!newPass || !newPass.trim()) return alert("Password cannot be empty");
-
-        await cloudDB.ref('users/' + userId + '/password').set(newPass.trim());
-        alert("Password successfully reset. You can now login with the new password.");
-    } catch(err){
-        console.error(err);
-        alert("Failed to reset password");
-    }
-}
-
-// Delete a user (cannot delete admin)
-async function deleteUser(username) {
-    if(!confirm(`Are you sure you want to delete "${username}"?`)) return;
-
-    try {
-        const snapshot = await cloudDB.ref('users').orderByChild('username').equalTo(username).once('value');
-        if(!snapshot.exists()) return alert("User not found");
-
-        const userId = Object.keys(snapshot.val())[0];
-        const userData = snapshot.val()[userId];
-
-        if(userData.role === 'admin') return alert("Cannot delete admin");
-
-        await cloudDB.ref('users/' + userId).remove();
-        alert("User deleted successfully!");
-        renderUsersTable(); // refresh table
-    } catch(err) {
-        console.error(err);
-        alert("Failed to delete user");
-    }
-}
-
-// Render users table
-async function renderUsersTable() {
-    const tbody = document.querySelector('#usersTable tbody');
-    tbody.innerHTML = '';
-
-    const snapshot = await cloudDB.ref('users').once('value');
-    const users = snapshot.val() ? Object.values(snapshot.val()) : [];
-
-    users.forEach((u,i)=>{
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${i+1}</td>
-            <td>${u.username}</td>
-            <td>${u.role}</td>
-<td>
-  ${u.role !== 'admin' && currentUser.role==='admin' ? `<button class="btn out" onclick="deleteUser('${u.username}')">Delete</button>` : ''}
-</td>
-        `;
-        tbody.appendChild(tr);
+  cloudDB.ref('users').orderByChild('username').equalTo(username).once('value')
+    .then(snap=>{
+      if(!snap.exists()) return;
+      const userId = Object.keys(snap.val())[0];
+      cloudDB.ref('users/'+userId+'/permissionLevel').set(level);
+      showToast("User permission updated ✅");
     });
 }
 
+async function deleteUser(username){
+  if(!confirm(`Delete "${username}"?`)) return;
 
-// FULL JS LOGIC START
-const KEY_GROUP_ALIASES = 'sms_group_aliases_v1';
-let groupAliases = JSON.parse(localStorage.getItem(KEY_GROUP_ALIASES) || '{}');
+  try{
+    const snap = await cloudDB.ref('users').orderByChild('username').equalTo(username).once('value');
+    if(!snap.exists()) return alert("User not found");
 
-function saveGroupAliases() {
-    localStorage.setItem(KEY_GROUP_ALIASES, JSON.stringify(groupAliases));
+    const userId = Object.keys(snap.val())[0];
+    const userData = snap.val()[userId];
+    if(userData.role === 'admin') return alert("Cannot delete admin");
+
+    await cloudDB.ref('users/'+userId).remove();
+    showToast("User deleted ✅");
+    renderUsersTable();
+  }catch(err){
+    console.error(err);
+    alert("Failed to delete user");
+  }
 }
 
+async function renderUsersTable(){
+  const tbody = document.querySelector('#usersTable tbody');
+  if(!tbody) return;
+
+  tbody.innerHTML = '';
+  const snap = await cloudDB.ref('users').once('value');
+  const users = snap.val() ? Object.values(snap.val()) : [];
+
+  users.forEach((u,i)=>{
+    const tr = document.createElement('tr');
+    const perm = u.permissionLevel || 'view';
+
+const isAdminRow = (u.role === 'admin' || u.username === 'admin');
+
+tr.innerHTML = `
+  <td>${i+1}</td>
+  <td>${escapeHtml(u.username)}</td>
+  <td>
+    ${
+      isAdminRow
+        ? `<b>Full (Admin)</b>`
+        : (currentUser?.role === 'admin'
+            ? `
+              <select onchange="changeUserPermission('${escapeHtml(u.username)}', this.value)">
+                <option value="full" ${perm==='full'?'selected':''}>Full</option>
+                <option value="half" ${perm==='half'?'selected':''}>Half</option>
+                <option value="view" ${perm==='view'?'selected':''}>View</option>
+              </select>
+            `
+            : escapeHtml(perm)
+          )
+    }
+  </td>
+  <td>
+    ${
+      (!isAdminRow && currentUser?.role === 'admin')
+        ? `<button class="btn out" onclick="deleteUser('${escapeHtml(u.username)}')">Delete</button>`
+        : ''
+    }
+  </td>
+`;
+
+    tbody.appendChild(tr);
+  });
+} // ✅ IMPORTANT: THIS CLOSING BRACE WAS MISSING IN YOUR CODE
+
+/* =========================
+   ✅ LOCAL STORAGE DATA
+========================= */
 const KEY_PRODUCTS = 'sms_products_final_v1';
 const KEY_MOVES    = 'sms_movements_final_v1';
 
 let products = JSON.parse(localStorage.getItem(KEY_PRODUCTS) || '[]');
 let stockMovements = JSON.parse(localStorage.getItem(KEY_MOVES) || '[]');
 
-if (!products.length) {
-    products = [
-        {id:'p1', name:'Product A', category:'Cat1', threshold:5, groups:['Group1'], exclusive:true},
-        {id:'p2', name:'Product B', category:'Cat1', threshold:10, groups:['Group1','Group2'], exclusive:false},
-        {id:'p3', name:'Product C', category:'Cat2', threshold:8, groups:['Group2'], exclusive:true},
-        {id:'p4', name:'Product D', category:'Cat2', threshold:7, groups:['Group2','Group3'], exclusive:false},
-        {id:'p5', name:'Product E', category:'Cat3', threshold:12, groups:['Group3'], exclusive:true}
-    ];
-
-    stockMovements = [
-        {id:genId(), productId:'p1', type:'IN',  quantity:20,  date:todayISO()},
-        {id:genId(), productId:'p2', type:'IN',  quantity:15,  date:todayISO()},
-        {id:genId(), productId:'p3', type:'IN',  quantity:100, date:todayISO()}
-    ];
-
-    saveAll();
+function saveAll(){
+  localStorage.setItem(KEY_PRODUCTS, JSON.stringify(products));
+  localStorage.setItem(KEY_MOVES, JSON.stringify(stockMovements));
 }
 
-function saveAll(){localStorage.setItem(KEY_PRODUCTS,JSON.stringify(products));localStorage.setItem(KEY_MOVES,JSON.stringify(stockMovements));document.getElementById('status')&&(document.getElementById('status').textContent='Status: Local saved');}
-function genId(){return'id_'+Date.now().toString(36)+'_'+Math.floor(Math.random()*1000);}
-function todayISO(){return new Date().toISOString().split('T')[0];}
-function fmtDate(iso){if(!iso)return'-';const p=iso.split('-');return`${p[2]}/${p[1]}/${p[0]}`;}
-function escapeHtml(s){if(s==null)return'';return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function computeBalance(productId){
-    let bal=0;
-    stockMovements.forEach(m=>{
-        if(m.productId===productId){bal += m.type==='IN'? m.quantity : -m.quantity;}
-    });
-    return bal>0?bal:0;
+  let bal=0;
+  stockMovements.forEach(m=>{
+    if(m.productId===productId) bal += (m.type==='IN' ? Number(m.quantity||0) : -Number(m.quantity||0));
+  });
+  return bal>0 ? bal : 0;
 }
 
-function lastMovement(productId,type){
-    const moves = stockMovements.filter(m=>m.productId===productId && m.type===type);
-    if(!moves.length) return '-';
-    return moves[moves.length-1].date;
-}function populateCategoryFilter() {
-    const catSelect = document.getElementById('categoryFilter');
-    if(!catSelect) return;
-    const cats = [...new Set(products.map(p=>p.category).filter(c=>c))];
-    catSelect.innerHTML = '<option value="">All</option>';
-    cats.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.toLowerCase();
-        opt.textContent = c;
-        catSelect.appendChild(opt);
-    });
+function lastMovement(productId, type){
+  const moves = stockMovements.filter(m=>m.productId===productId && m.type===type);
+  if(!moves.length) return '-';
+  return moves[moves.length-1].date;
 }
 
+/* =========================
+   ✅ FG DATA
+========================= */
+let fgProducts  = JSON.parse(localStorage.getItem('sms_fg_products') || '[]');
+let fgMovements = JSON.parse(localStorage.getItem('sms_fg_movements') || '[]');
 
-function normalizeGroup(g){
-  return String(g || '')
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g,'');
+function saveFGLocal(){
+  localStorage.setItem('sms_fg_products', JSON.stringify(fgProducts));
+  localStorage.setItem('sms_fg_movements', JSON.stringify(fgMovements));
 }
 
-function getFGStock(groupName) {
-    const key = normalizeGroup(groupName);
-    let total = 0;
+function computeFGBalance(fgId){
+  return fgMovements.reduce((sum,m)=>{
+    if(m.fgId===fgId){
+      return sum + (m.type==='IN'? Number(m.qty||0) : -Number(m.qty||0));
+    }
+    return sum;
+  },0);
+}
 
-    fgProducts.forEach(fg => {
-        if (normalizeGroup(fg.group) === key) {
-            total += computeFGBalance(fg.id);
+function initFGVolumeSelection(){
+  if(selectedFGVolumes.size) return;
+  fgProducts.forEach(f=>{
+    const v = (f.volume||'').trim();
+    if(v) selectedFGVolumes.add(v);
+  });
+}
+
+/* =========================
+   ✅ DASHBOARD (MAIN CARDS)
+========================= */
+let fgChartInstance = null;
+
+function getFGLowStockCount(){
+  return fgProducts.filter(f => computeFGBalance(f.id) <= (Number(f.threshold ?? 5))).length;
+}
+
+function renderMainDashboard(){
+  const totalProductsEl = document.getElementById('dashTotalProducts');
+  const totalStockEl    = document.getElementById('dashTotalStock');
+  const lowStockEl      = document.getElementById('dashLowStock');
+  const fgBalanceEl     = document.getElementById('dashFGBalance');
+
+  const fgTotalEl       = document.getElementById('dashFGTotalProducts');
+  const fgLowEl         = document.getElementById('dashFGLowStock');
+  const fgMaxEl         = document.getElementById('dashFGMaxBalance');
+  const fgMinEl         = document.getElementById('dashFGMinBalance');
+
+  if(!totalProductsEl || !totalStockEl || !lowStockEl || !fgBalanceEl) return;
+
+  // RM
+  totalProductsEl.textContent = products.length;
+
+  let totalStock = 0;
+  let lowStock = 0;
+  products.forEach(p=>{
+    const bal = computeBalance(p.id);
+    totalStock += Number(bal)||0;
+    if((Number(bal)||0) <= (Number(p.threshold ?? 5))) lowStock++;
+  });
+
+  totalStockEl.textContent = totalStock;
+  lowStockEl.textContent = lowStock;
+
+  // FG
+  const fgTotal = fgProducts.reduce((sum,f)=> sum + computeFGBalance(f.id), 0);
+  fgBalanceEl.textContent = fgTotal;
+
+  if(fgTotalEl) fgTotalEl.textContent = fgProducts.length;
+  if(fgLowEl) fgLowEl.textContent = getFGLowStockCount();  // ✅ FIXED
+
+  if(fgMaxEl){
+    const maxFG = fgProducts.reduce((max, f)=>{
+      const bal = computeFGBalance(f.id);
+      return (bal > max.balance) ? {name:f.name, balance:bal} : max;
+    }, {name:'-', balance:-Infinity});
+    fgMaxEl.textContent = (maxFG.balance === -Infinity) ? '-' : `${maxFG.name} (${maxFG.balance})`;
+  }
+
+  if(fgMinEl){
+    const minFG = fgProducts.reduce((min, f)=>{
+      const bal = computeFGBalance(f.id);
+      return (bal < min.balance) ? {name:f.name, balance:bal} : min;
+    }, {name:'-', balance:Infinity});
+    fgMinEl.textContent = (minFG.balance === Infinity) ? '-' : `${minFG.name} (${minFG.balance})`;
+  }
+}
+
+/* =========================
+   ✅ FG FILTER + CHART
+========================= */
+function renderFGVolumeFilter(){
+  const wrap = document.getElementById('fgVolumeFilter');
+  if(!wrap) return;
+
+  const volumes = [...new Set(fgProducts.map(f=>(f.volume||'').trim()).filter(v=>v))].sort();
+  wrap.innerHTML = '';
+
+  // ✅ fallback: if nothing selected, select all
+  if(!selectedFGVolumes.size){
+    volumes.forEach(v=> selectedFGVolumes.add(v));
+  }
+
+  volumes.forEach(vol=>{
+    const label = document.createElement('label');
+    label.style.display = 'flex';
+    label.style.alignItems='center';
+    label.style.gap='4px';
+    label.style.cursor='pointer';
+
+    const checked = selectedFGVolumes.has(vol);
+
+    label.innerHTML = `
+      <input type="checkbox" ${checked ? 'checked':''}>
+      ${escapeHtml(vol)}
+    `;
+
+    label.querySelector('input').onchange = e=>{
+      if(e.target.checked) selectedFGVolumes.add(vol);
+      else selectedFGVolumes.delete(vol);
+
+      // if user unchecks all -> auto select all again
+      if(!selectedFGVolumes.size){
+        volumes.forEach(v=> selectedFGVolumes.add(v));
+        renderFGVolumeFilter();
+      }
+      renderFGChart();
+    };
+
+    wrap.appendChild(label);
+  });
+}
+
+function renderFGChart(){
+  const canvas = document.getElementById('fgStockChart');
+  if(!canvas) return;
+
+  const filteredFG = fgProducts.filter(f => selectedFGVolumes.has((f.volume||'').trim()));
+  const labels = filteredFG.map(f => (f.name||'').length>12 ? f.name.slice(0,12)+'…' : f.name);
+  const data   = filteredFG.map(f => computeFGBalance(f.id));
+
+  if(fgChartInstance) fgChartInstance.destroy();
+  if(!filteredFG.length) return;
+
+  fgChartInstance = new Chart(canvas, {
+    type:'bar',
+    data:{ labels, datasets:[{ data, borderRadius:8, barThickness:22, backgroundColor:'rgba(41,128,185,0.65)' }] },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:false },
+        tooltip:{
+          callbacks:{
+            title:(items)=> filteredFG[items[0].dataIndex].name,
+            label:(ctx)=> `Balance: ${ctx.raw}`
+          }
         }
-    });
-
-    return total;
-}
-
-
-// Render dashboard (products RAW only)
-// Load renamed groups from localStorage
-let renamedGroups = {};
-
-
-// Save renamed groups to localStorage
-function saveRenamedGroups() {
-    localStorage.setItem('renamedGroups', JSON.stringify(renamedGroups));
-}
-function searchDashboard() {
-    const searchTerm = document.getElementById('dashboardSearch').value.toLowerCase().trim();
-    renderDashboardGrouped(searchTerm);
-}
-function handleDashboardSearch(value){
-    dashboardSearchText = value.toLowerCase().trim();
-    selectedDashboardGroup = null;
-    renderDashboardGrouped();
-}
-
-
-
-let dashboardSearchText = "";
-let selectedDashboardGroup = null;
-let dashboardInitialized = false;
-
-// Dashboard rendering
-
-function renderDashboardGrouped(){
-
-    const tbody = document.querySelector('#dashTable tbody');
-    tbody.innerHTML = '';
-
-    // Show nothing until user searches
-    if (!dashboardSearchText && !selectedDashboardGroup) {
-        dashboardInitialized = false;
-        return;
+      },
+      scales:{ x:{ grid:{display:false} }, y:{ beginAtZero:true } }
     }
-
-    const groupsMap = {};
-
-    products.forEach(p=>{
-        if(!Array.isArray(p.groups)) return;
-        p.groups.forEach(g=>{
-            if(!groupsMap[g]) groupsMap[g] = [];
-            if(p.exclusive && p.groups[0] !== g) return;
-            groupsMap[g].push(p);
-        });
-    });
-
-    Object.keys(groupsMap).sort().forEach(groupName => {
-
-        const displayName = renamedGroups[groupName] || groupName;
-
-        const groupProducts = groupsMap[groupName].filter(p=>{
-            const name = p.name.toLowerCase();
-            const disp = displayName.toLowerCase();
-            return name.includes(dashboardSearchText) || disp.includes(dashboardSearchText);
-        });
-
-        if(!groupProducts.length) return;
-
-        // If one group is selected → hide others
-        if(selectedDashboardGroup && selectedDashboardGroup !== groupName) return;
-
-        const fgBalance = getFGStock(groupName);
-
-        const groupRow = document.createElement('tr');
-        groupRow.innerHTML = `
-            <td colspan="6" style="padding:18px;cursor:pointer"
-                onclick="selectDashboardGroup('${groupName}')">
-                <b>${displayName.toUpperCase()}</b>
-                <span style="margin-left:50px;color:green;font-weight:bold">
-                    FG BALANCE: ${fgBalance}
-                </span>
-                ${currentUser?.role === 'admin'
-                  ? `<button style="margin-left:15px" onclick="event.stopPropagation(); renameGroup('${groupName}')">Rename</button>`
-                  : ''}
-            </td>
-        `;
-        tbody.appendChild(groupRow);
-
-        // Only show products if this group is selected
-        if(selectedDashboardGroup === groupName){
-            groupProducts.forEach(p=>{
-                const bal = computeBalance(p.id);
-                tbody.insertAdjacentHTML('beforeend',`
-                    <tr>
-                        <td style="padding-left:25px">${p.name}</td>
-                        <td>${bal}</td>
-                        <td>${p.threshold}</td>
-                        <td>${lastMovement(p.id,'IN')}</td>
-                        <td>${lastMovement(p.id,'OUT')}</td>
-                        <td>
-                            <button class="btn secondary" onclick="openHistory('${p.id}')">View</button>
-                            <button class="btn" onclick="openStockModal('${p.id}','IN')">Add IN</button>
-                            <button class="btn" onclick="openStockModal('${p.id}','OUT')">Stock OUT</button>
-                        </td>
-                    </tr>
-                `);
-            });
-        }
-
-    });
-}
-let fgChartInstance = null; // Keep chart instance to update later
-
-function renderMainDashboard() {
-    // ----------------------------
-    // Elements
-    // ----------------------------
-    const totalProductsEl = document.getElementById('dashTotalProducts');
-    const totalStockEl = document.getElementById('dashTotalStock');
-    const lowStockEl = document.getElementById('dashLowStock');
-    const fgBalanceEl = document.getElementById('dashFGBalance');
-
-    const fgTotalEl = document.getElementById('dashFGTotalProducts');
-    const fgLowEl = document.getElementById('dashFGLowStock');
-    const fgMaxEl = document.getElementById('dashFGMaxBalance');
-    const fgMinEl = document.getElementById('dashFGMinBalance');
-    const fgChartEl = document.getElementById('fgStockChart');
-
-    if (!totalProductsEl || !totalStockEl || !lowStockEl || !fgBalanceEl) {
-        console.warn('Dashboard elements not found!');
-        return;
-    }
-
-    const safeProducts = Array.isArray(products) ? products : [];
-    const safeFGProducts = Array.isArray(fgProducts) ? fgProducts : [];
-
-    // ----------------------------
-    // Main Products
-    // ----------------------------
-    totalProductsEl.textContent = safeProducts.length;
-
-    let totalStock = 0;
-    let lowStock = 0;
-
-    safeProducts.forEach(p => {
-        const bal = typeof computeBalance === 'function' ? computeBalance(p.id) : 0;
-        const numericBal = Number(bal) || 0;
-        totalStock += numericBal;
-        if (numericBal <= (p.threshold ?? 5)) lowStock++;
-    });
-dashFGLowStock.textContent = getFGLowStockCount();
-
-    totalStockEl.textContent = totalStock;
-    lowStockEl.textContent = lowStock;
-
-    // ----------------------------
-    // Finished Goods Analysis
-    // ----------------------------
-const fgTotal = safeFGProducts.reduce(
-  (sum, f) => sum + computeFGBalance(f.id),
-  0
-);
-    fgBalanceEl.textContent = fgTotal;
-
-    if (fgTotalEl) fgTotalEl.textContent = safeFGProducts.length;
-
-    if (fgLowEl) {
-       const lowFG = safeFGProducts.filter(
-  f => computeFGBalance(f.id) <= (f.threshold ?? 5)
-);
-
-    }
-
-    if (fgMaxEl) {
-        const maxFG = safeFGProducts.reduce((max, f) => {
-  const bal = computeFGBalance(f.id);
-  return bal > max.balance ? { name: f.name, balance: bal } : max;
-}, { name: '-', balance: 0 });
-        fgMaxEl.textContent = `${maxFG.name} (${maxFG.balance})`;
-    }
-
-    if (fgMinEl) {
-        const minFG = safeFGProducts.reduce((min, f) => {
-  const bal = computeFGBalance(f.id);
-  return bal < min.balance ? { name: f.name, balance: bal } : min;
-}, { name: '-', balance: Infinity });
-        fgMinEl.textContent = minFG.balance === Infinity ? '-' : `${minFG.name} (${minFG.balance})`;
-    }
-
-    // ----------------------------
-    // FG Stock Chart
-    // ----------------------------
-    if (fgChartEl) {
-        const labels = safeFGProducts.map(f => f.name);
-        const data = safeFGProducts.map(f => Number(f.balance) || 0);
-
-        const chartData = {
-            labels: labels,
-            datasets: [{
-                label: 'FG Stock Balance',
-                data: data,
-                backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 1
-            }]
-        };
-
-        const chartOptions = {
-            responsive: true,
-            plugins: {
-                legend: { display: false },
-                tooltip: { enabled: true }
-            },
-            scales: {
-                y: { beginAtZero: true }
-            }
-        };
-
-        // Destroy previous chart if exists
-        if (fgChartInstance) fgChartInstance.destroy();
-
-        fgChartInstance = new Chart(fgChartEl, {
-            type: 'bar', // or 'pie'
-            data: chartData,
-            options: chartOptions
-        });
-    }
+  });
 }
 
-// Call after DOM is loaded
-window.addEventListener('DOMContentLoaded', renderMainDashboard);
-
-
-// Rename group **only for dashboard display**
-function renameGroup(groupName){
-    const newName = prompt('Enter new display name for "' + groupName + '"');
-    if(!newName) return;
-
-    renamedGroups[groupName] = newName;
-
-    localStorage.setItem('renamedGroups', JSON.stringify(renamedGroups));
-    saveRenamedGroupsToCloud();   // ☁️ SAVE TO CLOUD
-
-    renderDashboardGrouped();
-}
-
-function saveRenamedGroupsToCloud(){
-    cloudDB.ref('dashboardRenamedGroups').set(renamedGroups);
-}
-
-function loadRenamedGroupsFromCloud(){
-    cloudDB.ref('dashboardRenamedGroups').on('value', snap=>{
-        if(snap.exists()){
-            renamedGroups = snap.val();
-            localStorage.setItem('renamedGroups', JSON.stringify(renamedGroups));
-            renderDashboardGrouped();
-        }
-    });
-}
-
-
-
-// Add Supplier
-const KEY_SUPPLIERS = 'sms_suppliers_v1';
-let suppliers = JSON.parse(localStorage.getItem(KEY_SUPPLIERS) || '[]');
-
-const addSupplierBtn = document.getElementById('addSupplierBtn');
-if(addSupplierBtn){
-    addSupplierBtn.addEventListener('click', () => {
-        const name = document.getElementById('newSupplierName').value.trim();
-        const contact = document.getElementById('newSupplierContact').value.trim();
-        if(!name) return alert('Enter supplier name');
-
-        suppliers.push({ id: genId(), name, contact });
-        localStorage.setItem(KEY_SUPPLIERS, JSON.stringify(suppliers));
-
-        document.getElementById('newSupplierName').value = '';
-        document.getElementById('newSupplierContact').value = '';
-
-        renderSuppliersTable();
-    });
-}
-
-
-// Render Suppliers Table
-function renderSuppliersTable() {
-    const tbody = document.querySelector('#suppliersTable tbody');
-    if(!tbody) return;
-    tbody.innerHTML = '';
-    const search = (document.getElementById('supplierSearch').value || '').trim().toLowerCase();
-    suppliers.forEach((s,i) => {
-        if(search && !s.name.toLowerCase().includes(search) && !s.contact.toLowerCase().includes(search)) return;
-        tbody.insertAdjacentHTML('beforeend',`
-            <tr>
-                <td>${i+1}</td>
-                <td>${escapeHtml(s.name)}</td>
-                <td>${escapeHtml(s.contact)}</td>
-                <td><button class="btn secondary" onclick="editSupplier('${s.id}')">Edit</button></td>
-                <td><button class="btn secondary" onclick="deleteSupplier('${s.id}')">Delete</button></td>
-            </tr>
-        `);
-    });
-}
-
-// Edit Supplier
-function editSupplier(id){
-    const sup = suppliers.find(s => s.id === id);
-    if(!sup) return;
-    const newName = prompt("Edit supplier name:", sup.name);
-    if(newName===null) return;
-    const newContact = prompt("Edit contact info:", sup.contact || '');
-    if(newContact===null) return;
-    sup.name = newName.trim();
-    sup.contact = newContact.trim();
-    localStorage.setItem(KEY_SUPPLIERS, JSON.stringify(suppliers));
-    renderSuppliersTable();
-}
-
-// Delete Supplier
-function deleteSupplier(id){
-    if(!confirm("Delete this supplier?")) return;
-    suppliers = suppliers.filter(s => s.id !== id);
-    localStorage.setItem(KEY_SUPPLIERS, JSON.stringify(suppliers));
-    renderSuppliersTable();
-}
-
-// Supplier search
-const supplierSearch = document.getElementById('supplierSearch');
-if(supplierSearch){
-  supplierSearch.addEventListener('input', renderSuppliersTable);
-}
-
-
-
-function selectDashboardGroup(groupName){
-    selectedDashboardGroup = groupName;
-    renderDashboardGrouped();
-}
-
-
-
-
-
-
-// Render Table
-function renderFGStock() {
+/* =========================
+   ✅ FG PAGES
+========================= */
+function renderFGStock(){
   const tbody = document.querySelector('#fgTable tbody');
-  if (!tbody) return;
+  if(!tbody) return;
+  tbody.innerHTML='';
 
-  tbody.innerHTML = '';
-  const search = (document.getElementById('fgSearch').value || '')
-    .toLowerCase().trim();
+  const search = (document.getElementById('fgSearch')?.value || '').toLowerCase().trim();
+  const sorted = [...fgProducts].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
 
-  let index = 1;
-
-  // ✅ SORT FG PRODUCTS ALPHABETICALLY
-  const sortedFG = [...fgProducts].sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
-
-  sortedFG.forEach(p => {
-    const name = (p.name || '').toLowerCase();
-    if (search && !name.includes(search)) return;
-
+  let i=1;
+  sorted.forEach(p=>{
+    if(search && !(p.name||'').toLowerCase().includes(search)) return;
     const bal = computeFGBalance(p.id);
 
-    tbody.insertAdjacentHTML('beforeend', `
+    tbody.insertAdjacentHTML('beforeend',`
       <tr>
-        <td>${index++}</td>
+        <td>${i++}</td>
         <td>${escapeHtml(p.name)}</td>
-        <td>${escapeHtml(p.volume || '-')}</td>
+        <td>${escapeHtml(p.volume||'-')}</td>
         <td>${bal}</td>
         <td>
           <button class="btn info" onclick="viewFGHistory('${p.id}')">👁 View</button>
           ${currentUser?.role === 'admin' ? `
-            <button class="btn secondary" onclick="editFGProduct('${p.id}')">✏️ Edit</button>
-            <button class="btn out" onclick="deleteFGProduct('${p.id}')">🗑 Delete</button>
-          ` : ''}
+            <button class="btn secondary btn-edit" onclick="editFGProduct('${p.id}')">✏️ Edit</button>
+            <button class="btn out btn-delete" onclick="deleteFGProduct('${p.id}')">🗑 Delete</button>
+          `:''}
         </td>
+      </tr>
+    `);
+  });
+
+  applyPermissions();
+}
+
+function renderFGStockIn(){
+  const tbody = document.getElementById('fgStockInBody');
+  if(!tbody) return;
+  tbody.innerHTML='';
+
+  const search = (document.getElementById('fgInSearch')?.value || '').toLowerCase().trim();
+  const sorted = [...fgProducts].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+
+  let i=1;
+  sorted.forEach(p=>{
+    if(search && !(p.name||'').toLowerCase().includes(search)) return;
+    const bal = computeFGBalance(p.id);
+    tbody.insertAdjacentHTML('beforeend',`
+      <tr>
+        <td>${i++}</td>
+        <td>${escapeHtml(p.name)}</td>
+        <td>${bal}</td>
+        <td><button class="btn" onclick="openFGModal('${p.id}','IN')">Stock In</button></td>
       </tr>
     `);
   });
 }
 
-function fgStockInHistoryModal(){
-  const modal = document.getElementById('historyModal');
-  modal.style.display = 'flex';
+function renderFGStockOut(){
+  const tbody = document.getElementById('fgStockOutBody');
+  if(!tbody) return;
+  tbody.innerHTML='';
 
-  document.getElementById('modalTitle').textContent = 'FG Stock IN History';
+  const search = (document.getElementById('fgOutSearch')?.value || '').toLowerCase().trim();
+  const sorted = [...fgProducts].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
 
-  const tbody = document.getElementById('modalHistoryBody');
-  tbody.innerHTML = '';
+  let i=1;
+  sorted.forEach(p=>{
+    if(search && !(p.name||'').toLowerCase().includes(search)) return;
+    const bal = computeFGBalance(p.id);
+    tbody.insertAdjacentHTML('beforeend',`
+      <tr>
+        <td>${i++}</td>
+        <td>${escapeHtml(p.name)}</td>
+        <td>${bal}</td>
+        <td><button class="btn out btn-stock-out" onclick="openFGModal('${p.id}','OUT')">Stock Out</button></td>
+      </tr>
+    `);
+  });
 
-  fgMovements
-    .filter(m => m.type === 'IN')
-    .sort((a,b)=>new Date(b.date)-new Date(a.date))
-    .forEach(m=>{
-      const fg = fgProducts.find(f=>f.id===m.fgId);
-      if(!fg) return;
-
-      tbody.insertAdjacentHTML('beforeend',`
-        <tr>
-          <td>${fmtDate(m.date)}</td>
-          <td>${escapeHtml(fg.name)}</td> <!-- ✅ NAME -->
-          <td>IN</td>
-          <td>${m.qty}</td>
-          <td>${escapeHtml(m.batch || '-')}</td>
-          <td>${escapeHtml(m.expiry || '-')}</td>
-          <td>${escapeHtml(m.remark || '')}</td>
-        </tr>
-      `);
-    });
-}
-
-function fgStockOutHistoryModal(){
-  const modal = document.getElementById('historyModal');
-  modal.style.display = 'flex';
-
-  document.getElementById('modalTitle').textContent = 'FG Stock OUT History';
-
-  const tbody = document.getElementById('modalHistoryBody');
-  tbody.innerHTML = '';
-
-  fgMovements
-    .filter(m => m.type === 'OUT')
-    .sort((a,b)=>new Date(b.date)-new Date(a.date))
-    .forEach(m=>{
-      const fg = fgProducts.find(f=>f.id===m.fgId);
-      if(!fg) return;
-
-      tbody.insertAdjacentHTML('beforeend',`
-        <tr>
-          <td>${fmtDate(m.date)}</td>
-          <td>${escapeHtml(fg.name)}</td> <!-- ✅ NAME -->
-          <td>OUT</td>
-          <td>${m.qty}</td>
-          <td>${escapeHtml(m.batch || '-')}</td>
-          <td>${escapeHtml(m.expiry || '-')}</td>
-          <td>${escapeHtml(m.remark || '')}</td>
-        </tr>
-      `);
-    });
+  applyPermissions();
 }
 
 function viewFGHistory(fgId){
-  const fg = fgProducts.find(f => f.id === fgId);
+  const fg = fgProducts.find(f=>f.id===fgId);
   if(!fg) return;
 
   const modal = document.getElementById('historyModal');
-  modal.style.display = 'flex';
-
-  document.getElementById('modalTitle').textContent =
-    `FG History — ${fg.name}`;
+  modal.style.display='flex';
+  document.getElementById('modalTitle').textContent = `FG History — ${fg.name}`;
 
   const tbody = document.getElementById('modalHistoryBody');
-  tbody.innerHTML = '';
+  tbody.innerHTML='';
 
   fgMovements
-    .filter(m => m.fgId === fgId)
+    .filter(m=>m.fgId===fgId)
     .sort((a,b)=>new Date(b.date)-new Date(a.date))
     .forEach(m=>{
       tbody.insertAdjacentHTML('beforeend',`
         <tr>
           <td>${fmtDate(m.date)}</td>
           <td>${escapeHtml(fg.name)}</td>
-          <td>${m.type}</td>
-          <td>${m.qty}</td>
-          <td>${escapeHtml(m.batch || '-')}</td>
-          <td>${escapeHtml(m.expiry || '-')}</td>
-          <td>${escapeHtml(m.remark || '')}</td>
+          <td>${escapeHtml(m.type)}</td>
+          <td>${Number(m.qty||0)}</td>
+          <td>${escapeHtml(m.batch||'-')}</td>
+          <td>${escapeHtml(m.expiry||'-')}</td>
+          <td>${escapeHtml(m.remark||'')}</td>
         </tr>
       `);
     });
 }
 
-let fgMovements = JSON.parse(localStorage.getItem('sms_fg_movements') || '[]');
-
-function saveFGMovements(){
-  localStorage.setItem('sms_fg_movements', JSON.stringify(fgMovements));
-}
-function computeFGBalance(fgId){
-  return fgMovements.reduce((sum,m)=>{
-    if(m.fgId===fgId){
-      return sum + (m.type==='IN'? m.qty : -m.qty);
-    }
-    return sum;
-  },0);
-}
-/* ==========================
-   💾 FG LOCAL SAVE FUNCTION
-========================== */
-function saveFGLocal(){
-  localStorage.setItem('sms_fg_products', JSON.stringify(fgProducts));
-  localStorage.setItem('sms_fg_movements', JSON.stringify(fgMovements));
-}
-
-function renderFGStockIn(){
-  const tbody = document.getElementById('fgStockInBody');
-  if(!tbody) return;
-
-  tbody.innerHTML = '';
-  const search = (fgInSearch.value || '').toLowerCase();
-
-  // ✅ SORT ALPHABETICALLY
-  const sortedFG = [...fgProducts].sort((a,b)=>
-    a.name.localeCompare(b.name)
-  );
-
-  sortedFG.forEach((p,i)=>{
-    if(search && !p.name.toLowerCase().includes(search)) return;
-
-    const bal = computeFGBalance(p.id);
-
-    tbody.insertAdjacentHTML('beforeend',`
-      <tr>
-        <td>${i+1}</td>
-        <td>${escapeHtml(p.name)}</td>
-        <td>${bal}</td>
-        <td>
-          <button class="btn" onclick="openFGModal('${p.id}','IN')">
-            Stock In
-          </button>
-        </td>
-      </tr>
-    `);
-  });
-}
-function renderFGStockOut(){
-  const tbody = document.getElementById('fgStockOutBody');
-  if(!tbody) return;
-
-  tbody.innerHTML = '';
-  const search = (fgOutSearch.value || '').toLowerCase();
-
-  // ✅ SORT ALPHABETICALLY
-  const sortedFG = [...fgProducts].sort((a,b)=>
-    a.name.localeCompare(b.name)
-  );
-
-  sortedFG.forEach((p,i)=>{
-    if(search && !p.name.toLowerCase().includes(search)) return;
-
-    const bal = computeFGBalance(p.id);
-
-    tbody.insertAdjacentHTML('beforeend',`
-      <tr>
-        <td>${i+1}</td>
-        <td>${escapeHtml(p.name)}</td>
-        <td>${bal}</td>
-        <td>
-          <button class="btn out" onclick="openFGModal('${p.id}','OUT')">
-            Stock Out
-          </button>
-        </td>
-      </tr>
-    `);
-  });
-}
-
-function openFGModal(fgId,type){
-  const fg = fgProducts.find(f=>f.id===fgId);
-  if(!fg) return;
-
-document.getElementById('modalProductName').textContent = fg.name;
-  document.getElementById('modalProductBalance').textContent = computeFGBalance(fgId);
-  stockModal.style.display='flex';
-
-  modalSave.onclick = ()=>{
-    const qty = Number(modalQty.value);
-    const remark = modalRemark.value.trim();
-
-    if(qty<=0) return alert("Invalid qty");
-    if(type==='OUT' && qty > computeFGBalance(fgId))
-      return alert("Exceeds balance");
-
-    fgMovements.push({
-      id: genId(),
-      fgId,
-      type,
-      qty,
-      batch: fg.batch,
-      expiry: fg.expiry,
-      date: todayISO(),
-      remark
-    });
-
-    saveFGLocal();
-    autoPushFGToCloud();
-    closeModal();
-    refreshAll();
-  };
-}
-function normalizeGroup(g){
-  return String(g || '')
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g,'');
-}
 function addFGProduct(){
+  if(!canAdd()){ showToast("No permission to add", true); return; }
+
   const name = fgNewName.value.trim();
   const rawGroup = fgNewGroup.value.trim();
-
-  if(!name || !rawGroup){
-    showToast("Name & Group required", true);
-    return;
-  }
+  if(!name || !rawGroup){ showToast("Name & Group required", true); return; }
 
   const group = normalizeGroup(rawGroup);
 
   fgProducts.push({
-    id: 'fg_' + genId(),
+    id:'fg_' + genId(),
     name,
     group,
     volume: fgNewVolume.value.trim(),
@@ -1852,111 +1569,357 @@ function addFGProduct(){
   autoPushFGToCloud();
   refreshAll();
 
-  // ✅ CLEAR INPUTS
-  fgNewName.value = '';
-  fgNewVolume.value = '';
-  fgNewGroup.value = '';
-  fgNewBatch.value = '';
-  fgNewExpiry.value = '';
-  fgNewThreshold.value = '';
+  fgNewName.value=''; fgNewVolume.value=''; fgNewGroup.value=''; fgNewBatch.value='';
+  fgNewExpiry.value=''; fgNewThreshold.value='';
 
-  // ✅ SUCCESS TOAST
-  showToast("FG product added successfully ✅");
+  showToast("FG product added ✅");
 }
 
-function renderFGHistory(){
-  const tbody = document.getElementById('fgHistoryBody');
+function editFGProduct(fgId){
+  if(!canEdit()){ showToast("No permission to edit", true); return; }
+
+  const fg = fgProducts.find(f=>f.id===fgId);
+  if(!fg) return;
+
+  const newName = prompt("Edit Product Name:", fg.name);
+  if(newName===null || !newName.trim()) return;
+
+  const newVolume = prompt("Edit Volume / Size:", fg.volume || '');
+  if(newVolume===null) return;
+
+  const newGroup = prompt("Edit Group Prefix:", fg.group || '');
+  if(newGroup===null || !newGroup.trim()) return;
+
+  const newBatch = prompt("Edit Batch / Lot No:", fg.batch || '');
+  if(newBatch===null) return;
+
+  const newExpiry = prompt("Edit Expiry Date (YYYY-MM-DD):", fg.expiry || '');
+  if(newExpiry===null) return;
+
+  const newThreshold = prompt("Edit Low Stock Threshold:", fg.threshold ?? 5);
+  if(newThreshold===null || isNaN(newThreshold)) return;
+
+  fg.name = newName.trim();
+  fg.volume = newVolume.trim();
+  fg.group = normalizeGroup(newGroup);
+  fg.batch = newBatch.trim();
+  fg.expiry = newExpiry.trim();
+  fg.threshold = Number(newThreshold);
+
+  saveFGLocal();
+  autoPushFGToCloud();
+  refreshAll();
+
+  showToast("FG updated ✅");
+}
+
+function deleteFGProduct(fgId){
+  if(!canDelete()){ showToast("No permission to delete", true); return; }
+
+  const fg = fgProducts.find(f=>f.id===fgId);
+  if(!fg) return;
+
+  if(!confirm(`Delete FG "${fg.name}"? (History also deleted)`)) return;
+
+  fgProducts = fgProducts.filter(f=>f.id!==fgId);
+  fgMovements = fgMovements.filter(m=>m.fgId!==fgId);
+
+  saveFGLocal();
+  autoPushFGToCloud();
+  refreshAll();
+
+  showToast("FG deleted ✅");
+}
+
+/* =========================
+   ✅ RM PAGES
+========================= */
+function renderProductsTable(){
+  const tbody = document.querySelector('#productsTable tbody');
   if(!tbody) return;
   tbody.innerHTML='';
 
-  fgMovements
+  const localSearch = (document.getElementById('productSearch')?.value || '').trim().toLowerCase();
+
+  let i=1;
+  products.forEach(p=>{
+    const name = (p.name||'').toLowerCase();
+    const cat  = (p.category||'').toLowerCase();
+    if(localSearch && !name.includes(localSearch) && !cat.includes(localSearch)) return;
+
+    const bal = computeBalance(p.id);
+
+    tbody.insertAdjacentHTML('beforeend',`
+      <tr>
+        <td>${i++}</td>
+        <td>${escapeHtml(p.code||'')}</td>
+        <td>${escapeHtml(p.name||'')}</td>
+        <td>${escapeHtml(p.category||'')}</td>
+        <td>${bal}</td>
+        <td>${Number(p.threshold ?? 5)}</td>
+        <td>${escapeHtml(p.barcode||'')}</td>
+        <td><button class="btn secondary" onclick="openHistory('${p.id}')">History</button></td>
+        <td><button class="btn secondary btn-edit admin-only" onclick="editProduct('${p.id}')">Edit</button></td>
+        <td><button class="btn secondary btn-delete admin-only" onclick="deleteProduct('${p.id}')">Delete</button></td>
+      </tr>
+    `);
+  });
+
+  applyPermissions();
+}
+
+function renderStockIn(){
+  const tbody = document.querySelector('#stockInBody tbody');
+  if(!tbody) return;
+  tbody.innerHTML='';
+
+  const search = (document.getElementById('inSearch')?.value || '').toLowerCase().trim();
+
+  products.forEach(p=>{
+    if(search && !(p.name||'').toLowerCase().includes(search)) return;
+    const bal = computeBalance(p.id);
+    tbody.insertAdjacentHTML('beforeend',`
+      <tr>
+        <td>${escapeHtml(p.name||'')}</td>
+        <td>${bal}</td>
+        <td>${lastMovement(p.id,'IN')}</td>
+        <td><button class="btn" onclick="openStockModal('${p.id}','IN')">Stock In</button></td>
+      </tr>
+    `);
+  });
+}
+
+function renderStockOut(){
+  const tbody = document.querySelector('#stockOutBody tbody');
+  if(!tbody) return;
+  tbody.innerHTML='';
+
+  const search = (document.getElementById('outSearch')?.value || '').toLowerCase().trim();
+
+  products.forEach(p=>{
+    if(search && !(p.name||'').toLowerCase().includes(search)) return;
+    const bal = computeBalance(p.id);
+    tbody.insertAdjacentHTML('beforeend',`
+      <tr>
+        <td>${escapeHtml(p.name||'')}</td>
+        <td>${bal}</td>
+        <td>${lastMovement(p.id,'OUT')}</td>
+        <td><button class="btn out btn-stock-out" onclick="openStockModal('${p.id}','OUT')">Stock Out</button></td>
+      </tr>
+    `);
+  });
+
+  applyPermissions();
+}
+
+function renderCombinedHistory(){
+  const tbody = document.querySelector('#historyTable tbody');
+  if(!tbody) return;
+  tbody.innerHTML='';
+
+  const search = (document.getElementById('historySearch')?.value || '').toLowerCase().trim();
+
+  stockMovements
     .slice()
     .sort((a,b)=>new Date(b.date)-new Date(a.date))
     .forEach(m=>{
-      const fg = fgProducts.find(f=>f.id===m.fgId);
-      if(!fg) return;
+      const prod = products.find(p=>p.id===m.productId);
+      if(!prod) return;
+
+      const okSearch =
+        !search ||
+        (prod.name||'').toLowerCase().includes(search) ||
+        (m.remark||'').toLowerCase().includes(search);
+
+      if(!okSearch) return;
 
       tbody.insertAdjacentHTML('beforeend',`
         <tr>
           <td>${fmtDate(m.date)}</td>
-          <td>${escapeHtml(fg.name)}</td>
-          <td>${m.type}</td>
-          <td>${m.qty}</td>
-          <td>${m.batch||'-'}</td>
-          <td>${m.expiry||'-'}</td>
+          <td>${escapeHtml(prod.name||'')}</td>
+          <td>${escapeHtml(m.type||'')}</td>
+          <td>${Number(m.quantity||0)}</td>
           <td>${escapeHtml(m.remark||'')}</td>
         </tr>
       `);
     });
 }
-function getFGLowStockCount(){
-  return fgProducts.filter(f=>computeFGBalance(f.id)<=f.threshold).length;
-}
-function editFGProduct(fgId){
-  const fg = fgProducts.find(f => f.id === fgId);
-  if (!fg) return;
 
-  const newName = prompt("Edit Product Name:", fg.name);
-  if (newName === null || !newName.trim()) return;
+/* =========================
+   ✅ MODALS (RM + FG)
+========================= */
+let modalCurrent = null;
 
-  const newVolume = prompt("Edit Volume / Size:", fg.volume || '');
-  if (newVolume === null) return;
-
-const newGroup = prompt(
-  "Edit Group Prefix:",
-  fg.group || ''
-);
-
-  if (newGroup === null || !newGroup.trim()) return;
-
-  const newBatch = prompt("Edit Batch / Lot No:", fg.batch || '');
-  if (newBatch === null) return;
-
-  const newExpiry = prompt("Edit Expiry Date (YYYY-MM-DD):", fg.expiry || '');
-  if (newExpiry === null) return;
-
-  const newThreshold = prompt("Edit Low Stock Threshold:", fg.threshold || 5);
-  if (newThreshold === null || isNaN(newThreshold)) return;
-
-  fg.name = newName.trim();
-  fg.volume = newVolume.trim();
-  fg.batch = newBatch.trim();
-  fg.expiry = newExpiry.trim();
-  fg.threshold = Number(newThreshold);
-  fg.group = newGroup.trim().toUpperCase();
-
-
-  saveFGLocal();
-  autoPushFGToCloud();
-  refreshAll();
-}
-function deleteFGProduct(fgId){
-  const fg = fgProducts.find(f => f.id === fgId);
-  if (!fg) return;
-
-  if (!confirm(`Delete FG product "${fg.name}"?\nThis will also delete its stock history.`)) {
+function openStockModal(productId, type){
+  // ✅ permission BEFORE opening
+  if(type === 'OUT' && !canStockOut()){
+    showToast("Stock OUT not allowed for your role", true);
     return;
   }
 
-  // Remove product
-  fgProducts = fgProducts.filter(f => f.id !== fgId);
+  modalCurrent = { productId, type };
+  const prod = products.find(p=>p.id===productId);
+  if(!prod) return;
 
-  // Remove related movements
-  fgMovements = fgMovements.filter(m => m.fgId !== fgId);
+  document.getElementById('modalProductName').textContent = prod.name;
+  document.getElementById('modalProductBalance').textContent = computeBalance(productId);
+  document.getElementById('modalQty').value = '';
+  document.getElementById('modalRemark').value = '';
 
-  saveFGLocal();
-  autoPushFGToCloud();
-  refreshAll();
+  document.getElementById('stockModal').style.display = 'flex';
+
+  document.getElementById('modalSave').onclick = ()=>{
+    const qty = Number(document.getElementById('modalQty').value);
+    const remark = document.getElementById('modalRemark').value.trim();
+
+    if(qty <= 0){ showToast("Invalid quantity", true); return; }
+    if(type==='OUT' && qty > computeBalance(productId)){ showToast("Quantity exceeds balance", true); return; }
+
+    stockMovements.push({ id:genId(), productId, type, quantity:qty, date:todayISO(), remark });
+    saveAll();
+    autoPushToCloud();
+    closeModal();
+    refreshAll();
+    showToast(`RM Stock ${type==='IN'?'added':'removed'} ✅`);
+  };
 }
 
-function getFGExpiringSoon(days=30){
-  const now = new Date();
-  return fgProducts.filter(f=>{
-    if(!f.expiry) return false;
-    const diff = (new Date(f.expiry)-now)/(1000*60*60*24);
-    return diff<=days;
-  }).length;
+function openFGModal(fgId, type){
+  // ✅ permission BEFORE opening
+  if(type === 'OUT' && !canStockOut()){
+    showToast("Stock OUT not allowed for your role", true);
+    return;
+  }
+
+  const fg = fgProducts.find(f=>f.id===fgId);
+  if(!fg) return;
+
+  document.getElementById('modalProductName').textContent = fg.name;
+  document.getElementById('modalProductBalance').textContent = computeFGBalance(fgId);
+  document.getElementById('modalQty').value = '';
+  document.getElementById('modalRemark').value = '';
+  document.getElementById('stockModal').style.display = 'flex';
+
+  document.getElementById('modalSave').onclick = ()=>{
+    const qty = Number(document.getElementById('modalQty').value);
+    const remark = document.getElementById('modalRemark').value.trim();
+
+    if(qty <= 0){ showToast("Invalid quantity", true); return; }
+    if(type==='OUT' && qty > computeFGBalance(fgId)){ showToast("Quantity exceeds FG balance", true); return; }
+
+    fgMovements.push({
+      id:genId(),
+      fgId,
+      type,
+      qty,
+      batch: fg.batch || '',
+      expiry: fg.expiry || '',
+      date: todayISO(),
+      remark
+    });
+
+    saveFGLocal();
+    autoPushFGToCloud();
+    closeModal();
+    refreshAll();
+    showToast(`FG Stock ${type==='IN'?'added':'removed'} ✅`);
+  };
 }
+
+function closeModal(){
+  document.getElementById('stockModal').style.display='none';
+  modalCurrent = null;
+}
+
+/* ✅ RM history modal fixed to match your table columns */
+function openHistory(productId){
+  const prod = products.find(p=>p.id===productId);
+  if(!prod) return;
+
+  const modal = document.getElementById('historyModal');
+  modal.style.display='flex';
+
+  document.getElementById('modalTitle').textContent = `RM History — ${prod.name}`;
+
+  const tbody = document.getElementById('modalHistoryBody');
+  tbody.innerHTML='';
+
+  stockMovements
+    .filter(m=>m.productId===productId)
+    .sort((a,b)=>new Date(b.date)-new Date(a.date))
+    .forEach(m=>{
+      tbody.insertAdjacentHTML('beforeend',`
+        <tr>
+          <td>${fmtDate(m.date)}</td>
+          <td>${escapeHtml(prod.name)}</td>
+          <td>${escapeHtml(m.type)}</td>
+          <td>${Number(m.quantity||0)}</td>
+          <td>-</td>
+          <td>-</td>
+          <td>${escapeHtml(m.remark||'')}</td>
+        </tr>
+      `);
+    });
+}
+
+function closeHistoryModal(){
+  document.getElementById('historyModal').style.display='none';
+}
+
+/* =========================
+   ✅ STOCK IN/OUT HISTORY POPUPS
+========================= */
+function stockInHistoryModal(){
+  const modal=document.getElementById('stockInHistoryModal');
+  modal.style.display='flex';
+  const tbody=document.getElementById('stockInHistoryPopupBody');
+  tbody.innerHTML='';
+
+  stockMovements
+    .filter(m=>m.type==='IN')
+    .sort((a,b)=>new Date(b.date)-new Date(a.date))
+    .forEach(m=>{
+      const prod = products.find(p=>p.id===m.productId);
+      if(!prod) return;
+      tbody.insertAdjacentHTML('beforeend',`
+        <tr>
+          <td>${fmtDate(m.date)}</td>
+          <td>${escapeHtml(prod.name)}</td>
+          <td>${Number(m.quantity||0)}</td>
+          <td>${escapeHtml(m.remark||'')}</td>
+        </tr>
+      `);
+    });
+}
+function closeStockInHistory(){ document.getElementById('stockInHistoryModal').style.display='none'; }
+
+function stockOutHistoryModal(){
+  const modal=document.getElementById('stockOutHistoryModal');
+  modal.style.display='flex';
+  const tbody=document.getElementById('stockOutHistoryPopupBody');
+  tbody.innerHTML='';
+
+  stockMovements
+    .filter(m=>m.type==='OUT')
+    .sort((a,b)=>new Date(b.date)-new Date(a.date))
+    .forEach(m=>{
+      const prod = products.find(p=>p.id===m.productId);
+      if(!prod) return;
+      tbody.insertAdjacentHTML('beforeend',`
+        <tr>
+          <td>${fmtDate(m.date)}</td>
+          <td>${escapeHtml(prod.name)}</td>
+          <td>${Number(m.quantity||0)}</td>
+          <td>${escapeHtml(m.remark||'')}</td>
+        </tr>
+      `);
+    });
+}
+function closeStockOutHistory(){ document.getElementById('stockOutHistoryModal').style.display='none'; }
+
+/* =========================
+   ✅ FG CLOUD SYNC
+========================= */
 function autoPushFGToCloud(){
   if(!cloudDB) return;
   cloudDB.ref('fgManager').set({
@@ -1965,743 +1928,249 @@ function autoPushFGToCloud(){
     syncedAt: new Date().toISOString()
   });
 }
-
 function autoPullFGFromCloud(){
   if(!cloudDB) return;
-
   cloudDB.ref('fgManager').once('value').then(snap=>{
     if(!snap.exists()) return;
-
     fgProducts = snap.val().products || [];
     fgMovements = snap.val().movements || [];
-
     saveFGLocal();
-
-    // 🔥 FORCE BOM & DASHBOARD UPDATE
-    renderDashboardGrouped();
-    renderMainDashboard();
+    initFGVolumeSelection();
+    refreshAll();
   });
 }
 
+/* =========================
+   ✅ RM CLOUD SYNC
+========================= */
+function autoPullFromCloud(){
+  if(!cloudDB) return;
 
-window.addEventListener('load', autoPullFGFromCloud);
-let fgProducts = JSON.parse(localStorage.getItem('sms_fg_products') || '[]');
-
-// Search input
-document.getElementById('fgSearch').addEventListener('input', renderFGStock);
-
-// Show Modal for daily stock
-function showModal(id){
-    const product = fgProducts.find(p=>p.id===id);
-    if(!product) return;
-
-    document.getElementById('fgModalTitle').innerText = product.name;
-    const modalHead = document.getElementById('modalHead');
-    const modalBody = document.getElementById('modalBody');
-
-    modalHead.innerHTML = '<th>Date</th><th>Stock</th>';
-    modalBody.innerHTML = '';
-
-    Object.entries(product.dailyStock).forEach(([date, val])=>{
-        modalBody.insertAdjacentHTML('beforeend', `<tr><td>${date}</td><td>${val}</td></tr>`);
-    });
-
-    document.getElementById('fgModal').style.display = 'flex';
+  cloudDB.ref("stockManager").once("value")
+    .then(snapshot=>{
+      const data = snapshot.val();
+      if(!data) return;
+      products = data.products || [];
+      stockMovements = data.stockMovements || [];
+      saveAll();
+      refreshAll();
+    })
+    .catch(err=> console.error("Auto pull failed:", err));
+}
+function autoPushToCloud(){
+  if(!cloudDB) return;
+  cloudDB.ref("stockManager").set({
+    products,
+    stockMovements,
+    syncedAt: new Date().toISOString()
+  });
 }
 
-// Helper
-function escapeHtml(text){
-    return text.replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+/* =========================
+   ✅ EVENTS / MENU / INIT
+========================= */
+// Sidebar collapsible
+document.querySelectorAll('.menu-title.collapsible').forEach(m=>{
+  m.addEventListener('click', ()=>{
+    m.classList.toggle('open');
+    m.nextElementSibling?.classList.toggle('open');
+  });
+});
+
+// submenu navigation
+document.querySelectorAll('.submenu').forEach(sm=>{
+  sm.addEventListener('click', ()=>{
+    const page = sm.dataset.page;
+    const action = sm.dataset.action;
+    if(page) openPage(page);
+    if(action && typeof window[action]==='function') window[action]();
+  });
+});
+
+// Searches
+document.getElementById('productSearch')?.addEventListener('input', renderProductsTable);
+document.getElementById('inSearch')?.addEventListener('input', renderStockIn);
+document.getElementById('outSearch')?.addEventListener('input', renderStockOut);
+document.getElementById('historySearch')?.addEventListener('input', renderCombinedHistory);
+document.getElementById('fgSearch')?.addEventListener('input', renderFGStock);
+document.getElementById('fgInSearch')?.addEventListener('input', renderFGStockIn);
+document.getElementById('fgOutSearch')?.addEventListener('input', renderFGStockOut);
+
+// Sidebar toggle
+const sidebarToggle = document.getElementById('sidebarToggle');
+const sidebar = document.getElementById('sidebar');
+const mainWrap = document.querySelector('.main');
+
+if(sidebarToggle && sidebar){
+  sidebarToggle.addEventListener('click', ()=>{
+    sidebar.classList.toggle('minimized');
+    if(mainWrap) mainWrap.classList.toggle('sidebar-minimized');
+    sidebarToggle.textContent = sidebar.classList.contains('minimized') ? '→' : '←';
+  });
 }
 
-function renderProductsTable() {
-    const tbody = document.querySelector('#productsTable tbody');
-    if (!tbody) return;
-
-    // Clear previous rows  🔥 THIS FIXES MOST OF YOUR ISSUE
-    tbody.innerHTML = '';
-
-    const globalSearchEl = document.getElementById('globalSearch');
-    const productSearchEl = document.getElementById('productSearch');
-
-    const globalSearch = globalSearchEl ? globalSearchEl.value.trim().toLowerCase() : '';
-    const localSearch  = productSearchEl ? productSearchEl.value.trim().toLowerCase() : '';
-
-    let index = 1;
-
-    products.forEach(p => {
-        const name = p.name.toLowerCase();
-        const cat  = (p.category || '').toLowerCase();
-
-        if (
-            (localSearch  && !name.includes(localSearch)  && !cat.includes(localSearch)) ||
-            (globalSearch && !name.includes(globalSearch) && !cat.includes(globalSearch))
-        ) return;
-
-        const bal = computeBalance(p.id);
-
-        tbody.insertAdjacentHTML('beforeend', `
-            <tr>
-                <td>${index++}</td>
-                <td>${escapeHtml(p.code || '')}</td>
-                <td>${escapeHtml(p.name)}</td>
-                <td>${escapeHtml(p.category)}</td>
-                <td>${bal}</td>
-                <td>${p.threshold || 5}</td>
-                <td>${escapeHtml(p.barcode || '')}</td>
-                <td><button class="btn secondary" onclick="openHistory('${p.id}')">History</button></td>
-                <td><button class="btn secondary admin-only" onclick="editProduct('${p.id}')">Edit</button></td>
-                <td><button class="btn secondary admin-only" onclick="deleteProduct('${p.id}')">Delete</button></td>
-            </tr>
-        `);
-    });
-applyPermissions();
-
+// ✅ session restore
+const savedUser = localStorage.getItem('sms_currentUser');
+if(savedUser){
+  currentUser = JSON.parse(savedUser);
+  loginScreen.style.display='none';
+  document.querySelector('.app').style.display='flex';
+  applyPermissions();
+  openPage('dashboardPage');
 }
-function addRMProduct(){
-  const code = newCode.value.trim();
-  const name = newName.value.trim();
-  const category = newCategory.value.trim();
-  const threshold = Number(newThreshold.value || 5);
-  const barcode = newBarcode.value.trim();
-  const groups = newGroups.value
-    .split(',')
-    .map(g => g.trim())
-    .filter(Boolean);
-  const exclusive = newExclusive.checked;
 
-  if(!name){
-    alert("Product name required");
+// ✅ Initial pulls
+window.addEventListener('load', ()=>{
+  initFGVolumeSelection();
+  autoPullFGFromCloud();
+  autoPullFromCloud();
+  refreshAll();
+});
+let dashboardSearchText = "";
+let selectedDashboardGroup = null;
+
+// renamed group display names (cloud + local)
+let renamedGroups = JSON.parse(localStorage.getItem('renamedGroups') || '{}');
+
+function handleDashboardSearch(value){
+  dashboardSearchText = (value || "").toLowerCase().trim();
+  selectedDashboardGroup = null;
+  renderDashboardGrouped();
+}
+
+function selectDashboardGroup(groupName){
+  selectedDashboardGroup = groupName;
+  renderDashboardGrouped();
+}
+
+function getFGStock(groupName){
+  const key = normalizeGroup(groupName);
+  let total = 0;
+  fgProducts.forEach(fg=>{
+    if(normalizeGroup(fg.group) === key){
+      total += computeFGBalance(fg.id);
+    }
+  });
+  return total;
+}
+
+function renameGroup(groupName){
+  if(currentUser?.role !== 'admin'){
+    showToast("Only admin can rename groups", true);
     return;
   }
+  const newName = prompt(`Enter new display name for "${groupName}"`, renamedGroups[groupName] || groupName);
+  if(!newName) return;
 
-  products.push({
-    id: genId(),
-    code,
-    name,
-    category,
-    threshold,
-    barcode,
-    groups,
-    exclusive
+  renamedGroups[groupName] = newName.trim();
+  localStorage.setItem('renamedGroups', JSON.stringify(renamedGroups));
+  saveRenamedGroupsToCloud();
+  renderDashboardGrouped();
+}
+
+function saveRenamedGroupsToCloud(){
+  if(!window.cloudDB) return;
+  cloudDB.ref("dashboardRenamedGroups").set(renamedGroups);
+}
+
+function loadRenamedGroupsFromCloud(){
+  if(!window.cloudDB) return;
+  cloudDB.ref("dashboardRenamedGroups").once("value").then(snap=>{
+    if(snap.exists()){
+      renamedGroups = snap.val() || {};
+      localStorage.setItem('renamedGroups', JSON.stringify(renamedGroups));
+      renderDashboardGrouped();
+    }
+  });
+}
+
+// ✅ grouped BOM render
+function renderDashboardGrouped(){
+  const tbody = document.querySelector('#dashTable tbody');
+  if(!tbody) return;
+  tbody.innerHTML = '';
+
+  // if nothing typed and no selected group -> show nothing
+  if(!dashboardSearchText && !selectedDashboardGroup) return;
+
+  const groupsMap = {};
+
+  products.forEach(p=>{
+    if(!Array.isArray(p.groups)) return;
+
+    p.groups.forEach(g=>{
+      if(!groupsMap[g]) groupsMap[g] = [];
+
+      // exclusive products only show in first group
+      if(p.exclusive && p.groups[0] !== g) return;
+
+      groupsMap[g].push(p);
+    });
   });
 
-  saveAll();
-  refreshAll();
-showToast("Raw material product added successfully");
-  // clear inputs
-  newCode.value = '';
-  newName.value = '';
-  newCategory.value = '';
-  newThreshold.value = '';
-  newBarcode.value = '';
-  newGroups.value = '';
-  newExclusive.checked = false;
-}
+  Object.keys(groupsMap).sort().forEach(groupName=>{
+    const displayName = renamedGroups[groupName] || groupName;
 
+    const groupProducts = groupsMap[groupName].filter(p=>{
+      const nm = (p.name||'').toLowerCase();
+      const gp = displayName.toLowerCase();
+      return nm.includes(dashboardSearchText) || gp.includes(dashboardSearchText);
+    });
 
-function renderStockIn() {
-    const tbody = document.querySelector('#stockInBody tbody'); // Correct
-    if(!tbody) return;
-    tbody.innerHTML = '';
+    if(!groupProducts.length) return;
+    if(selectedDashboardGroup && selectedDashboardGroup !== groupName) return;
 
-    const search = (document.getElementById('inSearch').value || '').toLowerCase().trim();
+    const fgBalance = getFGStock(groupName);
 
-    products.forEach(p => {
-        const name = p.name.toLowerCase();
-        if(search && !name.includes(search)) return;
+    const groupRow = document.createElement('tr');
+    groupRow.innerHTML = `
+      <td colspan="6" style="padding:18px;cursor:pointer"
+          onclick="selectDashboardGroup('${groupName}')">
+        <b>${escapeHtml(displayName).toUpperCase()}</b>
+        <span style="margin-left:40px;color:green;font-weight:bold">
+          FG BALANCE: ${fgBalance}
+        </span>
+        ${
+          currentUser?.role === 'admin'
+            ? `<button style="margin-left:15px"
+                 onclick="event.stopPropagation(); renameGroup('${groupName}')">
+                 Rename
+               </button>`
+            : ''
+        }
+      </td>
+    `;
+    tbody.appendChild(groupRow);
 
+    // show products only when group is selected
+    if(selectedDashboardGroup === groupName){
+      groupProducts.forEach(p=>{
         const bal = computeBalance(p.id);
         tbody.insertAdjacentHTML('beforeend', `
-            <tr>
-                <td>${escapeHtml(p.name)}</td>
-                <td>${bal}</td>
-                <td>${lastMovement(p.id, 'IN')}</td>
-                <td><button class="btn" onclick="openStockModal('${p.id}','IN')">Stock In</button></td>
-            </tr>
-        `);
-    });
-}
-
-
-function renderStockOut() {
-    const tbody = document.querySelector('#stockOutBody tbody');
-    if(!tbody) return;
-    tbody.innerHTML = '';
-
-    const outSearchEl = document.getElementById('outSearch');
-    const localSearch = outSearchEl ? outSearchEl.value.trim().toLowerCase() : '';
-
-    products.forEach(p => {
-        const name = p.name.toLowerCase();
-        if(localSearch && !name.includes(localSearch)) return;
-        const bal = computeBalance(p.id);
-        tbody.insertAdjacentHTML('beforeend',`
-            <tr>
-                <td>${escapeHtml(p.name)}</td>
-                <td>${bal}</td>
-                <td>${lastMovement(p.id,'OUT')}</td>
-                <td><button class="btn out" onclick="openStockModal('${p.id}','OUT')">Stock Out</button></td>
-            </tr>
-        `);
-    });
-}
-
-function renderCombinedHistory() {
-    const tbody = document.querySelector('#historyTable tbody');
-    if(!tbody) return;
-    tbody.innerHTML = '';
-
-    const search = (historySearch.value || '').toLowerCase();
-
-    stockMovements
-      .slice()
-      .sort((a,b)=>new Date(b.date)-new Date(a.date))
-      .forEach(m => {
-        const prod = products.find(p => p.id === m.productId);
-        if(!prod) return;
-
-        if(search && !prod.name.toLowerCase().includes(search) &&
-           !(m.remark||'').toLowerCase().includes(search)) return;
-
-        tbody.insertAdjacentHTML('beforeend', `
-            <tr>
-                <td>${fmtDate(m.date)}</td>
-                <td>${escapeHtml(prod.name)}</td>
-                <td>${m.type}</td>
-                <td>${m.quantity}</td>
-                <td>${escapeHtml(m.remark || '')}</td>
-            </tr>
-        `);
-    });
-}
-
-
-
-// MODALS
-let modalCurrent=null;
-function openStockModal(productId, type) {
-    modalCurrent = { productId, type };
-    const prod = products.find(p => p.id === productId);
-    if(!prod) return;
-
-    document.getElementById('modalProductName').textContent = prod.name;
-    document.getElementById('modalProductBalance').textContent = computeBalance(productId);
-    document.getElementById('modalQty').value = '';
-    document.getElementById('modalRemark').value = ''; // Clear remark
-    document.getElementById('stockModal').style.display = 'flex';
-
-  document.getElementById('modalSave').onclick = () => {
-    let qty = Number(document.getElementById('modalQty').value);
-    let remark = document.getElementById('modalRemark').value.trim();
-
-    // Validation
-    if (qty <= 0) {
-        alert('Invalid quantity');
-        return;
-    }
-    if (type === 'OUT' && qty > computeBalance(productId)) {
-        alert('Quantity exceeds balance');
-        return;
-    }
-
-    // Add stock movement
-    stockMovements.push({
-        id: genId(),
-        productId,
-        type,
-        quantity: qty,
-        date: todayISO(),
-        remark
-    });
-
-    // Save & refresh
-    saveAll();
-    closeModal();
-    refreshAll();
-
-
-    // --- Show Toast after submission ---
-    const toast = document.getElementById('stockToast');
-    toast.textContent = `Stock ${type === 'IN' ? 'added' : 'removed'} successfully!`;
-    toast.classList.toggle('out', type === 'OUT'); // red if OUT, green if IN
-    toast.style.display = 'block';
-    
-    // Fade in
-    requestAnimationFrame(() => {
-        toast.style.opacity = '1';
-    });
-
-    // Hide after 1 second
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => toast.style.display = 'none', 300);
-    }, 2000); // 1000ms = 1 second
-}};
-function showToast(message, isError = false) {
-  const toast = document.getElementById('stockToast');
-  if (!toast) return;
-
-  toast.textContent = message;
-  toast.classList.toggle('out', isError);
-  toast.style.display = 'block';
-
-  requestAnimationFrame(() => {
-    toast.style.opacity = '1';
-  });
-
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    setTimeout(() => toast.style.display = 'none', 300);
-  }, 2000);
-}
-
-
-function closeModal(){document.getElementById('stockModal').style.display='none';modalCurrent=null;}
-function openHistory(productId){
-    const modal = document.getElementById('historyModal');
-    modal.style.display = 'flex';
-
-    const tbody = document.getElementById('modalHistoryBody');
-    tbody.innerHTML = '';
-
-    stockMovements
-      .filter(m => m.productId === productId)
-      .sort((a,b)=>new Date(b.date)-new Date(a.date))
-      .forEach(m=>{
-        tbody.insertAdjacentHTML('beforeend',`
           <tr>
-            <td>${fmtDate(m.date)}</td>
-            <td>${m.type}</td>
-            <td>${m.quantity}</td>
-            <td>${escapeHtml(m.remark || '')}</td>
+            <td style="padding-left:25px">${escapeHtml(p.name||'')}</td>
+            <td>${bal}</td>
+            <td>${Number(p.threshold ?? 5)}</td>
+            <td>${lastMovement(p.id,'IN')}</td>
+            <td>${lastMovement(p.id,'OUT')}</td>
+            <td>
+              <button class="btn secondary" onclick="openHistory('${p.id}')">View</button>
+              <button class="btn" onclick="openStockModal('${p.id}','IN')">Add IN</button>
+              <button class="btn out btn-stock-out" onclick="openStockModal('${p.id}','OUT')">Stock OUT</button>
+            </td>
           </tr>
         `);
       });
-}
-
-function closeHistoryModal(){document.getElementById('historyModal').style.display='none';}
-function stockInHistoryModal(){
-  const modal=document.getElementById('stockInHistoryModal');
-  modal.style.display='flex';
-
-  const tbody=document.getElementById('stockInHistoryPopupBody');
-  tbody.innerHTML='';
-
-  stockMovements
-    .filter(m=>m.type==='IN')
-    .sort((a,b)=>new Date(b.date)-new Date(a.date))
-    .forEach(m=>{
-      const prod=products.find(p=>p.id===m.productId);
-      if(!prod) return;
-
-      tbody.insertAdjacentHTML('beforeend',`
-        <tr>
-          <td>${fmtDate(m.date)}</td>
-          <td>${escapeHtml(prod.name)}</td>
-          <td>${m.quantity}</td>
-          <td>${escapeHtml(m.remark || '')}</td>
-        </tr>
-      `);
-  });
-}
-
-function closeStockInHistory(){document.getElementById('stockInHistoryModal').style.display='none';}
-function stockOutHistoryModal(){
-  const modal=document.getElementById('stockOutHistoryModal');
-  modal.style.display='flex';
-
-  const tbody=document.getElementById('stockOutHistoryPopupBody');
-  tbody.innerHTML='';
-
-  stockMovements
-    .filter(m=>m.type==='OUT')
-    .sort((a,b)=>new Date(b.date)-new Date(a.date))
-    .forEach(m=>{
-      const prod=products.find(p=>p.id===m.productId);
-      if(!prod) return;
-
-      tbody.insertAdjacentHTML('beforeend',`
-        <tr>
-          <td>${fmtDate(m.date)}</td>
-          <td>${escapeHtml(prod.name)}</td>
-          <td>${m.quantity}</td>
-          <td>${escapeHtml(m.remark || '')}</td>
-        </tr>
-      `);
-  });
-}
-
-function closeStockOutHistory(){document.getElementById('stockOutHistoryModal').style.display='none';}
-
-// NAV
-document.querySelectorAll('.menu-title.collapsible').forEach(m=>{
-    m.addEventListener('click',()=>{
-        m.classList.toggle('open');
-        m.nextElementSibling.classList.toggle('open');
-    });
-});
-document.querySelectorAll('.submenu').forEach(sm => {
-  sm.addEventListener('click', () => {
-
-    const page = sm.dataset.page;
-    const action = sm.dataset.action;
-
-    // Handle page navigation
-    if (page) {
-      // Hide all pages
-      document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
-
-      // Show selected page
-      const target = document.getElementById(page);
-      if (target) target.style.display = 'block';
-
-      // Refresh common data
-      refreshAll();
-
-      // ✅ VERY IMPORTANT: force dashboard refresh
-      if (page === 'dashboardPage') {
-        renderMainDashboard();
-      }
     }
-
-    // Handle actions (export, print, import, etc.)
-    if (action && typeof window[action] === 'function') {
-      window[action]();
-    }
-
   });
-});
 
-
-
-// SIDEBAR TOGGLE
-const sidebarToggle = document.getElementById('sidebarToggle');
-const sidebar = document.getElementById('sidebar');
-const mainContent = document.querySelector('.app'); // your main content wrapper
-
-if (sidebarToggle && sidebar && mainContent) {
-    sidebarToggle.addEventListener('click', () => {
-        sidebar.classList.toggle('minimized');
-        mainContent.classList.toggle('sidebar-minimized');
-
-        // Change button arrow direction
-        if(sidebar.classList.contains('minimized')){
-            sidebarToggle.textContent = '→';
-        } else {
-            sidebarToggle.textContent = '←';
-        }
-    });
+  applyPermissions();
 }
 
 
-// ADD PRODUCT
-const addProductBtn = document.getElementById('addProductBtn');
-if (addProductBtn) {
-    addProductBtn.addEventListener('click', () => {
-        const codeEl = document.getElementById('newCode');
-        const nameEl = document.getElementById('newName');
-        const categoryEl = document.getElementById('newCategory');
-        const thresholdEl = document.getElementById('newThreshold');
-        const barcodeEl = document.getElementById('newBarcode');
-        const groupsEl = document.getElementById('newGroups');
-        const exclusiveEl = document.getElementById('newExclusive');
-
-        if (!nameEl || !codeEl || !categoryEl || !thresholdEl || !barcodeEl || !groupsEl || !exclusiveEl) {
-            console.warn("Some input fields are missing, cannot add product.");
-            return;
-        }
-
-        const code = codeEl.value.trim();
-        const name = nameEl.value.trim();
-        const category = categoryEl.value.trim();
-        const threshold = Number(thresholdEl.value || 5);
-        const barcode = barcodeEl.value.trim();
-        const groupsInput = groupsEl.value.trim();
-        const exclusive = exclusiveEl.checked;
-
-        if (!name) { alert("Product name required"); return; }
-
-        const groups = groupsInput ? groupsInput.split(',').map(g => g.trim()).filter(g => g) : [];
-
-        const newProduct = {
-            id: genId(),
-            code,
-            name,
-            category,
-            threshold,
-            barcode,
-            groups,
-            exclusive
-        };
-
-        products.push(newProduct);
-        saveAll();
-        renderProductsTable();
-        renderDashboardGrouped();
-
-        // Clear form
-        codeEl.value = '';
-        nameEl.value = '';
-        categoryEl.value = '';
-        thresholdEl.value = '';
-        barcodeEl.value = '';
-        groupsEl.value = '';
-        exclusiveEl.checked = false;
-    });
-}
-
-
-// SEARCHES
-const productSearch = document.getElementById('productSearch');
-if (productSearch) productSearch.addEventListener('input', renderProductsTable);
-
-const inSearch = document.getElementById('inSearch');
-if (inSearch) inSearch.addEventListener('input', renderStockIn);
-
-const outSearch = document.getElementById('outSearch');
-if (outSearch) outSearch.addEventListener('input', renderStockOut);
-
-const historySearch = document.getElementById('historySearch');
-if (historySearch) historySearch.addEventListener('input', renderCombinedHistory);
-
-// const globalSearch = document.getElementById('globalSearch');
-// if (globalSearch) globalSearch.addEventListener('input', () => {
-//     renderDashboardGrouped();
-//     renderProductsTable();
-//     renderStockIn();
-//     renderStockOut();
-//     renderCombinedHistory();
-// });
-
-const categoryFilter = document.getElementById('categoryFilter');
-if (categoryFilter) categoryFilter.addEventListener('change', () => renderDashboardGrouped());
-
-const globalThreshold = document.getElementById('globalThreshold');
-if (globalThreshold) globalThreshold.addEventListener('input', renderDashboardGrouped);
-
-// EXPORT / IMPORT
-function exportExcel(){const wb=XLSX.utils.book_new();const ws=XLSX.utils.json_to_sheet(products.map(p=>({Name:p.name,Category:p.category,Threshold:p.threshold,Balance:computeBalance(p.id)})));XLSX.utils.book_append_sheet(wb,ws,'Products');XLSX.writeFile(wb,'products.xlsx');}
-function importExcel(){const inp=document.createElement('input');inp.type='file';inp.accept='.xlsx,.xls';inp.onchange=()=>{const f=inp.files[0];const reader=new FileReader();reader.onload=e=>{const data=new Uint8Array(e.target.result);const wb=XLSX.read(data,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const json=XLSX.utils.sheet_to_json(ws);json.forEach(p=>{if(p.Name)products.push({id:genId(),name:p.Name,category:p.Category||'',threshold:p.Threshold||5});});saveAll();refreshAll();};reader.readAsArrayBuffer(f);};inp.click();}
-function exportPDF(){const { jsPDF } = window.jspdf;const doc=new jsPDF();doc.autoTable({head:[['#','Name','Category','Balance','Threshold']],body:products.map((p,i)=>[i+1,p.name,p.category,computeBalance(p.id),p.threshold])});doc.save('products.pdf');}
-
-function printStockReport() {
-    const bannerUrl = 'banner.png'; // your banner image
-    const productsData = products.map((p, i) => {
-        return `<tr>
-            <td>${i+1}</td>
-            <td>${escapeHtml(p.name)}</td>
-            <td>${computeBalance(p.id)}</td>
-                    </tr>`;
-    }).join('');
-
-    const html = `
-    <html>
-    <head>
-        <title>RAW Stock Report</title>
-        <style>
-            @media print {
-                body {
-                    margin: 0;
-                    -webkit-print-color-adjust: exact;
-                }
-                img.bg {
-                    position: fixed;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    width: 80%;
-                    opacity: 0.3;
-                    z-index: -1;
-                }
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    background: transparent !important;
-                    position: relative;
-                    z-index: 1;
-                }
-                th, td {
-                    padding: 10px;
-                    border: 1px solid rgba(0,0,0,0.2);
-                    background: transparent !important;
-                }
-                h2 {
-                    text-align: center;
-                    position: relative;
-                    z-index: 1;
-                }
-            }
-        </style>
-    </head>
-    <body>
-        <img class="bg" src="${bannerUrl}" />
-        <h2>RAW Stock Report</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Name</th>
-                    
-                    <th>Balance</th>
-                   
-                </tr>
-            </thead>
-            <tbody>
-                ${productsData}
-            </tbody>
-        </table>
-    </body>
-    </html>`;
-
-    const win = window.open('', '_blank');
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    win.print();
-}
-  
-
-// EDIT PRODUCT
-function editProduct(productId){
-    const prod = products.find(p => p.id === productId);
-    if(!prod) return;
-
-    const newCode = prompt("Edit product code:", prod.code || "");
-    if(newCode === null) return;
-
-    const newName = prompt("Edit product name:", prod.name);
-    if(newName === null || !newName.trim()) return alert("Name required");
-
-    const newCategory = prompt("Edit category:", prod.category || "");
-    if(newCategory === null) return;
-
-    const newThreshold = prompt("Edit threshold:", prod.threshold || 5);
-    if(newThreshold === null || isNaN(newThreshold)) return alert("Invalid threshold");
-
-    const newBarcode = prompt("Edit barcode:", prod.barcode || "");
-    if(newBarcode === null) return;
-
-    const newGroupsInput = prompt(
-        "Edit groups (comma separated):",
-        Array.isArray(prod.groups) ? prod.groups.join(', ') : ''
-    );
-    if(newGroupsInput === null) return;
-
-    const newExclusive = confirm("Exclusive to first group?");
-
-    prod.code = newCode.trim();
-    prod.name = newName.trim();
-    prod.category = newCategory.trim();
-    prod.threshold = Number(newThreshold);
-    prod.barcode = newBarcode.trim();
-    prod.groups = newGroupsInput
-        .split(',')
-        .map(g => g.trim())
-        .filter(Boolean);
-    prod.exclusive = newExclusive;
-
-    saveAll();
-    refreshAll();
-}
-
-// DELETE PRODUCT
-function deleteProduct(productId){
-    if(!confirm("Are you sure you want to delete this product? This will remove all its stock history.")) return;
-    products = products.filter(p => p.id !== productId);
-    stockMovements = stockMovements.filter(m => m.productId !== productId);
-    saveAll();
-    refreshAll();
-}
-/* ==========================
-   ☁️ CLOUD SYNC MODULE
-========================== */
-
-
-// ================================
-// ☁️ AUTO CLOUD SYNC MODULE
-// ================================
-
-function autoPullFromCloud() {
-  if (!window.cloudDB) return console.warn("Cloud DB not ready");
-
-  cloudDB.ref("stockManager").once("value")
-    .then(snapshot => {
-      const data = snapshot.val();
-      if (!data) return;
-
-      products = data.products || [];
-      stockMovements = data.stockMovements || [];
-
-      localStorage.setItem(KEY_PRODUCTS, JSON.stringify(products));
-      localStorage.setItem(KEY_MOVES, JSON.stringify(stockMovements));
-
-      refreshAll();
-      const status = document.getElementById("status");
-      if (status) status.textContent = "Status: Auto-loaded from Cloud ☁️";
-
-      console.log("✅ Auto pull completed");
-    })
-    .catch(err => {
-      console.error("Auto pull failed:", err);
-      refreshAll();
-    });
-}
-
-function autoPushToCloud() {
-  if (!window.cloudDB) return console.warn("Cloud DB not ready");
-
-  cloudDB.ref("stockManager").set({
-    products: products,
-    stockMovements: stockMovements,
-    syncedAt: new Date().toISOString()
-  })
-  .then(() => {
-    const status = document.getElementById("status");
-    if (status) status.textContent = "Status: Auto-synced to Cloud ☁️";
-    console.log("✅ Auto push completed");
-  })
-  .catch(err => console.error("Auto push failed:", err));
-}
-
-// ================================
-// HOOK INTO LOCAL CHANGES
-// ================================
-
-// Wrap saveAll to auto push
-const originalSaveAll = saveAll;
-saveAll = function() {
-  originalSaveAll();      // save locally
-  autoPushToCloud();      // push changes to cloud
-};
-
-// Auto pull on page load
-window.addEventListener("load", () => {
-  autoPullFromCloud();
-});
-function loadRenamedGroupsFromCloud() {
-    if (!window.cloudDB) return;
-
-    cloudDB.ref("dashboardRenamedGroups").once("value")
-        .then(snapshot => {
-            if (snapshot.exists()) {
-                renamedGroups = snapshot.val();
-                localStorage.setItem('renamedGroups', JSON.stringify(renamedGroups));
-                renderDashboardGrouped();
-                console.log("☁️ Renamed groups loaded from cloud");
-            }
-        });
-}
-
-function saveRenamedGroupsToCloud() {
-    if (!window.cloudDB) return;
-
-    cloudDB.ref("dashboardRenamedGroups").set(renamedGroups)
-        .then(() => console.log("☁️ Renamed groups saved to cloud"));
-}
-
-
-// UTILITY
+/* =========================
+   ✅ REFRESH ALL
+========================= */
 function refreshAll(){
   renderProductsTable();
   renderStockIn();
@@ -2711,21 +2180,14 @@ function refreshAll(){
   renderFGStock();
   renderFGStockIn();
   renderFGStockOut();
-  renderFGHistory();
 
   renderMainDashboard();
   applyPermissions();
 }
-
-
-
-refreshAll();
-
-
 </script>
+
 
 </main>
 </div>
 </body>
 </html>
-

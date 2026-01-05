@@ -399,10 +399,11 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
   <div style="width:350px; background:white; padding:25px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.15)">
     <h2 style="text-align:center">Stock Manager</h2>
 
-    <div id="loginForm">
+    <form id="loginForm" onsubmit="login(event)">
       <input id="loginUser" placeholder="Username" style="width:100%;padding:8px 10px;margin:10px 0;border: 1px solid rgba(0, 0, 0, 0.08);">
       <input id="loginPass" type="password" placeholder="Password" style="width:100%;padding:8px 10px;margin:10px 0;border: 1px solid rgba(0, 0, 0, 0.08);">
-      <button class="btn" style="width:100%;" onclick="login()">Login</button>
+      <button class="btn" style="width:100%;" type="submit">Login</button>
+
 
       <p style="text-align:center;margin:10px 0;">Don't have an account?
         <span style="color:blue;cursor:pointer;" onclick="showSignup()">Sign Up</span>
@@ -413,7 +414,7 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
       </p>
 
       <p id="loginMsg" style="color:red;text-align:center;margin-top:10px"></p>
-    </div>
+</form>
 
     <div id="signupForm" style="display:none">
       <input id="signupUser" placeholder="Username" style="width:90%;padding:10px;margin:10px 0">
@@ -1166,7 +1167,9 @@ async function signup(){
   }
 }
 
-async function login(){
+async function login(e){
+  if (e) e.preventDefault(); // ⬅ stops page reload
+
   const u = loginUser.value.trim();
   const p = loginPass.value;
 
@@ -3125,3 +3128,4 @@ window.openLowFGFromDashboard = openLowFGFromDashboard;
 
 </body>
 </html>
+

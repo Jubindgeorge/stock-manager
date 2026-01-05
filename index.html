@@ -400,8 +400,17 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
     <h2 style="text-align:center">Stock Manager</h2>
 
     <form id="loginForm" onsubmit="login(event)">
-      <input id="loginUser" placeholder="Username" style="width:100%;padding:8px 10px;margin:10px 0;border: 1px solid rgba(0, 0, 0, 0.08);">
-      <input id="loginPass" type="password" placeholder="Password" style="width:100%;padding:8px 10px;margin:10px 0;border: 1px solid rgba(0, 0, 0, 0.08);">
+<input
+  id="loginUser"
+  placeholder="Username"
+  autocomplete="username"
+  style="width:100%;padding:8px 10px;margin:10px 0;border:1px solid rgba(0,0,0,.08);">
+<input
+  id="loginPass"
+  type="password"
+  placeholder="Password"
+  autocomplete="current-password"
+  style="width:100%;padding:8px 10px;margin:10px 0;border:1px solid rgba(0,0,0,.08);">
       <button class="btn" style="width:100%;" type="submit">Login</button>
 
 
@@ -3128,5 +3137,6 @@ window.openLowFGFromDashboard = openLowFGFromDashboard;
 
 </body>
 </html>
+
 
 

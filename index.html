@@ -427,7 +427,12 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 
     <div id="signupForm" style="display:none">
       <input id="signupUser" placeholder="Username" style="width:90%;padding:10px;margin:10px 0">
-      <input id="signupPass" type="password" placeholder="Password" style="width:90%;padding:10px;margin-bottom:10px">
+<input
+  id="signupPass"
+  type="password"
+  placeholder="Password"
+  autocomplete="new-password"
+>
       <select id="signupRole" style="width:100%;padding:10px;margin-bottom:10px">
         <option value="user">User</option>
       </select>
@@ -527,7 +532,12 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
 
       <div style="margin-top:12px;">
         <input id="newUsername" placeholder="Username">
-        <input id="newPassword" type="password" placeholder="Password">
+<input
+  id="newPassword"
+  type="password"
+  placeholder="Password"
+  autocomplete="new-password"
+>
         <select id="newRole">
           <option value="user">User</option>
           <option value="admin">Admin</option>
@@ -3137,6 +3147,7 @@ window.openLowFGFromDashboard = openLowFGFromDashboard;
 
 </body>
 </html>
+
 
 
 

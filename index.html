@@ -458,6 +458,8 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
       <li class="menu-title collapsible">📊 Bill Of Materials <span class="arrow">▾</span></li>
       <ul class="subgroup">
         <li class="submenu" data-page="dashboard">📊 BOM</li>
+<li class="submenu" data-page="billEntry">📥 Bill of Entry</li>
+
       </ul>
 
       <li class="menu-title collapsible">📈 Store <span class="arrow">▾</span></li>
@@ -656,6 +658,97 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
         </table>
       </div>
     </section>
+<!-- BILL OF ENTRY -->
+<section id="billEntry" class="page" style="display:none">
+  <h2>Bill of Entry (Auto Stock IN)</h2>
+
+  <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+
+    <!-- BOE FORM -->
+    <div style="flex:1;min-width:320px;background:#fff;border-radius:12px;padding:14px;box-shadow:0 4px 12px rgba(0,0,0,.08)">
+      <h3 style="margin-bottom:10px">Create Bill of Entry</h3>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <input id="boeNo" class="small" placeholder="Bill No / Entry No">
+        <input id="boeDate" class="small" type="date">
+        <select id="boeSupplier" class="small"></select>
+        <input id="boeSupplierOther" class="small" placeholder="Supplier Name (if Other)" style="display:none">
+      </div>
+
+      <div style="overflow:auto;border:1px solid rgba(0,0,0,.08);border-radius:10px">
+        <table style="margin:0">
+          <thead>
+            <tr>
+              <th style="min-width:220px">RM Product</th>
+              <th style="width:120px">Qty</th>
+              <th>Remark</th>
+              <th style="width:80px">Remove</th>
+            </tr>
+          </thead>
+          <tbody id="boeItemsBody"></tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn secondary" onclick="boeAddRow()">➕ Add Item</button>
+        <button class="btn" onclick="submitBillEntry()">✅ Save Bill & Stock IN</button>
+        <button class="btn out" onclick="resetBillEntryForm()">Clear</button>
+      </div>
+
+      <div style="margin-top:10px;color:#666;font-size:13px;line-height:1.4">
+        • Saving the bill will automatically create <b>RM Stock IN</b> movements with remark like: <b>BOE 12345 - remark</b><br>
+        • Admin can delete bills (it will also remove the linked stock-in movements).
+      </div>
+    </div>
+
+    <!-- BOE LIST -->
+    <div style="flex:1;min-width:320px;background:#fff;border-radius:12px;padding:14px;box-shadow:0 4px 12px rgba(0,0,0,.08)">
+      <h3 style="margin-bottom:10px">Saved Bills</h3>
+
+      <input id="boeSearch" class="search" placeholder="Search bill / supplier..." style="margin-bottom:10px">
+
+      <div style="overflow:auto;max-height:520px;border:1px solid rgba(0,0,0,.08);border-radius:10px">
+        <table id="boeTable" style="margin:0">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Bill No</th>
+              <th>Supplier</th>
+              <th>Total Qty</th>
+              <th>Items</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- BOE VIEW MODAL -->
+<div id="boeViewModal" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="boeViewTitle">Bill of Entry</h3>
+      <button class="modal-close" onclick="closeBOEView()">✖</button>
+    </div>
+
+    <div id="boeViewMeta" style="margin-bottom:10px;color:#444"></div>
+
+    <table class="modal-table">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Qty</th>
+          <th>Remark</th>
+        </tr>
+      </thead>
+      <tbody id="boeViewBody"></tbody>
+    </table>
+  </div>
+</div>
 
     <!-- ADD RM PRODUCT -->
     <section id="rmAddProduct" class="page" style="display:none">
@@ -959,6 +1052,13 @@ function openPage(pageId){
   if(pageId === 'suppliers'){
     renderSuppliers();
   }
+if(pageId === 'billEntry'){
+  renderBOESupplierDropdown();
+  if(!document.getElementById('boeDate').value) document.getElementById('boeDate').value = todayISO();
+  if(!document.getElementById('boeItemsBody').children.length) boeAddRow();
+  renderBillsTable();
+}
+
 
   refreshAll();
 }
@@ -1558,6 +1658,323 @@ function viewFGHistory(fgId){
       `);
     });
 }
+/* =========================
+   ✅ BILL OF ENTRY (BOE)
+   - Bill entries create RM Stock IN automatically
+========================= */
+const KEY_BILLS = 'sms_bills_v1';
+let bills = JSON.parse(localStorage.getItem(KEY_BILLS) || '[]');
+
+function saveBills(){
+  localStorage.setItem(KEY_BILLS, JSON.stringify(bills));
+}
+
+function canStockIn(){
+  // you already have ROLE_PERMISSIONS with stockIn; admin always full
+  if(currentUser?.role === 'admin') return true;
+  const perms = getPerms?.() || { stockIn:true };
+  return !!perms.stockIn;
+}
+
+function resetBillEntryForm(){
+  const no = document.getElementById('boeNo');
+  const dt = document.getElementById('boeDate');
+  const sp = document.getElementById('boeSupplier');
+  const other = document.getElementById('boeSupplierOther');
+  const body = document.getElementById('boeItemsBody');
+
+  if(no) no.value = '';
+  if(dt) dt.value = todayISO();
+  if(sp) sp.value = '';
+  if(other){ other.value=''; other.style.display='none'; }
+  if(body) body.innerHTML = '';
+
+  boeAddRow(); // start with one row
+}
+
+function boeSupplierDisplayName(){
+  const sp = document.getElementById('boeSupplier');
+  const other = document.getElementById('boeSupplierOther');
+  if(!sp) return '';
+  const val = sp.value;
+
+  if(val === '__OTHER__'){
+    return (other?.value || '').trim();
+  }
+
+  // if supplier id exists from suppliers list
+  const s = suppliers?.find(x => x.id === val);
+  return (s?.name || val || '').trim();
+}
+
+function renderBOESupplierDropdown(){
+  const sel = document.getElementById('boeSupplier');
+  const other = document.getElementById('boeSupplierOther');
+  if(!sel) return;
+
+  const list = Array.isArray(suppliers) ? suppliers : [];
+  sel.innerHTML = `<option value="">Select Supplier</option>`;
+
+  list.forEach(s=>{
+    sel.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`);
+  });
+
+  sel.insertAdjacentHTML('beforeend', `<option value="__OTHER__">Other...</option>`);
+
+  sel.onchange = ()=>{
+    if(!other) return;
+    if(sel.value === '__OTHER__'){
+      other.style.display = '';
+      other.focus();
+    }else{
+      other.style.display = 'none';
+      other.value = '';
+    }
+  };
+}
+
+function boeRowProductOptions(selectedId=''){
+  if(!Array.isArray(products) || !products.length){
+    return `<option value="">No RM products found</option>`;
+  }
+  const sorted = [...products].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  return `<option value="">Select RM Product</option>` + sorted.map(p=>{
+    const sel = p.id === selectedId ? 'selected' : '';
+    const code = p.code ? `(${p.code}) ` : '';
+    return `<option ${sel} value="${escapeHtml(p.id)}">${escapeHtml(code + (p.name||''))}</option>`;
+  }).join('');
+}
+
+function boeAddRow(prefill=null){
+  const body = document.getElementById('boeItemsBody');
+  if(!body) return;
+
+  const rowId = 'boeRow_' + genId();
+  const selectedProductId = prefill?.productId || '';
+  const qty = prefill?.qty ?? '';
+  const remark = prefill?.remark ?? '';
+
+  body.insertAdjacentHTML('beforeend', `
+    <tr id="${rowId}">
+      <td>
+        <select class="small" style="width:100%" data-boe="product">
+          ${boeRowProductOptions(selectedProductId)}
+        </select>
+      </td>
+      <td>
+        <input class="small" type="number" min="0" step="1" style="width:100%" data-boe="qty" value="${escapeHtml(qty)}">
+      </td>
+      <td>
+        <input class="small" style="width:100%" data-boe="remark" value="${escapeHtml(remark)}" placeholder="Remark (optional)">
+      </td>
+      <td style="text-align:center">
+        <button class="btn out" style="padding:6px 10px" onclick="boeRemoveRow('${rowId}')">X</button>
+      </td>
+    </tr>
+  `);
+}
+
+function boeRemoveRow(rowId){
+  const tr = document.getElementById(rowId);
+  if(tr) tr.remove();
+
+  const body = document.getElementById('boeItemsBody');
+  if(body && body.children.length === 0){
+    boeAddRow(); // keep at least one row
+  }
+}
+
+function getBOEItemsFromUI(){
+  const body = document.getElementById('boeItemsBody');
+  if(!body) return [];
+
+  const items = [];
+  [...body.querySelectorAll('tr')].forEach(tr=>{
+    const prodSel = tr.querySelector('[data-boe="product"]');
+    const qtyInp  = tr.querySelector('[data-boe="qty"]');
+    const remInp  = tr.querySelector('[data-boe="remark"]');
+
+    const productId = (prodSel?.value || '').trim();
+    const qty = Number(qtyInp?.value || 0);
+    const remark = (remInp?.value || '').trim();
+
+    if(productId && qty > 0){
+      items.push({ productId, qty, remark });
+    }
+  });
+
+  return items;
+}
+
+function submitBillEntry(){
+  if(!canStockIn()){
+    showToast("Stock IN not allowed for your role", true);
+    return;
+  }
+
+  const billNo = (document.getElementById('boeNo')?.value || '').trim();
+  const billDate = (document.getElementById('boeDate')?.value || todayISO());
+  const supplierId = (document.getElementById('boeSupplier')?.value || '').trim();
+  const supplierName = boeSupplierDisplayName();
+
+  if(!billNo){
+    showToast("Bill No is required", true);
+    return;
+  }
+  if(!billDate){
+    showToast("Bill Date is required", true);
+    return;
+  }
+  if(!supplierId){
+    showToast("Select supplier (or Other)", true);
+    return;
+  }
+  if(supplierId === '__OTHER__' && !supplierName){
+    showToast("Enter supplier name", true);
+    return;
+  }
+
+  const items = getBOEItemsFromUI();
+  if(!items.length){
+    showToast("Add at least 1 item with qty > 0", true);
+    return;
+  }
+
+  const billId = 'boe_' + genId();
+  const bill = {
+    id: billId,
+    billNo,
+    date: billDate,
+    supplierId,
+    supplierName,
+    items,
+    createdAt: new Date().toISOString(),
+    createdBy: currentUser?.username || ''
+  };
+
+  // ✅ push bill
+  bills.push(bill);
+  saveBills();
+
+  // ✅ create RM Stock IN movements linked to this bill
+  items.forEach(it=>{
+    stockMovements.push({
+      id: genId(),
+      productId: it.productId,
+      type: 'IN',
+      quantity: Number(it.qty || 0),
+      date: billDate,
+      remark: `BOE ${billNo}${it.remark ? ' - ' + it.remark : ''}`,
+      billId: billId
+    });
+  });
+
+  saveAll();
+  autoPushToCloud?.(); // your existing cloud push for RM
+  refreshAll();
+
+  showToast("Bill saved & Stock IN created ✅");
+  resetBillEntryForm();
+}
+
+function boeTotalQty(bill){
+  return (bill.items || []).reduce((s,it)=> s + Number(it.qty||0), 0);
+}
+
+function renderBillsTable(){
+  const tbody = document.querySelector('#boeTable tbody');
+  if(!tbody) return;
+
+  const q = (document.getElementById('boeSearch')?.value || '').toLowerCase().trim();
+  tbody.innerHTML = '';
+
+  const list = [...bills].sort((a,b)=> new Date(b.date) - new Date(a.date));
+
+  list.forEach(b=>{
+    const match =
+      !q ||
+      (b.billNo||'').toLowerCase().includes(q) ||
+      (b.supplierName||'').toLowerCase().includes(q);
+
+    if(!match) return;
+
+    const total = boeTotalQty(b);
+    const itemsCount = (b.items || []).length;
+
+    const canDel = (currentUser?.role === 'admin'); // admin only delete
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>${fmtDate(b.date)}</td>
+        <td>${escapeHtml(b.billNo)}</td>
+        <td>${escapeHtml(b.supplierName || '')}</td>
+        <td>${total}</td>
+        <td>${itemsCount}</td>
+        <td>
+          <button class="btn info" onclick="viewBOE('${escapeHtml(b.id)}')">View</button>
+          ${canDel ? `<button class="btn out" onclick="deleteBOE('${escapeHtml(b.id)}')">Delete</button>` : ``}
+        </td>
+      </tr>
+    `);
+  });
+
+  applyPermissions?.();
+}
+
+function viewBOE(billId){
+  const b = bills.find(x=>x.id===billId);
+  if(!b) return;
+
+  document.getElementById('boeViewTitle').textContent = `Bill of Entry — ${b.billNo}`;
+  document.getElementById('boeViewMeta').innerHTML =
+    `<b>Date:</b> ${fmtDate(b.date)} &nbsp; | &nbsp; <b>Supplier:</b> ${escapeHtml(b.supplierName||'')}
+     ${b.createdBy ? ` &nbsp; | &nbsp; <b>By:</b> ${escapeHtml(b.createdBy)}` : ''}`;
+
+  const body = document.getElementById('boeViewBody');
+  body.innerHTML = '';
+
+  (b.items || []).forEach(it=>{
+    const p = products.find(x=>x.id===it.productId);
+    body.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>${escapeHtml(p?.name || 'Unknown')}</td>
+        <td>${Number(it.qty||0)}</td>
+        <td>${escapeHtml(it.remark||'')}</td>
+      </tr>
+    `);
+  });
+
+  document.getElementById('boeViewModal').style.display = 'flex';
+}
+
+function closeBOEView(){
+  document.getElementById('boeViewModal').style.display = 'none';
+}
+
+function deleteBOE(billId){
+  if(currentUser?.role !== 'admin'){
+    showToast("Only admin can delete bills", true);
+    return;
+  }
+
+  const b = bills.find(x=>x.id===billId);
+  if(!b) return;
+
+  if(!confirm(`Delete BOE "${b.billNo}"?\nThis will also remove linked RM Stock IN movements.`)) return;
+
+  // remove bill
+  bills = bills.filter(x=>x.id!==billId);
+  saveBills();
+
+  // remove linked movements
+  stockMovements = stockMovements.filter(m => m.billId !== billId);
+
+  saveAll();
+  autoPushToCloud?.();
+  refreshAll();
+  showToast("Bill deleted & stock reverted ✅");
+}
+
+
 
 function addFGProduct(){
   if(!canAdd()){ showToast("No permission to add", true); return; }
@@ -2283,6 +2700,9 @@ function autoPullFromCloud(){
       if(!data) return;
       products = data.products || [];
       stockMovements = data.stockMovements || [];
+bills = data.bills || bills || [];
+saveBills();
+
       saveAll();
       refreshAll();
     })
@@ -2292,9 +2712,11 @@ function autoPushToCloud(){
   cloudDB.ref("stockManager").set({
     products,
     stockMovements,
+    bills, // ✅ add this
     syncedAt: new Date().toISOString()
   });
 }
+
 
 /* =========================
    ✅ REPORTS + EXPORT/IMPORT
@@ -2633,6 +3055,7 @@ document.getElementById('fgInSearch')?.addEventListener('input', renderFGStockIn
 document.getElementById('fgOutSearch')?.addEventListener('input', renderFGStockOut);
 document.getElementById('supplierSearch')?.addEventListener('input', renderSuppliers);
 document.getElementById('addSupplierBtn')?.addEventListener('click', addSupplier);
+document.getElementById('boeSearch')?.addEventListener('input', renderBillsTable);
 
 // Sidebar toggle
 const sidebarToggle = document.getElementById('sidebarToggle');
@@ -2681,8 +3104,10 @@ function refreshAll(){
 
   renderMainDashboard();
   renderDashboardGrouped();
+  renderBillsTable(); // ✅ add this
   applyPermissions();
 }
+
 
 /* Expose to window (safe) */
 window.handleDashboardSearch = handleDashboardSearch;

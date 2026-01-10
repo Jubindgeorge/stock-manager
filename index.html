@@ -464,6 +464,7 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
       <li class="menu-title collapsible">Purchase <span class="arrow">▾</span></li>
       <ul class="subgroup">
         <li class="submenu" data-page="billEntry">Goods Received Note</li>
+  
         <li class="submenu" data-page="suppliers">Manage Raw Suppliers</li>
       </ul>
 
@@ -2755,10 +2756,11 @@ let bills = [];
 
 
 
-function submitBillEntry(){ BOE.submit();
-saveBills();
-autoPushToCloud();
- }
+function submitBillEntry(){
+  BOE.submit();                 // BOE.submit already calls BOE.saveBills()
+  autoPushToCloud();            // ✅ push bills + everything
+}
+
 function resetBillEntryForm(){ BOE.resetForm(); }
 function renderBillsTable(){
   const tb = document.getElementById('boeTableBody');
@@ -4424,6 +4426,19 @@ function saveAllRM(){
    ✅ CLOUD SYNC (RM + FG) — SAFE GLOBAL VERSION
    Works even if your main data lives inside an IIFE
 ========================= */
+function getBillsForCloud(){
+  // ✅ BOE module stores bills here
+  try{
+    const ls = JSON.parse(localStorage.getItem("sms_bills_v1") || "[]");
+    if(Array.isArray(ls)) return ls;
+  }catch(e){}
+
+  // fallback
+  if(Array.isArray(window.savedBills)) return window.savedBills;
+  if(Array.isArray(window.BOE?.saveBills) && Array.isArray(window.BOE?.bills)) return window.BOE.bills;
+
+  return [];
+}
 
 function toArray(v){
   if(Array.isArray(v)) return v;
@@ -4432,19 +4447,20 @@ function toArray(v){
 }
 
 function autoPushToCloud(){
-  if (typeof cloudDB === "undefined" || !cloudDB) return Promise.resolve();
+  if (!window.cloudDB) return Promise.resolve();
 
   const payload = {
-    products,
-    stockMovements,
-    bills: (window.savedBills || bills || []),
-    productions,
-    auditLog,
+    products: Array.isArray(products) ? products : [],
+    stockMovements: Array.isArray(stockMovements) ? stockMovements : [],
+    bills: getBillsForCloud(),              // ✅ FIXED
+    productions: Array.isArray(productions) ? productions : [],
+    auditLog: Array.isArray(auditLog) ? auditLog : [],
     syncedAt: nowISO()
   };
 
   return cloudDB.ref("stockManager").set(payload)
-    .catch(err => console.error("autoPushToCloud failed:", err));
+    .then(()=> console.log("✅ Cloud push OK (including bills)"))
+    .catch(err => console.error("❌ autoPushToCloud failed:", err));
 }
 
 
@@ -5004,4 +5020,3 @@ window.viewProduction = viewProduction;
 
 </body>
 </html>
-

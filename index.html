@@ -1,436 +1,445 @@
+
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Stock Manager</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Stock Manager</title>
 
-<!-- Libraries -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
+  <!-- Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
 
-<!-- ☁️ CLOUD SYNC ADDITION -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <style>
-:root {
+/* =========================================
+   Stock Manager CSS (Bootstrap SAFE)
+   - Does NOT override: .row, .col-*, .card, .modal, .table, .btn
+   - Custom UI uses sm-* prefixes
+========================================= */
+
+:root{
   --sidebar-w: 260px;
-  --muted: #6b6f76;
-  --accent: #2c3e50;
-  --accent-2: #2980b9;
-  --danger: #c0392b;
-  --badge-green: #2ecc71;
+
+  --bg:#f6f7fb;
+  --card:#ffffff;
+  --text:#111827;
+  --muted:#6b6f76;
+
+  --accent:#2c3e50;
+  --accent-2:#2980b9;
+  --danger:#c0392b;
+
+  --line:#e7e9ee;
+  --shadow:0 10px 30px rgba(0,0,0,.08);
+  --radius:14px;
 }
 
-/* Reset & base */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: Arial, sans-serif;
+*{ box-sizing:border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
 }
 
-html, body {
-  height: 100%;
-  margin: 0;
-  font-family: Inter, system-ui, Arial, sans-serif;
-  color: #111;
-  background: transparent;
-}
+/* Generic helpers */
+.muted{ color: var(--muted) !important; }
+.right{ text-align:right !important; }
+.sm-link{ color:#2563eb; cursor:pointer; font-weight:700; }
 
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background-position: center center;
-  background-repeat: no-repeat;
-  background-size: 750px auto;
-  background-attachment: fixed;
-  opacity: 1;
-  z-index: -1;
-  pointer-events: none;
-}
+/* App wrapper */
+.app{ display:none; min-height:100vh; }
 
-/* App layout */
-.app {
-  display: none; /* shown after login / restore */
-  min-height: 100vh;
+/* =========================================
+   LOGIN
+========================================= */
+.sm-login-screen{
+  position:fixed; inset:0;
+  background:#f3f4f6;
+  display:flex; align-items:center; justify-content:center;
+  z-index:99999;
 }
+.sm-login-card{
+  width:360px;
+  background:#fff;
+  padding:24px;
+  border-radius:12px;
+  box-shadow:0 10px 30px rgba(0,0,0,.15);
+}
+.sm-login-input{
+  width:100%;
+  padding:10px 12px;
+  margin:10px 0;
+  border:1px solid rgba(0,0,0,.12);
+  border-radius:10px;
+}
+.sm-msg{ margin-top:10px; text-align:center; font-size:13px; }
+.sm-msg-error{ color:#dc2626; }
 
-/* Sidebar */
-.sidebar {
+/* =========================================
+   SIDEBAR
+========================================= */
+.sidebar{
   width: var(--sidebar-w);
-  position: fixed;
-  left: 0;
-  top: 0;
-  height: 100%;
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(5px);
-  padding: 8px;
-  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.08);
-  overflow: auto;
-  z-index: 20;
-  border-right: 1px solid rgba(0, 0, 0, 0.04);
+  position:fixed; left:0; top:0; height:100%;
+  background: rgba(255,255,255,.85);
+  backdrop-filter: blur(6px);
+  padding: 10px;
+  overflow:auto;
+  z-index:20;
+  border-right:1px solid rgba(0,0,0,.06);
+  box-shadow: 4px 0 20px rgba(0,0,0,.08);
   border-radius: 0 10px 10px 0;
+  transition: width .25s ease, padding .25s ease;
 }
-
-.sidebar.minimized {
-  width: 60px;
-  overflow: hidden;
-  padding: 8px 4px;
-  border-radius: 0 10px 10px 0;
-  transition: width 0.3s ease;
+.sidebar.minimized{
+  width:60px;
+  padding:10px 6px;
+  overflow:hidden;
 }
-
 .sidebar.minimized .sidebar-header div,
 .sidebar.minimized .brand-title,
 .sidebar.minimized .brand-sub,
 .sidebar.minimized .sidebar-logo,
 .sidebar.minimized .sidebar-menu,
-.sidebar.minimized .sidebar-menu li span,
-.sidebar.minimized .sidebar-footer {
-  display: none;
+.sidebar.minimized .sidebar-footer{
+  display:none;
 }
 
-.sidebar.minimized .sidebar-logo {
-  width: 40px;
-  height: 40px;
+.sidebar-header{
+  display:flex; gap:12px; align-items:center;
+  margin-bottom:10px;
 }
-
-.sidebar-header {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 8px;
+.sidebar-logo{
+  width:96px; height:56px; object-fit:cover;
+  border-radius:8px;
 }
+.brand-title{ font-size:18px; font-weight:800; margin:0; }
+.brand-sub{ font-size:12px; color:var(--muted); margin-top:2px; }
+.sm-btn-compact{ padding:4px 8px !important; }
 
-.sidebar-logo {
-  width: 96px;
-  height: 56px;
-  object-fit: cover;
-  border-radius: 8px;
+.sidebar-menu{ list-style:none; padding:0; margin:10px 0 0; }
+.sidebar-menu li{
+  padding:12px 10px;
+  display:flex; gap:10px; align-items:center;
+  cursor:pointer;
+  border-left:4px solid transparent;
+  border-radius:10px;
+  transition:all .18s ease;
+  color:#222;
 }
-
-.brand-title {
-  font-size: 18px;
-  margin: 0;
-}
-
-.brand-sub {
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 4px;
-}
-
-.sidebar-menu {
-  list-style: none;
-  padding: 0;
-  margin: 12px 0 0;
-}
-
-.sidebar-menu li {
-  padding: 12px 10px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  cursor: pointer;
-  border-left: 4px solid transparent;
-  border-radius: 6px;
-  transition: all 0.18s;
-  color: #222;
-}
-
-.sidebar-menu li:hover {
-  background: rgba(60, 120, 200, 0.06);
+.sidebar-menu li:hover{
+  background: rgba(60,120,200,.06);
   transform: translateX(4px);
-  border-left-color: rgba(41, 128, 185, 0.8);
+  border-left-color: rgba(41,128,185,.8);
 }
-
-.sidebar-menu li.active {
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  color: #fff;
-  border-left-color: #fff;
-  font-weight: 700;
+.menu-link{ font-weight:700; }
+.menu-title{
+  font-weight:800;
+  background: rgba(0,0,0,.05);
 }
-
-.sidebar.minimized + .main { margin-left: 60px; }
-
-.menu-title {
-  font-weight: 700;
-  background: rgba(0, 0, 0, 0.05);
+.menu-title.collapsible{
+  display:flex; justify-content:space-between; align-items:center;
 }
+.menu-title span.arrow{ font-size:12px; transition:transform .2s ease; }
+.menu-title.open .arrow{ transform: rotate(180deg); }
 
-.modal-box{
-  background-color:white; 
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-}  
+.submenu{ padding-left:36px !important; font-size:14px; }
+.subgroup{ list-style:none; padding:0; margin:0; display:none; }
+.subgroup.open{ display:block; }
 
-.menu-title.collapsible {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
+.sidebar-footer{ margin-top:16px; font-size:13px; color:var(--muted); }
+.admin-only{ display:none; }
 
-.menu-title span.arrow {
-  display: inline-block;
-  font-size: 12px;
-  transition: transform 0.2s ease;
-}
-
-.menu-title.open .arrow { transform: rotate(180deg); }
-
-.submenu { padding-left: 36px !important; font-size: 14px; }
-
-.subgroup {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: none;
-}
-
-.subgroup.open { display: block; }
-
-.sidebar-footer {
-  margin-top: 18px;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.admin-only { display: none; }
-
-/* Main content */
-.main {
+/* =========================================
+   MAIN
+========================================= */
+.main{
   margin-left: calc(var(--sidebar-w) + 18px);
-  width: 70%;
-  padding: 18px;
-  min-height: 100vh;
-  background: transparent;
-  transition: margin-left 0.3s ease;
+  padding:18px;
+  min-height:100vh;
+  transition: margin-left .25s ease;
+}
+/* Works because aside.sidebar is right before main.main */
+.sidebar.minimized + .main{ margin-left: 60px; }
+/* Fallback if you toggle body class in JS */
+body.sm-sidebar-min .main{ margin-left: 60px; }
+
+.sm-logout{
+  position:fixed;
+  top:10px; right:20px;
+  z-index:999;
 }
 
-.main.sidebar-minimized { margin-left: 60px; }
+/* =========================================
+   PAGE CONTAINER
+========================================= */
+.page{
+  background: rgba(255,255,255,.75);
+  backdrop-filter: blur(6px);
+  border-radius: 12px;
+  width:100%;
+  min-height: calc(100vh - 40px);
+  padding: 20px;
+  border: 1px solid rgba(0,0,0,.06);
+  box-shadow: 0 6px 25px rgba(0,0,0,.10);
+}
 
-.top {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+/* =========================================
+   CUSTOM (Bootstrap-safe) inputs
+========================================= */
+.sm-search{
+  padding:8px 10px;
+  border-radius:10px;
+  border:1px solid rgba(0,0,0,.10);
+  width:320px;
+  background: rgba(255,255,255,.90);
+}
+.sm-small{
+  padding:8px 10px;
+  border-radius:10px;
+  border:1px solid rgba(0,0,0,.12);
+  width:220px;
+  background: rgba(255,255,255,.95);
+}
+.sm-lbl{ display:block; font-size:12px; color:var(--muted); margin:6px 0; }
+.sm-inp{ width:100%; padding:10px; border:1px solid #d7dbe2; border-radius:10px; background:#fff; }
+
+/* =========================================
+   CUSTOM CARD + GRID (NO Bootstrap conflicts)
+========================================= */
+.sm-card{
+  background: var(--card);
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.08);
+  border: 1px solid rgba(0,0,0,.04);
   margin-bottom: 12px;
 }
+.sm-grid{
+  display:grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 10px;
+}
+.gcol-12{ grid-column: span 12; }
+.gcol-6{ grid-column: span 6; }
+.gcol-4{ grid-column: span 4; }
+.gcol-3{ grid-column: span 3; }
+.gcol-2{ grid-column: span 2; }
 
-.search {
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  width: 320px;
-  background: rgba(255, 255, 255, 0.55);
+@media (max-width: 900px){
+  .gcol-6,.gcol-4,.gcol-3,.gcol-2{ grid-column: span 12; }
 }
 
-.small {
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 2px solid rgba(0, 0, 0, 0.08);
-  width: 220px;
-  background: rgba(255, 255, 255, 0.66);
-}
-
-.btn {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.btn.secondary { background: var(--accent-2); }
-.btn.out { background: #dc2626; }
-.btn.info { background: #16a34a; }
-
-/* Pages & tables */
-.page {
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(5px);
-  border-radius: 12px;
-  width: 100%;
-  min-height: calc(100vh - 40px);
-  padding: 25px;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.1);
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 20px;
-}
-
-th, td {
-  border: 1px solid #ccc;
-  padding: 6px 10px;
-  text-align: left;
-}
-
-th {
-  background: #007bff;
-  font-weight: 700;
-  color: #fff;
-}
-
-.low-stock { color: var(--danger); font-weight: 700; }
-.balance-qty { font-weight: bold; }
-
-/* Modals */
-.modal-backdrop {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
-}
-
-.modal {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  max-height: 80%;
-  overflow-y: auto;
-  width: 700px;
-  max-width: 92vw;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.modal-close {
-  cursor: pointer;
-  background: none;
-  border: none;
-  font-size: 18px;
-}
-
-.modal-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.modal-table th,
-.modal-table td {
-  border: 1px solid #ccc;
-  padding: 8px;
-  text-align: left;
-}
-
-/* Print styling */
-@media print {
-  body {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-  .print-bg {
-    background-image: url('banner.png') !important;
-    background-size: cover !important;
-    background-repeat: no-repeat !important;
-    background-position: center !important;
-  }
-}
-
-.toast {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  background-color: #16a34a;
-  color: #fff;
-  padding: 10px 20px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  font-weight: bold;
-  z-index: 10000;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-.toast.out { background-color: #dc2626; }
-
+/* =========================================
+   DASHBOARD
+========================================= */
 .dashboard-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
-  gap:15px;
-  margin-top:15px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
 }
 .dash-card{
   background:#fff;
-  border-radius:8px;
-  padding:16px;
-  box-shadow:0 4px 12px rgba(0,0,0,.08);
-  text-align:center;
-}
-.dash-card h3{ font-size:14px; color:#555; }
-.dash-card div{ font-size:28px; font-weight:700; margin-top:6px; }
-
-.fg-chart-box {
-  height: 260px;
-  max-height: 260px;
-  overflow: hidden;
-  background: #fff;
   border-radius: 12px;
-  padding: 10px;
+  padding: 16px;
   box-shadow: 0 4px 12px rgba(0,0,0,.08);
+  text-align:center;
+  border:1px solid rgba(0,0,0,.04);
 }
+.dash-card h3{ font-size:14px; color:#555; margin:0; }
+.dash-card div{ font-size:28px; font-weight:800; margin-top:6px; }
+
+.fg-chart-box{
+  height:260px;
+  max-height:260px;
+  overflow:hidden;
+  background:#fff;
+  border-radius:12px;
+  padding:10px;
+  box-shadow:0 4px 12px rgba(0,0,0,.08);
+}
+.fg-filter{
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+  margin:10px 0;
+  font-size:14px;
+}
+
+/* =========================================
+   MODAL (CUSTOM) - Bootstrap safe (NOT .modal)
+========================================= */
+.modal-backdrop{
+  display:none;
+  position:fixed; inset:0;
+  background:rgba(0,0,0,.45);
+  justify-content:center;
+  align-items:center;
+  z-index:9999;
+}
+.sm-modal{
+  background:#fff;
+  padding:20px;
+  border-radius:12px;
+  max-height:80vh;
+  overflow:auto;
+  width:700px;
+  max-width:92vw;
+  box-shadow:0 5px 15px rgba(0,0,0,.30);
+}
+.modal-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:10px;
+}
+.modal-close{
+  cursor:pointer;
+  background:none;
+  border:none;
+  font-size:18px;
+}
+.modal-table{
+  width:100%;
+  border-collapse:collapse;
+}
+.modal-table th,
+.modal-table td{
+  border:1px solid #ccc;
+  padding:8px;
+  text-align:left;
+}
+
+/* =========================================
+   TOAST
+========================================= */
+.toast{
+  position:fixed;
+  top:20px;
+  right:20px;
+  background:#16a34a;
+  color:#fff;
+  padding:10px 20px;
+  border-radius:10px;
+  box-shadow:0 4px 12px rgba(0,0,0,.20);
+  font-weight:700;
+  z-index:10000;
+  opacity:0;
+  transition:opacity .25s ease;
+}
+.toast.out{ background:#dc2626; }
+
+/* =========================================
+   BOE SEARCH DROP DOWN (RM searchable)
+========================================= */
+.rm-search-wrap{ position:relative; }
+.rm-search-input{
+  width:100%;
+  padding:8px 10px;
+  border:1px solid rgba(0,0,0,.15);
+  border-radius:10px;
+  outline:none;
+  background:#fff;
+}
+.rm-search-dd{
+  position:absolute;
+  top:calc(100% + 6px);
+  left:0; right:0;
+  max-height:240px;
+  overflow:auto;
+  background:#fff;
+  border:1px solid rgba(0,0,0,.12);
+  border-radius:10px;
+  box-shadow:0 10px 20px rgba(0,0,0,.12);
+  z-index:9999;
+  display:none;
+}
+.rm-search-item{
+  padding:8px 10px;
+  cursor:pointer;
+  border-bottom:1px solid rgba(0,0,0,.06);
+}
+.rm-search-item:last-child{ border-bottom:none; }
+.rm-search-item:hover{ background:rgba(41,128,185,.10); }
+.rm-search-item.active{ background:rgba(41,128,185,.18); font-weight:700; }
+.rm-search-empty{ padding:10px; color:var(--muted); font-size:13px; }
+
+/* =========================================
+   PRINT
+========================================= */
+@media print{
+  body{
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+}
+
 </style>
-</head>
+ </head>
 
 <body>
 
-<!-- LOGIN SCREEN -->
-<div id="loginScreen" style="position:fixed; inset:0; background:#f3f4f6;
-display:flex; align-items:center; justify-content:center; z-index:99999;">
-  <div style="width:350px; background:white; padding:25px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.15)">
-    <h2 style="text-align:center">Stock Manager</h2>
+<!-- =========================
+     LOGIN SCREEN
+========================= -->
+<div id="loginScreen" class="sm-login-screen">
+  <div class="sm-login-card">
+    <h2 class="text-center mb-3">Stock Manager</h2>
 
     <div id="loginForm">
-      <input id="loginUser" placeholder="Username" style="width:100%;padding:8px 10px;margin:10px 0;border: 1px solid rgba(0, 0, 0, 0.08);">
-      <input id="loginPass" type="password" placeholder="Password" style="width:100%;padding:8px 10px;margin:10px 0;border: 1px solid rgba(0, 0, 0, 0.08);">
-      <button class="btn" style="width:100%;" onclick="login()">Login</button>
+      <input id="loginUser" class="sm-login-input" placeholder="Username">
+      <input id="loginPass" class="sm-login-input" type="password" placeholder="Password">
+      <button class="btn btn-primary w-100" onclick="login()">Login</button>
 
-      <p style="text-align:center;margin:10px 0;">Don't have an account?
-        <span style="color:blue;cursor:pointer;" onclick="showSignup()">Sign Up</span>
+      <p class="text-center mt-3 mb-2">
+        Don't have an account?
+        <span class="sm-link" onclick="showSignup()">Sign Up</span>
       </p>
 
-      <p style="text-align:center;margin:10px 0;">
-        <span style="color:blue;cursor:pointer;" onclick="forgotPassword()">Forgot Password?</span>
+      <p class="text-center mb-2">
+        <span class="sm-link" onclick="forgotPassword()">Forgot Password?</span>
       </p>
 
-      <p id="loginMsg" style="color:red;text-align:center;margin-top:10px"></p>
+      <p id="loginMsg" class="sm-msg sm-msg-error"></p>
     </div>
 
     <div id="signupForm" style="display:none">
-      <input id="signupUser" placeholder="Username" style="width:90%;padding:10px;margin:10px 0">
-      <input id="signupPass" type="password" placeholder="Password" style="width:90%;padding:10px;margin-bottom:10px">
-      <select id="signupRole" style="width:100%;padding:10px;margin-bottom:10px">
+      <input id="signupUser" class="sm-login-input" placeholder="Username">
+      <input id="signupPass" class="sm-login-input" type="password" placeholder="Password">
+      <select id="signupRole" class="form-select mb-2">
         <option value="user">User</option>
       </select>
-      <button class="btn" style="width:98%" onclick="signup()">Create Account</button>
-      <p style="text-align:center;margin:10px 0;">Already have an account?
-        <span style="color:blue;cursor:pointer;" onclick="showLogin()">Login</span>
+      <button class="btn btn-success w-100" onclick="signup()">Create Account</button>
+
+      <p class="text-center mt-3 mb-0">
+        Already have an account?
+        <span class="sm-link" onclick="showLogin()">Login</span>
       </p>
-      <p id="signupMsg" style="color:red;text-align:center;margin-top:10px"></p>
+
+      <p id="signupMsg" class="sm-msg sm-msg-error"></p>
     </div>
   </div>
 </div>
 
+
+<!-- =========================
+     APP
+========================= -->
 <div class="app">
+
+  <!-- SIDEBAR -->
   <aside id="sidebar" class="sidebar">
     <div class="sidebar-header">
       <img id="brandBanner" src="banner.png" class="sidebar-logo" onerror="this.style.display='none'">
@@ -438,304 +447,651 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
         <div class="brand-title">STOCK</div>
         <div class="brand-sub">Inventory • Public Sheet</div>
       </div>
-      <button id="sidebarToggle" class="btn secondary" style="margin-left:auto;padding:4px 6px;font-size:14px">←</button>
+      <button id="sidebarToggle" class="btn btn-outline-secondary sm-btn-compact" type="button">←</button>
     </div>
 
     <ul class="sidebar-menu" id="menu">
 
       <li id="usersMenu" class="menu-title collapsible admin-only">
-        👥 Users <span class="arrow">▾</span>
+        Users <span class="arrow">▾</span>
       </li>
       <ul class="subgroup admin-only">
         <li class="submenu" data-page="userManagement">Manage Users</li>
       </ul>
 
-      <li class="menu-title collapsible">📊 Dashboard <span class="arrow">▾</span></li>
+      <li class="menu-link" data-page="dashboardPage">Dashboard</li>
+
+      <li class="menu-title collapsible">Purchase <span class="arrow">▾</span></li>
       <ul class="subgroup">
-        <li class="submenu" data-page="dashboardPage">📊 Dashboard</li>
+        <li class="submenu" data-page="billEntry">Goods Received Note</li>
+   <li class="submenu" data-page="dashboard">Goods Received Note</li>
+        <li class="submenu" data-page="suppliers">Manage Raw Suppliers</li>
       </ul>
 
-      <li class="menu-title collapsible">📊 Bill Of Materials <span class="arrow">▾</span></li>
+      <li class="menu-title collapsible">Store <span class="arrow">▾</span></li>
       <ul class="subgroup">
-        <li class="submenu" data-page="dashboard">📊 BOM</li>
+        <li class="submenu" data-page="products">Stock Ledger</li>
+        <li class="submenu admin-only" data-page="rmAddProduct">Add Product</li>
+        <li class="submenu" data-page="stockIn">Physical Entry In</li>
+        <li class="submenu" data-page="stockOut">Physical Entry Out</li>
+        <li class="submenu" data-page="rmDeliveryNote">Delivery Note</li>
       </ul>
 
-      <li class="menu-title collapsible">📈 Store <span class="arrow">▾</span></li>
+      <li class="menu-title collapsible">Finished Goods <span class="arrow">▾</span></li>
       <ul class="subgroup">
-        <li class="submenu" data-page="products">📦 RM List</li>
-        <li class="submenu admin-only" data-page="rmAddProduct">➕ Add RM Product</li>
-        <li class="submenu" data-page="stockIn">⬆ RM Stock In</li>
-        <li class="submenu" data-page="stockOut">⬇ RM Stock Out</li>
+        <li class="submenu" data-page="fgStock">FG Stock</li>
+        <li class="submenu admin-only" data-page="fgAddProduct">Add Product</li>
+        <li class="submenu" data-page="fgStockIn">Physical Entry In</li>
+        <li class="submenu" data-page="fgStockOut">Physical Entry Out</li>
       </ul>
 
-      <li class="menu-title collapsible">🧾 FG <span class="arrow">▾</span></li>
+      <li class="menu-title collapsible">Manufacture <span class="arrow">▾</span></li>
       <ul class="subgroup">
-        <li class="submenu" data-page="fgStock">📦 FG Stock List</li>
-        <li class="submenu admin-only" data-page="fgAddProduct">➕ Add FG Product</li>
-        <li class="submenu" data-page="fgStockIn">⬆ FG Stock In</li>
-        <li class="submenu" data-page="fgStockOut">⬇ FG Stock Out</li>
+        <li class="submenu" data-page="productionAuto">Production Entry</li>
+        <li class="submenu" data-page="pageProductionRecords">Saved Production</li>
       </ul>
 
-      <li class="menu-title collapsible">🧾 Suppliers <span class="arrow">▾</span></li>
+      <li class="menu-title collapsible">Report <span class="arrow">▾</span></li>
       <ul class="subgroup">
-        <li class="submenu" data-page="suppliers">📋 Manage Raw Suppliers</li>
-      </ul>
-
-      <li class="menu-title collapsible">💾 Report <span class="arrow">▾</span></li>
-      <ul class="subgroup">
-        <li class="submenu" data-page="history">📚 RM History</li>
-        <li class="submenu" data-action="importExcel">📥 Import Excel</li>
-        <li class="submenu" data-action="exportExcel">📤 Export Excel</li>
-        <li class="submenu" data-action="printStockReport">🖨️ Print RM Stock Report</li>
-        <li class="submenu" data-action="printFGStockReport">🖨️ Print FG Stock Report</li>
-        <li class="submenu" data-action="exportPDF">📄 Export PDF</li>
+        <li class="submenu" data-page="history">RM History</li>
+        <li class="submenu" data-action="importExcel">Import Excel</li>
+        <li class="submenu" data-action="exportExcel">Export Excel</li>
+        <li class="submenu" data-action="printStockReport">Print RM Stock Report</li>
+        <li class="submenu" data-action="printFGStockReport">Print FG Stock Report</li>
+        <li class="submenu" data-action="exportPDF">Export PDF</li>
       </ul>
 
       <div class="sidebar-footer">Data stored locally; cloud optional.</div>
     </ul>
   </aside>
 
+
+  <!-- MAIN -->
   <main class="main">
-    <button onclick="logout()" class="btn out" style="position:fixed;top:10px;right:20px;z-index:999">Logout</button>
+
+    <button onclick="logout()" class="btn btn-danger sm-logout">Logout</button>
 
     <!-- USER MANAGEMENT -->
     <section id="userManagement" class="page" style="display:none">
       <h2>Manage Users</h2>
-      <table id="usersTable">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Username</th>
-            <th>Role/Permission</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-
-      <div style="margin-top:12px;">
-        <input id="newUsername" placeholder="Username">
-        <input id="newPassword" type="password" placeholder="Password">
-        <select id="newRole">
-          <option value="user">User</option>
-          <option value="admin">Admin</option>
-        </select>
-        <button class="btn admin-only" onclick="addUser()">Add User</button>
-      </div>
-    </section>
-
-    <!-- BOM / DASH TABLE -->
-    <section id="dashboard" class="page" style="display:block">
-      <h2>Bill Of Materials</h2>
-
-      <div class="top">
-        <div class="dash-search">
-          <input type="text" id="dashboardSearch" class="search" placeholder="Search product / group..."
-            oninput="handleDashboardSearch(this.value)">
-          <button class="btn secondary" onclick="clearDashboardSearch()">Clear</button>
-        </div>
-      </div>
-
-      <div style="overflow:auto">
-        <table id="dashTable">
-          <thead>
+      <div class="table-responsive">
+        <table id="usersTable" class="table table-sm table-hover align-middle">
+          <thead class="table-light">
             <tr>
-              <th>Product</th>
-              <th>Balance</th>
-              <th>Threshold</th>
-              <th>Last IN</th>
-              <th>Last OUT</th>
-              <th>Actions</th>
+              <th>#</th><th>Username</th><th>Role/Permission</th><th>Actions</th>
             </tr>
           </thead>
           <tbody></tbody>
         </table>
       </div>
+
+      <div class="d-flex flex-wrap gap-2 mt-2">
+        <input id="newUsername" class="form-control" style="max-width:260px" placeholder="Username">
+        <input id="newPassword" class="form-control" style="max-width:260px" type="password" placeholder="Password">
+        <select id="newRole" class="form-select" style="max-width:220px">
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button class="btn btn-primary admin-only" onclick="addUser()">Add User</button>
+      </div>
     </section>
+
+
+    <!-- BOM / DASH TABLE -->
+    <section id="dashboard" class="page" style="display:block">
+      <h2>Bill Of Materials</h2>
+
+      <div class="d-flex gap-2 flex-wrap align-items-center mb-3">
+        <input type="text" id="dashboardSearch" class="sm-search" placeholder="Search product / group..."
+               oninput="handleDashboardSearch(this.value)">
+        <button class="btn btn-outline-secondary" onclick="clearDashboardSearch()">Clear</button>
+      </div>
+
+      <div class="table-responsive">
+        <table id="dashTable" class="table table-sm table-hover align-middle">
+          <thead class="table-light">
+          <tr>
+            <th>Product Code</th>
+            <th>Product Name</th>
+            <th>Balance</th>
+            <th>Threshold</th>
+            <th>Last IN</th>
+            <th>Last OUT</th>
+            <th>Actions</th>
+          </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
 
     <!-- MAIN DASHBOARD -->
     <section id="dashboardPage" class="page" style="display:none">
       <h2>Dashboard</h2>
 
       <div class="dashboard-grid">
-        <div class="dash-card">
-          <h3>Total RM Products</h3>
-          <div id="dashTotalProducts">0</div>
-        </div>
-
-        <div class="dash-card">
-          <h3>Total RM Stock</h3>
-          <div id="dashTotalStock">0</div>
-        </div>
-
-        <div class="dash-card">
-          <h3>Low Stock Items</h3>
-          <div id="dashLowStock">0</div>
-        </div>
-
-        <div class="dash-card" onclick="openFGFromDashboard()" style="cursor:pointer">
-          <h3>Total FG Balance</h3>
-          <div id="dashFGBalance">0</div>
-        </div>
-
-        <div class="dash-card" onclick="openFGFromDashboard()" style="cursor:pointer">
-          <h3>FG Products</h3>
-          <div id="dashFGTotalProducts">0</div>
-        </div>
-
-        <div class="dash-card" onclick="openLowFGFromDashboard()" style="cursor:pointer">
-          <h3>Low FG Stock</h3>
-          <div id="dashFGLowStock">0</div>
-        </div>
-
-        <div class="dash-card">
-          <h3>Max FG Balance</h3>
-          <div id="dashFGMaxBalance">-</div>
-        </div>
-
-        <div class="dash-card">
-          <h3>Min FG Balance</h3>
-          <div id="dashFGMinBalance">-</div>
-        </div>
+        <div class="dash-card"><h3>Total RM Products</h3><div id="dashTotalProducts">0</div></div>
+        <div class="dash-card"><h3>Total RM Stock</h3><div id="dashTotalStock">0</div></div>
+        <div class="dash-card"><h3>Low Stock Items</h3><div id="dashLowStock">0</div></div>
+        <div class="dash-card" onclick="openFGFromDashboard()" style="cursor:pointer"><h3>Total FG Balance</h3><div id="dashFGBalance">0</div></div>
+        <div class="dash-card" onclick="openFGFromDashboard()" style="cursor:pointer"><h3>FG Products</h3><div id="dashFGTotalProducts">0</div></div>
+        <div class="dash-card" onclick="openLowFGFromDashboard()" style="cursor:pointer"><h3>Low FG Stock</h3><div id="dashFGLowStock">0</div></div>
+        <div class="dash-card"><h3>Max FG Balance</h3><div id="dashFGMaxBalance">-</div></div>
+        <div class="dash-card"><h3>Min FG Balance</h3><div id="dashFGMinBalance">-</div></div>
       </div>
 
-      <div id="fgVolumeFilter" style="display:flex;gap:12px;flex-wrap:wrap;margin:10px 0;font-size:14px"></div>
+      <div id="fgVolumeFilter" class="fg-filter"></div>
 
       <div class="fg-chart-box">
         <canvas id="fgStockChart"></canvas>
       </div>
     </section>
 
+
     <!-- FG STOCK LIST -->
     <section id="fgStock" class="page" style="display:none">
       <h2>Finished Goods Stock</h2>
-      <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
-        <input id="fgSearch" class="search" placeholder="Search FG products...">
+      <div class="d-flex gap-2 flex-wrap mb-3">
+        <input id="fgSearch" class="sm-search" placeholder="Search FG products / Product Code / Volume...">
       </div>
-      <div style="overflow:auto; height: calc(100% - 140px);">
-        <table id="fgTable">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Product</th>
-              <th>Volume</th>
-              <th>Balance</th>
-              <th>Actions</th>
-            </tr>
+
+      <div class="table-responsive" style="max-height:65vh">
+        <table id="fgTable" class="table table-sm table-hover align-middle">
+          <thead class="table-light">
+          <tr>
+            <th>#</th>
+            <th>Product Code</th>
+            <th>Barcode</th>
+            <th>Product</th>
+            <th>Volume</th>
+            <th>Balance</th>
+            <th>Actions</th>
+          </tr>
           </thead>
           <tbody></tbody>
         </table>
       </div>
     </section>
+
 
     <!-- PRODUCTS (RM) -->
     <section id="products" class="page" style="display:none">
       <h2>Raw Material List</h2>
 
-      <div style="margin-bottom:12px">
-        <input id="productSearch" class="search" placeholder="Search products...">
+      <div class="mb-3">
+        <input id="productSearch" class="sm-search" placeholder="Search products...">
       </div>
 
-      <div style="overflow:auto;height:calc(100% - 120px)">
-        <table id="productsTable">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Code</th>
-              <th>Name</th>
-              <th>Category</th>
-              <th>Balance</th>
-              <th>Threshold</th>
-              <th>Barcode</th>
-              <th>History</th>
-              <th>Edit</th>
-              <th>Delete</th>
-            </tr>
+      <div class="table-responsive" style="max-height:65vh">
+        <table id="productsTable" class="table table-sm table-hover align-middle">
+          <thead class="table-light">
+          <tr>
+            <th>#</th><th>Code</th><th>Name</th><th>Category</th><th>Balance</th>
+            <th>Threshold</th><th>Barcode</th><th>History</th><th>Edit</th><th>Delete</th>
+          </tr>
           </thead>
           <tbody></tbody>
         </table>
       </div>
     </section>
+
+<!-- BILL OF ENTRY (VERTICAL ONE-PAGE LAYOUT) -->
+<section id="billEntry" class="page" style="display:none;">
+
+  <!-- Header -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div>
+      <h2 class="m-0">Goods Received Note</h2>
+      <div class="text-muted small">Create, manage and print Bill of Entry (BOE)</div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <button class="btn btn-outline-secondary" onclick="boeTriggerImport()">📥 Import Excel</button>
+      <button class="btn btn-success" onclick="printBOESummaryReport()">🖨️ Bills Summary</button>
+    </div>
+  </div>
+
+  <!-- BOE FORM (TOP) -->
+  <div class="card shadow-sm border-0 mb-3">
+    <div class="card-header bg-white d-flex align-items-center justify-content-between">
+      <div class="fw-bold">Create / Edit Bill of Entry</div>
+      <span id="boeEditBadge" class="badge text-bg-success" style="display:none;">EDITING MODE</span>
+    </div>
+
+    <div class="card-body">
+      <input id="boeFileInput" type="file" accept=".xlsx,.xls" class="d-none">
+
+      <div class="row g-2 mb-3">
+        <div class="col-12 col-md-6">
+          <input id="boeNo" class="form-control" placeholder="Bill No / Entry No">
+        </div>
+        <div class="col-12 col-md-6">
+          <input id="boeDate" type="date" class="form-control">
+        </div>
+        <div class="col-12 col-md-6">
+          <select id="boeSupplier" class="form-select"></select>
+        </div>
+        <div class="col-12 col-md-6">
+          <input id="boeSupplierOther" class="form-control" placeholder="Supplier Name (if Other)" style="display:none">
+        </div>
+      </div>
+
+      <div class="border rounded-3">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>RM Product</th>
+                <th style="width:120px">Qty</th>
+                <th>Remark</th>
+                <th class="text-center" style="width:110px">Remove</th>
+              </tr>
+            </thead>
+            <tbody id="boeItemsBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <button class="btn btn-outline-primary" onclick="boeAddRow()">➕ Add Item</button>
+        <button class="btn btn-primary" onclick="submitBillEntry()">✅ Save Bill & Stock IN</button>
+        <button class="btn btn-danger" onclick="resetBillEntryForm()">Clear</button>
+      </div>
+
+      <div class="text-muted small mt-2">
+        Tip: Add multiple items then save once to stock-in all at the same time.
+      </div>
+    </div>
+  </div>
+
+  <!-- SAVED BILLS (BOTTOM) -->
+  <div class="card shadow-sm border-0">
+    <div class="card-header bg-white d-flex flex-wrap gap-2 align-items-center justify-content-between">
+      <div class="fw-bold">Saved Bills</div>
+      <input id="boeSearch" class="form-control" style="max-width:320px" placeholder="Search bill / supplier...">
+    </div>
+
+    <div class="card-body p-0">
+      <!-- Scroll Area -->
+      <div class="table-responsive" style="max-height:55vh; overflow:auto;">
+        <table id="boeTable" class="table table-sm table-hover align-middle mb-0">
+          <thead class="table-light sticky-top">
+            <tr>
+              <th>Date</th>
+              <th>Product Code</th>
+              <th>Bill No</th>
+              <th>Product Name</th>
+              <th>Supplier</th>
+              <th class="text-end">Total Qty</th>
+              <th class="text-center">Items</th>
+              <th style="min-width:240px">Actions</th>
+            </tr>
+          </thead>
+          <tbody ></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card-footer bg-white text-muted small">
+      Tip: Use search to filter bills instantly.
+    </div>
+  </div>
+
+</section>
+</section>
 
     <!-- ADD RM PRODUCT -->
     <section id="rmAddProduct" class="page" style="display:none">
       <h2>Add Raw Material Product</h2>
 
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px">
-        <input id="newCode" class="small" placeholder="Product Code">
-        <input id="newName" class="small" placeholder="Product Name">
-        <input id="newCategory" class="small" placeholder="Category">
-        <input id="newThreshold" class="small" type="number" placeholder="Low Stock Threshold">
-        <input id="newBarcode" class="small" placeholder="Barcode">
-        <input id="newGroups" class="small" placeholder="Groups (comma separated)">
-        <label style="display:flex;align-items:center;gap:6px">
+      <div class="d-flex gap-2 flex-wrap mb-3">
+        <input id="newCode" class="sm-small" placeholder="Product Code">
+        <input id="newName" class="sm-small" placeholder="Product Name">
+        <input id="newCategory" class="sm-small" placeholder="Category">
+        <input id="newThreshold" class="sm-small" type="number" placeholder="Low Stock Threshold">
+        <input id="newBarcode" class="sm-small" placeholder="Barcode">
+        <input id="newGroups" class="sm-small" placeholder="Groups (comma separated)">
+        <label class="d-flex align-items-center gap-2">
           <input type="checkbox" id="newExclusive"> Exclusive to first group
         </label>
       </div>
 
-      <button class="btn btn-add" onclick="addRMProduct()">Add Product</button>
+      <button class="btn btn-primary" onclick="addRMProduct()">Add Product</button>
     </section>
+
 
     <!-- STOCK IN -->
     <section id="stockIn" class="page" style="display:none">
       <h2>RM Stock In</h2>
-      <input id="inSearch" class="search" placeholder="Search product">
-      <button class="btn secondary" onclick="stockInHistoryModal()">View Stock IN History</button>
-      <table id="stockInBody">
-        <thead><tr><th>Product</th><th>Balance</th><th>Last IN</th><th>Action</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </section>
-
-    <!-- STOCK OUT -->
-    <section id="stockOut" class="page" style="display:none">
-      <h2>RM Stock Out</h2>
-      <input id="outSearch" class="search" placeholder="Search product">
-      <button class="btn info" onclick="stockOutHistoryModal()">View Stock OUT History</button>
-      <table id="stockOutBody">
-        <thead><tr><th>Product</th><th>Balance</th><th>Last OUT</th><th>Action</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </section>
-
-    <!-- COMBINED HISTORY -->
-    <section id="history" class="page" style="display:none">
-      <h2>RM Combined History</h2>
-      <div style="margin-bottom:12px">
-        <input id="historySearch" class="search" placeholder="Search combined history...">
+      <div class="d-flex gap-2 flex-wrap mb-2">
+        <input id="inSearch" class="sm-search" placeholder="Search product">
+        <button class="btn btn-outline-secondary" onclick="stockInHistoryModal()">View Stock IN History</button>
       </div>
-      <div style="overflow:auto; height: calc(100% - 120px);">
-        <table id="historyTable">
-          <thead>
-            <tr><th>Date</th><th>Product</th><th>Type</th><th>Qty</th><th>Remark</th></tr>
+
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle" id="stockInBody">
+          <thead class="table-light">
+          <tr><th>Product Code</th><th>Product Name</th><th>Balance</th><th>Last IN</th><th>Action</th></tr>
           </thead>
           <tbody></tbody>
         </table>
       </div>
     </section>
 
-    <!-- SUPPLIERS -->
-    <section id="suppliers" class="page" style="display:none">
-      <h2>Raw Material Suppliers</h2>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
-        <input id="newSupplierName" class="small" placeholder="Supplier Name">
-        <input id="newSupplierContact" class="small" placeholder="Contact Info">
-        <button id="addSupplierBtn" class="btn btn-add">Add Supplier</button>
+
+    <!-- STOCK OUT -->
+    <section id="stockOut" class="page" style="display:none">
+      <h2>RM Stock Out</h2>
+      <div class="d-flex gap-2 flex-wrap mb-2">
+        <input id="outSearch" class="sm-search" placeholder="Search product">
+        <button class="btn btn-info" onclick="stockOutHistoryModal()">View Stock OUT History</button>
       </div>
-      <div style="margin-bottom:12px">
-        <input id="supplierSearch" class="search" placeholder="Search suppliers...">
-      </div>
-      <div style="overflow:auto; height: calc(100% - 150px);">
-        <table id="suppliersTable">
-          <thead><tr><th>#</th><th>Name</th><th>Contact</th><th>Edit</th><th>Delete</th></tr></thead>
+
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle" id="stockOutBody">
+          <thead class="table-light">
+          <tr><th>Product Code</th><th>Product Name</th><th>Balance</th><th>Last OUT</th><th>Action</th></tr>
+          </thead>
           <tbody></tbody>
         </table>
       </div>
     </section>
 
-    <!-- MODALS -->
+
+    <!-- COMBINED HISTORY -->
+    <section id="history" class="page" style="display:none">
+      <h2>RM Combined History</h2>
+      <div class="mb-3">
+        <input id="historySearch" class="sm-search" placeholder="Search combined history...">
+      </div>
+
+      <div class="table-responsive" style="max-height:65vh">
+        <table id="historyTable" class="table table-sm table-hover align-middle">
+          <thead class="table-light">
+          <tr><th>Date</th><th>Product</th><th>Type</th><th>Qty</th><th>Remark</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+
+    <!-- SUPPLIERS -->
+    <section id="suppliers" class="page" style="display:none">
+      <h2>Raw Material Suppliers</h2>
+
+      <div class="d-flex gap-2 flex-wrap align-items-center mb-3">
+        <input id="newSupplierName" class="sm-small" placeholder="Supplier Name">
+        <input id="newSupplierContact" class="sm-small" placeholder="Contact Info">
+        <button id="addSupplierBtn" class="btn btn-primary">Add Supplier</button>
+      </div>
+
+      <div class="mb-3">
+        <input id="supplierSearch" class="sm-search" placeholder="Search suppliers...">
+      </div>
+
+      <div class="table-responsive" style="max-height:65vh">
+        <table id="suppliersTable" class="table table-sm table-hover align-middle">
+          <thead class="table-light">
+          <tr><th>#</th><th>Name</th><th>Contact</th><th>Edit</th><th>Delete</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+
+    <!-- FG STOCK IN -->
+    <section id="fgStockIn" class="page" style="display:none">
+      <h2>FG Stock In</h2>
+      <div class="d-flex gap-2 flex-wrap mb-2">
+        <input id="fgInSearch" class="sm-search" placeholder="Search FG product...">
+        <button class="btn btn-outline-secondary" onclick="fgStockInHistoryModal()">View FG IN History</button>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+          <thead class="table-light">
+          <tr><th>#</th><th>Product Code</th><th>Product</th><th>Balance</th><th>Action</th></tr>
+          </thead>
+          <tbody id="fgStockInBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+
+    <!-- FG STOCK OUT -->
+    <section id="fgStockOut" class="page" style="display:none">
+      <h2>FG Stock Out</h2>
+      <div class="d-flex gap-2 flex-wrap mb-2">
+        <input id="fgOutSearch" class="sm-search" placeholder="Search FG product...">
+        <button class="btn btn-info" onclick="fgStockOutHistoryModal()">View FG OUT History</button>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+          <thead class="table-light">
+          <tr><th>#</th><th>Product Code</th><th>Product</th><th>Balance</th><th>Action</th></tr>
+          </thead>
+          <tbody id="fgStockOutBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+
+    <!-- ADD FG PRODUCT -->
+    <section id="fgAddProduct" class="page" style="display:none">
+      <h2>Add Finished Goods Product</h2>
+
+      <div class="d-flex gap-2 flex-wrap mb-3">
+        <input id="fgNewProductcode" class="sm-small" placeholder="Product Code">
+        <input id="fgNewBarcode" class="sm-small" placeholder="Barcode">
+        <input id="fgNewName" class="sm-small" placeholder="Product Name">
+        <input id="fgNewVolume" class="sm-small" placeholder="Volume / Size">
+        <input id="fgNewGroup" class="sm-small" placeholder="Group Prefix (ALKHOR)">
+        <input id="fgNewBatch" class="sm-small" placeholder="Batch / Lot No">
+        <input id="fgNewExpiry" class="sm-small" type="date">
+        <input id="fgNewThreshold" class="sm-small" type="number" placeholder="Low Stock Threshold">
+      </div>
+
+      <button class="btn btn-primary" onclick="addFGProduct()">Add FG Product</button>
+    </section>
+
+
+    <!-- PRODUCTION ENTRY -->
+    <section class="page" id="productionAuto" style="display:none">
+
+      <div class="sm-card">
+        <b>Production Entry</b>
+        <div class="muted">FG IN + RM OUT, with optional RM Return + RM Damage.</div>
+      </div>
+
+      <div class="sm-card">
+        <div class="sm-grid">
+          <div class="gcol-3">
+            <label class="sm-lbl">Production No</label>
+            <input id="prodNo" class="sm-inp" placeholder="PROD-001">
+          </div>
+          <div class="gcol-3">
+            <label class="sm-lbl">Date</label>
+            <input id="prodDate" class="sm-inp" type="date">
+          </div>
+          <div class="gcol-4">
+            <label class="sm-lbl">FG Product</label>
+            <select id="prodFG" class="sm-inp"></select>
+          </div>
+          <div class="gcol-2">
+            <label class="sm-lbl">FG Qty</label>
+            <input id="prodFGQty" class="sm-inp" type="number" min="0" step="0.01" value="1">
+          </div>
+
+          <div class="gcol-12">
+            <label class="sm-lbl">Production Remark (optional)</label>
+            <input id="prodRemark" class="sm-inp" placeholder="Batch / Operator / Shift...">
+          </div>
+        </div>
+      </div>
+
+      <div class="sm-card" style="overflow:auto">
+        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+          <b>BOM Consumption (FG BOM × FG Qty)</b>
+          <span class="muted">Return/Damage inside production entry.</span>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>RM Product</th>
+                <th class="text-end">Required</th>
+                <th class="text-end">Damage</th>
+                <th class="text-end">Net Used</th>
+              </tr>
+            </thead>
+            <tbody id="prodBOMBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="sm-card">
+        <button class="btn btn-primary" onclick="submitProduction()">Save Production</button>
+      </div>
+    </section>
+
+
+    <!-- PRODUCTION VIEW MODAL -->
+    <div id="prodViewModal" class="modal-backdrop" style="display:none;">
+      <div class="sm-modal">
+        <div class="modal-header">
+          <h3 id="prodViewTitle">Production</h3>
+          <button class="modal-close" onclick="closeProdView()">✖</button>
+        </div>
+
+        <div id="prodViewMeta" class="mb-2 text-muted"></div>
+
+        <h5 class="mt-3">RM Used</h5>
+        <table class="modal-table">
+          <thead><tr><th>RM Product</th><th style="width:120px">Qty</th><th>Remark</th></tr></thead>
+          <tbody id="prodViewRMBody"></tbody>
+        </table>
+
+        <h5 class="mt-3">RM Return</h5>
+        <table class="modal-table">
+          <thead><tr><th>RM Product</th><th style="width:120px">Qty</th><th>Remark</th></tr></thead>
+          <tbody id="prodViewRMReturnBody"></tbody>
+        </table>
+
+        <div class="d-flex justify-content-end gap-2 mt-3">
+          <button class="btn btn-outline-danger" onclick="closeProdView()">Close</button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- PRODUCTION RECORDS -->
+    <section class="page" id="pageProductionRecords" style="display:none">
+      <div class="sm-card">
+        <b>Production Records</b>
+        <div class="muted">View production entries and their RM Used/Return/Damage.</div>
+      </div>
+
+      <div class="sm-card" style="overflow:auto">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+            <tr>
+              <th>Date</th><th>Prod No</th><th>FG</th><th class="text-end">FG Qty</th>
+              <th class="text-end">RM Lines</th><th>Created By</th><th>Actions</th>
+            </tr>
+            </thead>
+            <tbody id="prodTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- RM DELIVERY NOTE -->
+    <section id="rmDeliveryNote" class="page" style="display:none">
+      <h2>RM Delivery Note (Warehouse → Factory)</h2>
+
+      <div class="d-flex gap-3 flex-wrap align-items-start">
+
+        <div class="sm-card" style="flex:1;min-width:320px">
+          <h3 class="mb-2">Create Delivery Note</h3>
+
+          <div class="d-flex gap-2 flex-wrap mb-2">
+            <input id="dnNo" class="sm-small" placeholder="Delivery Note No">
+            <input id="dnDate" class="sm-small" type="date">
+            <input id="dnFrom" class="sm-small" placeholder="From (Warehouse)" value="Main Store">
+            <input id="dnTo" class="sm-small" placeholder="To (Factory)" value="Factory">
+            <input id="dnProdRef" class="sm-small" placeholder="Production Ref (optional)">
+          </div>
+
+          <div class="mb-2">
+            <input id="dnRemark" class="sm-search" placeholder="General Remark (optional)">
+          </div>
+
+          <div class="table-responsive border rounded-3">
+            <table class="table table-sm align-middle mb-0">
+              <thead class="table-light">
+              <tr><th style="min-width:240px">RM Product</th><th style="width:120px">Qty</th><th>Remark</th><th style="width:80px">Remove</th></tr>
+              </thead>
+              <tbody id="dnItemsBody"></tbody>
+            </table>
+          </div>
+
+          <div class="d-flex gap-2 flex-wrap mt-2">
+            <button class="btn btn-outline-secondary" onclick="dnAddRow()">➕ Add Item</button>
+            <button class="btn btn-primary" onclick="submitDeliveryNote()">✅ Save Delivery Note</button>
+            <button class="btn btn-danger" onclick="resetDeliveryNoteForm()">Clear</button>
+          </div>
+        </div>
+
+        <div class="sm-card" style="flex:1;min-width:320px">
+          <h3 class="mb-2">Saved Delivery Notes</h3>
+          <input id="dnSearch" class="sm-search mb-2" placeholder="Search DN no / remark...">
+
+          <div class="table-responsive border rounded-3" style="max-height:520px">
+            <table id="dnTable" class="table table-sm table-hover align-middle mb-0">
+              <thead class="table-light">
+              <tr><th>Date</th><th>DN No</th><th>To</th><th>Total Qty</th><th>Items</th><th>Actions</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- DN VIEW MODAL -->
+    <div id="dnViewModal" class="modal-backdrop">
+      <div class="sm-modal">
+        <div class="modal-header">
+          <h3 id="dnViewTitle">Delivery Note</h3>
+          <button class="modal-close" onclick="closeDNView()">✖</button>
+        </div>
+
+        <div id="dnViewMeta" class="mb-2 text-muted"></div>
+
+        <table class="modal-table">
+          <thead><tr><th>RM Product</th><th>Qty</th><th>Remark</th></tr></thead>
+          <tbody id="dnViewBody"></tbody>
+        </table>
+
+        <div class="d-flex justify-content-end gap-2 mt-3 flex-wrap">
+          <button class="btn btn-outline-secondary" onclick="printDNFromModal()">🖨 Print</button>
+          <button class="btn btn-danger" onclick="closeDNView()">Close</button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- MODALS (HISTORY / STOCK) -->
     <div id="historyModal" class="modal-backdrop">
-      <div class="modal">
+      <div class="sm-modal">
         <div class="modal-header">
           <h3 id="modalTitle">Product History</h3>
           <button onclick="closeHistoryModal()" class="modal-close">✖</button>
@@ -744,13 +1100,7 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
           <table class="modal-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Product</th>
-                <th>Type</th>
-                <th>Qty</th>
-                <th>Batch</th>
-                <th>Expiry</th>
-                <th>Remark</th>
+                <th>Date</th><th>Product</th><th>Type</th><th>Qty</th><th>Batch</th><th>Expiry</th><th>Remark</th>
               </tr>
             </thead>
             <tbody id="modalHistoryBody"></tbody>
@@ -760,7 +1110,7 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
     </div>
 
     <div id="stockInHistoryModal" class="modal-backdrop">
-      <div class="modal">
+      <div class="sm-modal">
         <div class="modal-header">
           <h3>Stock IN History</h3>
           <button onclick="closeStockInHistory()" class="modal-close">✖</button>
@@ -775,7 +1125,7 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
     </div>
 
     <div id="stockOutHistoryModal" class="modal-backdrop">
-      <div class="modal">
+      <div class="sm-modal">
         <div class="modal-header">
           <h3>Stock OUT History</h3>
           <button onclick="closeStockOutHistory()" class="modal-close">✖</button>
@@ -789,78 +1139,38 @@ display:flex; align-items:center; justify-content:center; z-index:99999;">
       </div>
     </div>
 
-    <!-- Stock Modal (RM + FG) -->
     <div id="stockModal" class="modal-backdrop">
-      <div class="modal">
+      <div class="sm-modal">
         <div class="modal-header">
           <h3 id="modalProductName">Product Name</h3>
           <button class="modal-close" onclick="closeModal()">&times;</button>
         </div>
 
-        <p>Balance: <span id="modalProductBalance" style="font-weight:bold;">0</span> PCS</p>
+        <p>Balance: <span id="modalProductBalance" class="fw-bold">0</span> PCS</p>
 
-        <div class="modal-inputs" style="padding:10px;">
-          <input id="modalQty" class="small" type="number" placeholder="Enter quantity">
-          <input id="modalRemark" class="small" placeholder="Enter remark (optional)">
+        <div class="d-flex gap-2 flex-wrap">
+          <input id="modalQty" class="sm-small" type="number" placeholder="Enter quantity">
+          <input id="modalRemark" class="sm-small" placeholder="Enter remark (optional)">
         </div>
 
-        <div style="padding:10px;" class="modal-actions">
-          <button id="modalSave" class="btn">Submit</button>
-          <button onclick="closeModal()" class="btn secondary">Close</button>
+        <div class="d-flex gap-2 mt-3">
+          <button id="modalSave" class="btn btn-primary">Submit</button>
+          <button onclick="closeModal()" class="btn btn-outline-secondary">Close</button>
         </div>
       </div>
     </div>
 
-    <!-- Success Toast -->
+    <!-- Toast -->
     <div id="stockToast" class="toast" style="display:none;"></div>
-
-    <!-- FG STOCK IN -->
-    <section id="fgStockIn" class="page" style="display:none">
-      <h2>FG Stock In</h2>
-      <input id="fgInSearch" class="search" placeholder="Search FG product...">
-      <button class="btn secondary" onclick="fgStockInHistoryModal()">View FG IN History</button>
-
-      <table>
-        <thead>
-          <tr><th>#</th><th>Product</th><th>Balance</th><th>Action</th></tr>
-        </thead>
-        <tbody id="fgStockInBody"></tbody>
-      </table>
-    </section>
-
-    <!-- FG STOCK OUT -->
-    <section id="fgStockOut" class="page" style="display:none">
-      <h2>FG Stock Out</h2>
-      <input id="fgOutSearch" class="search" placeholder="Search FG product...">
-      <button class="btn info" onclick="fgStockOutHistoryModal()">View FG OUT History</button>
-
-      <table>
-        <thead>
-          <tr><th>#</th><th>Product</th><th>Balance</th><th>Action</th></tr>
-        </thead>
-        <tbody id="fgStockOutBody"></tbody>
-      </table>
-    </section>
-
-    <!-- ADD FG PRODUCT -->
-    <section id="fgAddProduct" class="page" style="display:none">
-      <h2>Add Finished Goods Product</h2>
-
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px">
-        <input id="fgNewName" class="small" placeholder="Product Name">
-        <input id="fgNewVolume" class="small" placeholder="Volume / Size">
-        <input id="fgNewGroup" class="small" placeholder="Group Prefix (ALKHOR)">
-        <input id="fgNewBatch" class="small" placeholder="Batch / Lot No">
-        <input id="fgNewExpiry" class="small" type="date">
-        <input id="fgNewThreshold" class="small" type="number" placeholder="Low Stock Threshold">
-      </div>
-
-      <button class="btn btn-add" onclick="addFGProduct()">Add FG Product</button>
-      <hr style="margin:20px 0">
-    </section>
 
   </main>
 </div>
+
+</body>
+</html>
+
+  </main>
+
 
 <script>
 /* =========================
@@ -893,7 +1203,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const cloudDB = firebase.database();
 window.cloudDB = cloudDB;
-
+const CLOUD_PATH_RM = "stockManager/v1";
 /* =========================
    ✅ UTILITIES
 ========================= */
@@ -939,6 +1249,18 @@ function setBanner(url){
 }
 setBanner('banner.png');
 
+
+function isUserTypingInForms(){
+  const el = document.activeElement;
+  if(!el) return false;
+
+  // If cursor is inside any of these forms, DO NOT re-render/reset them
+  const inForms = el.closest('#rmDeliveryNote, #billEntry, #productionEntry');
+  const isField = el.matches('input, textarea, select');
+
+  return !!(inForms && isField);
+}
+
 /* =========================
    ✅ PAGE NAV
 ========================= */
@@ -956,9 +1278,39 @@ function openPage(pageId){
   if(pageId === 'dashboard'){
     renderDashboardGrouped();
   }
-  if(pageId === 'suppliers'){
+  if(pageId === 'boesupplier'){
     renderSuppliers();
   }
+if(pageId === 'billEntry'){
+  renderBOESupplierDropdown();
+  if(!document.getElementById('boeDate').value) document.getElementById('boeDate').value = todayISO();
+  if(!document.getElementById('boeItemsBody').children.length) boeAddRow();
+  renderBillsTable();
+}
+  if(pageId === 'productionAuto'){
+    renderProdFGDropdown();
+    renderBOM();
+  }
+  if(pageId === 'pageProductionRecords'){
+    renderProductionsTable();
+  }
+
+if(pageId === 'productionEntry'){
+  renderProdFGDropdown();
+  if(!document.getElementById('prodDate').value) document.getElementById('prodDate').value = todayISO();
+
+  if(!document.getElementById('prodRMBody').children.length) prodAddRMRow();
+  if(!document.getElementById('prodRMReturnBody').children.length) prodAddRMReturnRow();
+
+  renderProductionsTable();
+}
+if(pageId === 'rmDeliveryNote'){
+  if(!document.getElementById('dnDate').value) document.getElementById('dnDate').value = todayISO();
+  if(!document.getElementById('dnItemsBody').children.length) dnAddRow();
+  renderDNTable();
+}
+
+
 
   refreshAll();
 }
@@ -1246,6 +1598,37 @@ async function addUser(){
   renderUsersTable();
 }
 
+// =========================
+// ✅ AUDIT LOG (time + username + changes)
+// =========================
+const KEY_AUDIT = "sm_audit_v1";
+let auditLog = JSON.parse(localStorage.getItem(KEY_AUDIT) || "[]");
+
+// ISO time in Dubai local display (still stores ISO)
+function nowISO(){ return new Date().toISOString(); }
+function who(){ return (currentUser?.username || currentUser?.user || "unknown"); }
+
+function saveAudit(){
+  localStorage.setItem(KEY_AUDIT, JSON.stringify(auditLog));
+}
+
+// action examples: "BOE_CREATE", "BOE_EDIT", "BOE_DELETE", "PROD_CREATE", ...
+function logChange(action, entityId, details = {}){
+  auditLog.push({
+    id: "log_" + genId(),
+    at: nowISO(),
+    by: who(),
+    action,
+    entityId,
+    details
+  });
+
+  // optional: keep log size under control
+  if(auditLog.length > 5000) auditLog = auditLog.slice(auditLog.length - 5000);
+
+  saveAudit();
+}
+
 /* =========================
    ✅ LOCAL STORAGE DATA (RM)
 ========================= */
@@ -1464,6 +1847,8 @@ function renderFGStock(){
     tbody.insertAdjacentHTML('beforeend',`
       <tr>
         <td>${i++}</td>
+	<td>${escapeHtml(p.productcode||'-')}</td>
+	<td>${escapeHtml(p.barcode||'-')}</td>
         <td class="${bal <= thr ? 'low-stock' : ''}">${escapeHtml(p.name)}</td>
         <td>${escapeHtml(p.volume||'-')}</td>
         <td class="${bal <= thr ? 'low-stock' : ''}">${bal}</td>
@@ -1496,6 +1881,7 @@ function renderFGStockIn(){
     tbody.insertAdjacentHTML('beforeend',`
       <tr>
         <td>${i++}</td>
+	<td>${escapeHtml(p.productcode||'-')}</td>
         <td>${escapeHtml(p.name)}</td>
         <td>${bal}</td>
         <td><button class="btn" onclick="openFGModal('${p.id}','IN')">Stock In</button></td>
@@ -1519,6 +1905,7 @@ function renderFGStockOut(){
     tbody.insertAdjacentHTML('beforeend',`
       <tr>
         <td>${i++}</td>
+	<td>${escapeHtml(p.productcode||'-')}</td>
         <td>${escapeHtml(p.name)}</td>
         <td>${bal}</td>
         <td><button class="btn out btn-stock-out" onclick="openFGModal('${p.id}','OUT')">Stock Out</button></td>
@@ -1559,62 +1946,1733 @@ function viewFGHistory(fgId){
     });
 }
 
+
+
+
+
+/* =========================
+   ✅ BOE / GRN MODULE (DROP-IN REWRITE) — FIXED
+   Fixes:
+   - BOE.saveBills() exists
+   - window.saveBills exists immediately (Auto pull won't fail)
+   - BOE is guaranteed global for onclick="BOE.view(...)"
+========================= */
+
+window.BOE = (() => {
+  const KEY_BILLS = 'sms_bills_v1';
+
+  // ✅ keep backward compatibility with older code that uses `savedBills`
+  window.savedBills = JSON.parse(localStorage.getItem(KEY_BILLS) || '[]');
+  let bills = window.savedBills;
+
+  let editingId = null;
+  let lastViewedId = null;
+
+  // ---------- tiny helpers ----------
+  const esc = (s) => (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+
+  const rmCode = (p) => String(p?.code || p?.productCode || p?.sku || p?.barcode || '').trim();
+  const rmName = (p) => String(p?.name || 'Unnamed').trim();
+  const rmLabel = (p) => (rmCode(p) ? `(${rmCode(p)}) ${rmName(p)}` : rmName(p)).trim();
+
+  // ✅ FIX: proper saveBills + exposed immediately
+  function saveBills() {
+    window.savedBills = bills; // keep both in sync
+    localStorage.setItem(KEY_BILLS, JSON.stringify(bills));
+  }
+  window.saveBills = saveBills; // ✅ Auto pull / old code can call saveBills()
+
+  function canStockIn(){
+    if (currentUser?.role === 'admin') return true;
+    if (typeof getPerms === 'function') return !!getPerms().stockIn;
+    return true;
+  }
+
+  function getSupplierNameFromUI(){
+    const sel = document.getElementById('boeSupplier');
+    const other = document.getElementById('boeSupplierOther');
+    if(!sel) return '';
+
+    if(sel.value === '__OTHER__') return (other?.value || '').trim();
+
+    const list = (window.suppliers && Array.isArray(window.suppliers)) ? window.suppliers : [];
+    const s = list.find(x => x.id === sel.value);
+    return (s?.name || sel.value || '').trim();
+  }
+
+  // ---------- supplier dropdown ----------
+  function renderSupplierDropdown(){
+    const sel = document.getElementById('boeSupplier');
+    const other = document.getElementById('boeSupplierOther');
+    if(!sel) return;
+
+    const list = (window.suppliers && Array.isArray(window.suppliers)) ? window.suppliers : [];
+    sel.innerHTML = `<option value="">Select Supplier</option>`;
+
+    list.forEach(s=>{
+      sel.insertAdjacentHTML('beforeend', `<option value="${esc(s.id)}">${esc(s.name)}</option>`);
+    });
+
+    sel.insertAdjacentHTML('beforeend', `<option value="__OTHER__">Other...</option>`);
+
+    sel.onchange = () => {
+      if(!other) return;
+      if(sel.value === '__OTHER__'){
+        other.style.display = '';
+        other.focus();
+      }else{
+        other.style.display = 'none';
+        other.value = '';
+      }
+    };
+  }
+
+  // ---------- RM Search dropdown per row (must pick) ----------
+  function initRowSearch(tr){
+    const input = tr.querySelector('[data-boe="productSearch"]');
+    const dd = tr.querySelector('.rm-search-dd');
+    if(!input || !dd) return;
+    if(input._inited) return;
+    input._inited = true;
+
+    let results = [];
+    let active = -1;
+
+    const close = () => { dd.style.display='none'; dd.innerHTML=''; active=-1; };
+    const open  = () => { dd.style.display='block'; };
+
+    const clearSelection = () => {
+      input.dataset.productId = '';
+      input.setAttribute('data-product-id','');
+    };
+
+    const render = (list) => {
+      results = list;
+      if(!list.length){
+        dd.innerHTML = `<div class="rm-search-empty">No matches</div>`;
+        open(); return;
+      }
+      dd.innerHTML = list.map((p,i)=>`
+        <div class="rm-search-item" data-i="${i}">
+          ${esc(rmLabel(p))}
+        </div>
+      `).join('');
+      open();
+    };
+
+    const search = () => {
+      const q = (input.value||'').toLowerCase().trim();
+      const all = [...products].sort((a,b)=> rmLabel(a).localeCompare(rmLabel(b)));
+
+      if(!q) return render(all.slice(0,25));
+
+      const out = all.filter(p=>{
+        const t = rmLabel(p).toLowerCase();
+        const c = rmCode(p).toLowerCase();
+        return t.includes(q) || c.includes(q);
+      }).slice(0,50);
+
+      render(out);
+    };
+
+    const select = (p) => {
+      input.value = rmLabel(p);
+      input.dataset.productId = p.id;
+      input.setAttribute('data-product-id', p.id);
+      close();
+    };
+
+    const highlight = () => {
+      const items = [...dd.querySelectorAll('.rm-search-item')];
+      items.forEach((el,i)=> el.classList.toggle('active', i===active));
+      const act = dd.querySelector(`.rm-search-item[data-i="${active}"]`);
+      act?.scrollIntoView({block:'nearest'});
+    };
+
+    input.addEventListener('focus', search);
+    input.addEventListener('input', ()=>{ clearSelection(); search(); });
+
+    input.addEventListener('keydown', (e)=>{
+      const isOpen = dd.style.display !== 'none';
+      if((e.key==='ArrowDown' || e.key==='Enter') && !isOpen){ search(); return; }
+      if(!isOpen) return;
+
+      if(e.key==='ArrowDown'){ e.preventDefault(); active = Math.min(active+1, results.length-1); highlight(); }
+      if(e.key==='ArrowUp'){ e.preventDefault(); active = Math.max(active-1, 0); highlight(); }
+      if(e.key==='Escape'){ close(); }
+      if(e.key==='Enter'){
+        if(active>=0 && results[active]){ e.preventDefault(); select(results[active]); }
+      }
+    });
+
+    dd.addEventListener('mousedown', (e)=>{
+      const item = e.target.closest('.rm-search-item');
+      if(!item) return;
+      e.preventDefault();
+      const i = Number(item.dataset.i);
+      if(Number.isFinite(i) && results[i]) select(results[i]);
+    });
+
+    const onDocDown = (e)=>{ if(!tr.contains(e.target)) close(); };
+    document.addEventListener('mousedown', onDocDown);
+    tr._cleanup = ()=> document.removeEventListener('mousedown', onDocDown);
+  }
+
+  // ---------- rows ----------
+  function addRow(prefill=null){
+    const body = document.getElementById('boeItemsBody');
+    if(!body) return;
+
+    const rowId = 'boeRow_' + genId();
+
+    const productId = String(prefill?.productId || '').trim();
+    const qty = (prefill?.qty ?? '');
+    const remark = (prefill?.remark ?? '');
+
+    let prefillText = '';
+    if(productId){
+      const p = products.find(x=>x?.id === productId);
+      if(p) prefillText = rmLabel(p);
+    }
+
+    body.insertAdjacentHTML('beforeend', `
+      <tr id="${rowId}">
+        <td>
+          <div class="rm-search-wrap">
+            <input class="rm-search-input small"
+              placeholder="Search RM..."
+              autocomplete="off"
+              data-boe="productSearch"
+              data-product-id="${esc(productId)}"
+              value="${esc(prefillText)}">
+            <div class="rm-search-dd"></div>
+          </div>
+        </td>
+
+        <td><input class="small" type="number" min="0" step="1" style="width:100%" data-boe="qty" value="${esc(String(qty))}"></td>
+        <td><input class="small" style="width:100%" data-boe="remark" value="${esc(String(remark))}" placeholder="Remark (optional)"></td>
+
+        <td style="text-align:center">
+          <button class="btn out" style="padding:6px 10px" type="button" data-boe="remove">X</button>
+        </td>
+      </tr>
+    `);
+
+    const tr = document.getElementById(rowId);
+    if(!tr) return;
+
+    initRowSearch(tr);
+
+    tr.querySelector('[data-boe="remove"]')?.addEventListener('click', ()=>{
+      if(typeof tr._cleanup === 'function') tr._cleanup();
+      tr.remove();
+      if(!document.getElementById('boeItemsBody')?.children.length) addRow();
+    });
+  }
+
+  function resetForm(){
+    editingId = null;
+    const badge = document.getElementById('boeEditBadge');
+    if(badge) badge.style.display = 'none';
+
+    const no = document.getElementById('boeNo');
+    const dt = document.getElementById('boeDate');
+    const sp = document.getElementById('boeSupplier');
+    const other = document.getElementById('boeSupplierOther');
+    const body = document.getElementById('boeItemsBody');
+
+    if(no) no.value = '';
+    if(dt) dt.value = todayISO();
+    if(sp) sp.value = '';
+    if(other){ other.value=''; other.style.display='none'; }
+    if(body) body.innerHTML = '';
+
+    addRow();
+  }
+
+  function getItemsFromUI(){
+    const body = document.getElementById('boeItemsBody');
+    if(!body) return [];
+
+    const out = [];
+    [...body.querySelectorAll('tr')].forEach(tr=>{
+      const rmInp  = tr.querySelector('[data-boe="productSearch"]');
+      const qtyInp = tr.querySelector('[data-boe="qty"]');
+      const remInp = tr.querySelector('[data-boe="remark"]');
+
+      const productId = String(rmInp?.dataset.productId || rmInp?.getAttribute('data-product-id') || '').trim();
+      const qty = Number(qtyInp?.value || 0);
+      const remark = (remInp?.value || '').trim();
+
+      if(!productId) return;
+      if(qty <= 0) return;
+
+      out.push({ productId, qty, remark });
+    });
+    return out;
+  }
+
+  // ---------- stock link ----------
+  function revertLinkedStock(billId){
+    stockMovements = stockMovements.filter(m => m.billId !== billId);
+  }
+
+function postStock(bill){
+  (bill.items||[]).forEach(it=>{
+    stockMovements.push({
+      id: genId(),
+      productId: it.productId,
+      type: 'IN',
+      quantity: Number(it.qty || 0),
+      date: bill.date,
+      remark: `BOE ${bill.billNo}${it.remark ? ' - ' + it.remark : ''}`,
+      billId: bill.id,
+
+      // ✅ time + user
+      createdAt: nowISO(),
+      createdBy: who()
+    });
+  });
+}
+
+
+
+  // ---------- create/edit ----------
+  function submit(){
+    if(!canStockIn()){ showToast("Stock IN not allowed for your role", true); return; }
+
+    const billNo = (document.getElementById('boeNo')?.value || '').trim();
+    const billDate = (document.getElementById('boeDate')?.value || todayISO());
+    const supplierId = (document.getElementById('boeSupplier')?.value || '').trim();
+    const supplierName = getSupplierNameFromUI();
+
+    if(!billNo) return showToast("Bill No is required", true);
+    if(!billDate) return showToast("Bill Date is required", true);
+    if(!supplierId) return showToast("Select supplier (or Other)", true);
+    if(supplierId === '__OTHER__' && !supplierName) return showToast("Enter supplier name", true);
+
+    const items = getItemsFromUI();
+    if(!items.length) return showToast("Add at least 1 item (select RM + qty > 0)", true);
+
+    // EDIT
+    if(editingId){
+      const idx = bills.findIndex(b=>b.id === editingId);
+      if(idx === -1){ editingId=null; return showToast("Bill not found (edit)", true); }
+
+      const old = bills[idx];
+      revertLinkedStock(old.id);
+
+      const updated = {
+        ...old,
+        billNo,
+        date: billDate,
+        supplierId,
+        supplierName,
+        items,
+        updatedAt: new Date().toISOString(),
+        updatedBy: currentUser?.username || ''
+      };
+
+      bills[idx] = updated;
+      saveBills();          // ✅ FIX
+      postStock(updated);
+logChange("BOE_EDIT", updated.id, {
+  billNo: updated.billNo,
+  date: updated.date,
+  supplier: updated.supplierName,
+  lines: (updated.items || []).length
+});
+
+      saveAll?.();
+      autoPushToCloud?.();
+      refreshAll?.();
+
+      showToast("Bill updated & stock re-posted ✅");
+      resetForm();
+      renderTable();
+      return;
+    }
+
+    // CREATE
+    const bill = {
+      id: 'boe_' + genId(),
+      billNo,
+      date: billDate,
+      supplierId,
+      supplierName,
+      items,
+      createdAt: new Date().toISOString(),
+      createdBy: currentUser?.username || ''
+    };
+
+    bills.push(bill);
+    saveBills();            // ✅ FIX
+    postStock(bill);
+logChange("BOE_CREATE", bill.id, {
+  billNo: bill.billNo,
+  date: bill.date,
+  supplier: bill.supplierName,
+  lines: (bill.items || []).length
+});
+
+    saveAll?.();
+    autoPushToCloud?.();
+    refreshAll?.();
+
+    showToast("Bill saved & Stock IN created ✅");
+    resetForm();
+    renderTable();
+  }
+
+  // ---------- list/table ----------
+  const totalQty = (b)=> (b.items||[]).reduce((s,it)=> s + Number(it.qty||0), 0);
+
+  function renderTable(){
+    const tbody = document.querySelector('#boeTable tbody');
+    if(!tbody) return;
+
+    const q = (document.getElementById('boeSearch')?.value || '').toLowerCase().trim();
+    tbody.innerHTML = '';
+
+    const list = [...bills].sort((a,b)=> new Date(b.date) - new Date(a.date));
+    const isAdmin = currentUser?.role === 'admin';
+
+    const codesSummary = (b)=>{
+      const set = new Set();
+      (b.items||[]).forEach(it=>{
+        const p = products.find(x=>x.id===it.productId);
+        const c = rmCode(p);
+        if(c) set.add(c);
+      });
+      return [...set].join(', ');
+    };
+
+    const namesSummary = (b)=>{
+      const set = new Set();
+      (b.items||[]).forEach(it=>{
+        const p = products.find(x=>x.id===it.productId);
+        const n = rmName(p);
+        if(n) set.add(n);
+      });
+      return [...set].join(', ');
+    };
+
+    list.forEach(b=>{
+      const match =
+        !q ||
+        String(b.billNo||'').toLowerCase().includes(q) ||
+        String(b.supplierName||'').toLowerCase().includes(q) ||
+        codesSummary(b).toLowerCase().includes(q) ||
+        namesSummary(b).toLowerCase().includes(q);
+
+      if(!match) return;
+
+      const codesText = esc(codesSummary(b) || '-');
+      const namesText = esc(namesSummary(b) || '-');
+
+      tbody.insertAdjacentHTML('beforeend', `
+        <tr>
+          <td>${fmtDate(b.date)}</td>
+          <td title="${codesText}">${codesText}</td>
+          <td>${esc(b.billNo||'')}</td>
+          <td title="${namesText}">${namesText}</td>
+          <td>${esc(b.supplierName||'')}</td>
+          <td>${totalQty(b)}</td>
+          <td>${(b.items||[]).length}</td>
+          <td>
+            <button class="btn info" type="button" onclick="BOE.view('${esc(b.id)}')">View</button>
+            <button class="btn secondary" type="button" onclick="BOE.print('${esc(b.id)}')">Print</button>
+            ${isAdmin ? `<button class="btn secondary" type="button" onclick="BOE.openEdit('${esc(b.id)}')">Edit</button>` : ``}
+            ${isAdmin ? `<button class="btn out" type="button" onclick="BOE.remove('${esc(b.id)}')">Delete</button>` : ``}
+          </td>
+        </tr>
+      `);
+    });
+
+    applyPermissions?.();
+  }
+
+  // ---------- view modal ----------
+  function view(billId){
+    const b = bills.find(x=>x.id===billId);
+    if(!b) return;
+
+    lastViewedId = billId;
+
+    document.getElementById('boeViewTitle').textContent = `Bill of Entry — ${b.billNo}`;
+    document.getElementById('boeViewMeta').innerHTML =
+      `<b>Date:</b> ${fmtDate(b.date)} &nbsp; | &nbsp; <b>Supplier:</b> ${esc(b.supplierName||'')}
+       ${b.createdBy ? ` &nbsp; | &nbsp; <b>By:</b> ${esc(b.createdBy)}` : ''}`;
+
+    const body = document.getElementById('boeViewBody');
+    body.innerHTML = '';
+
+    (b.items||[]).forEach(it=>{
+      const p = products.find(x=>x.id===it.productId);
+      body.insertAdjacentHTML('beforeend', `
+        <tr>
+          <td>${esc(p ? rmLabel(p) : 'Unknown')}</td>
+          <td>${Number(it.qty||0)}</td>
+          <td>${esc(it.remark||'')}</td>
+        </tr>
+      `);
+    });
+
+    document.getElementById('boeViewModal').style.display = 'flex';
+  }
+
+  function closeView(){ document.getElementById('boeViewModal').style.display = 'none'; }
+  function printFromView(){ if(lastViewedId) print(lastViewedId); }
+  function editFromView(){ if(lastViewedId){ openEdit(lastViewedId); closeView(); } }
+
+  // ---------- edit/delete ----------
+  function openEdit(billId){
+    if(currentUser?.role !== 'admin') return showToast("Only admin can edit bills", true);
+
+    const b = bills.find(x=>x.id===billId);
+    if(!b) return;
+
+    openPage?.('billEntry');
+
+    editingId = billId;
+    const badge = document.getElementById('boeEditBadge');
+    if(badge) badge.style.display = '';
+
+    document.getElementById('boeNo').value = b.billNo || '';
+    document.getElementById('boeDate').value = b.date || todayISO();
+
+    renderSupplierDropdown();
+
+    const supplierSel = document.getElementById('boeSupplier');
+    const other = document.getElementById('boeSupplierOther');
+
+    if(supplierSel){
+      const has = [...supplierSel.options].some(o => o.value === b.supplierId);
+      if(has){
+        supplierSel.value = b.supplierId;
+        if(other){ other.style.display='none'; other.value=''; }
+      }else{
+        supplierSel.value = '__OTHER__';
+        if(other){ other.style.display=''; other.value = b.supplierName || ''; }
+      }
+      supplierSel.dispatchEvent(new Event('change'));
+    }
+
+    const body = document.getElementById('boeItemsBody');
+    body.innerHTML = '';
+    (b.items||[]).forEach(it=> addRow({ productId: it.productId, qty: it.qty, remark: it.remark }));
+    if(!body.children.length) addRow();
+
+    showToast("Editing BOE — update and Save ✅");
+  }
+
+  function remove(billId){
+    if(currentUser?.role !== 'admin') return showToast("Only admin can delete bills", true);
+
+    const b = bills.find(x=>x.id===billId);
+    if(!b) return;
+
+    if(!confirm(`Delete BOE "${b.billNo}"?\nThis will also remove linked RM Stock IN movements.`)) return;
+
+    bills = bills.filter(x=>x.id !== billId);
+    window.savedBills = bills; // keep compatibility consistent
+    saveBills();               // ✅ FIX
+    revertLinkedStock(billId);
+logChange("BOE_DELETE", billId, {
+  billNo: b.billNo,
+  date: b.date,
+  supplier: b.supplierName
+});
+
+    saveAll?.();
+    autoPushToCloud?.();
+    refreshAll?.();
+
+    showToast("Bill deleted & stock reverted ✅");
+    renderTable();
+  }
+
+  // ---------- print ----------
+  function print(billId){
+    const b = bills.find(x=>x.id===billId);
+    if(!b) return;
+
+    const hasPDF = !!(window.jspdf?.jsPDF);
+    const hasAutoTable = !!(window.jspdf?.jsPDF && window.jspdf?.jsPDF.API?.autoTable);
+
+    if(hasPDF){
+      const doc = new window.jspdf.jsPDF();
+      doc.setFontSize(14);
+      doc.text(`Goods Received Note (BOE) - ${b.billNo}`, 14, 16);
+      doc.setFontSize(10);
+      doc.text(`Date: ${fmtDate(b.date)}    Supplier: ${b.supplierName || ''}`, 14, 24);
+
+      const rows = (b.items||[]).map((it, idx)=>{
+        const p = products.find(x=>x.id===it.productId);
+        return [ String(idx+1), p ? rmLabel(p) : 'Unknown', String(Number(it.qty||0)), it.remark || '' ];
+      });
+
+      if(hasAutoTable){
+        doc.autoTable({ startY: 30, head: [['#','RM Product','Qty','Remark']], body: rows });
+      }else{
+        let y = 34;
+        rows.forEach(r=>{ doc.text(`${r[0]}. ${r[1]} | Qty: ${r[2]} | ${r[3]}`, 14, y); y += 6; });
+      }
+      doc.save(`BOE_${b.billNo}.pdf`);
+      return;
+    }
+
+    const w = window.open('', '_blank');
+    const itemsHtml = (b.items||[]).map(it=>{
+      const p = products.find(x=>x.id===it.productId);
+      return `<tr><td>${esc(p ? rmLabel(p) : 'Unknown')}</td><td>${Number(it.qty||0)}</td><td>${esc(it.remark||'')}</td></tr>`;
+    }).join('');
+
+    w.document.write(`
+      <html><head><title>BOE ${esc(b.billNo)}</title>
+      <style>
+        body{font-family:Arial;padding:16px}
+        table{width:100%;border-collapse:collapse}
+        th,td{border:1px solid #ddd;padding:8px;font-size:12px}
+        th{background:#f3f3f3}
+      </style>
+      </head><body>
+        <h2>Goods Received Note (BOE) - ${esc(b.billNo)}</h2>
+        <div><b>Date:</b> ${fmtDate(b.date)} &nbsp; <b>Supplier:</b> ${esc(b.supplierName||'')}</div>
+        <br/>
+        <table>
+          <thead><tr><th>RM Product</th><th>Qty</th><th>Remark</th></tr></thead>
+          <tbody>${itemsHtml}</tbody>
+        </table>
+        <script>window.print();<\/script>
+      </body></html>
+    `);
+    w.document.close();
+  }
+
+  function printSummary(){
+    const list = [...bills].sort((a,b)=> new Date(b.date)-new Date(a.date));
+    const hasPDF = !!(window.jspdf?.jsPDF);
+    const hasAutoTable = !!(window.jspdf?.jsPDF && window.jspdf?.jsPDF.API?.autoTable);
+
+    if(!hasPDF){ alert("jsPDF not found for summary print."); return; }
+
+    const doc = new window.jspdf.jsPDF();
+    doc.setFontSize(14);
+    doc.text(`BOE Summary Report`, 14, 16);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 24);
+
+    const rows = list.map((b, i)=>[
+      String(i+1),
+      fmtDate(b.date),
+      b.billNo,
+      b.supplierName || '',
+      String((b.items||[]).reduce((s,it)=> s + Number(it.qty||0), 0)),
+      String((b.items||[]).length)
+    ]);
+
+    if(hasAutoTable){
+      doc.autoTable({ startY: 30, head: [['#','Date','Bill No','Supplier','Total Qty','Lines']], body: rows });
+    }
+    doc.save(`BOE_Summary.pdf`);
+  }
+
+  // ---------- Excel import (kept as-is; uses saveBills()) ----------
+  function parseExcelDateToISO(v){
+    if(v instanceof Date && !isNaN(v)) return v.toISOString().split('T')[0];
+    if(typeof v === 'number' && isFinite(v)){
+      const d = new Date(Date.UTC(1899, 11, 30) + v * 86400000);
+      return d.toISOString().split('T')[0];
+    }
+    const s = String(v || '').trim();
+    if(!s) return '';
+    const d2 = new Date(s);
+    if(!isNaN(d2)) return d2.toISOString().split('T')[0];
+
+    const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if(m){
+      const dd = String(m[1]).padStart(2,'0');
+      const mm = String(m[2]).padStart(2,'0');
+      const yy = m[3];
+      return `${yy}-${mm}-${dd}`;
+    }
+    return '';
+  }
+
+  function findProductIdByCodeOrName(val){
+    const s = String(val || '').trim().toLowerCase();
+    if(!s) return '';
+
+    let p = products.find(x => String(x.code||'').trim().toLowerCase() === s);
+    if(p) return p.id;
+
+    p = products.find(x => String(x.name||'').trim().toLowerCase() === s);
+    if(p) return p.id;
+
+    p = products.find(x => String(x.name||'').toLowerCase().includes(s));
+    return p ? p.id : '';
+  }
+
+  function importExcel(file){
+    if(!window.XLSX){ showToast("XLSX library not loaded", true); return; }
+    if(!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      try{
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type:'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(ws, { defval:'', raw:true });
+
+        if(!json.length){ showToast("Excel is empty", true); return; }
+
+        const rows = json.map(r=>{
+          const obj = {};
+          Object.keys(r).forEach(k=> obj[String(k).trim().toLowerCase()] = r[k]);
+          return obj;
+        });
+
+        const groups = new Map();
+        let unmatched = 0;
+
+        rows.forEach(r=>{
+          const billNo = String(r.billno ?? r['bill no'] ?? r.entryno ?? r['entry no'] ?? '').trim();
+          const dateISO = parseExcelDateToISO(r.date ?? r.billdate ?? r['bill date'] ?? '') || todayISO();
+          const supplier = String(r.supplier ?? r.suppliername ?? r['supplier name'] ?? '').trim();
+
+          const prodVal = r.product ?? r.productname ?? r['product name'] ?? r.code ?? r.productcode ?? r['product code'] ?? '';
+          const qty = Number(r.qty ?? r.quantity ?? 0);
+          const remark = String(r.remark ?? r.notes ?? '').trim();
+
+          if(!billNo || !supplier || !prodVal || !(qty > 0)) return;
+
+          const productId = findProductIdByCodeOrName(prodVal);
+          if(!productId){ unmatched++; return; }
+
+          const key = `${billNo}__${dateISO}__${supplier}`;
+          if(!groups.has(key)){
+            groups.set(key, { billNo, date: dateISO, supplierName: supplier, supplierId: '__OTHER__', items: [] });
+          }
+          groups.get(key).items.push({ productId, qty, remark });
+        });
+
+        if(!groups.size){ showToast("No valid BOE rows found", true); return; }
+
+        let created = 0;
+        groups.forEach(g=>{
+          const bill = {
+            id: 'boe_' + genId(),
+            billNo: g.billNo,
+            date: g.date,
+            supplierId: g.supplierId,
+            supplierName: g.supplierName,
+            items: g.items,
+            createdAt: new Date().toISOString(),
+            createdBy: currentUser?.username || ''
+          };
+          bills.push(bill);
+          postStock(bill);
+          created++;
+        });
+
+        saveBills(); // ✅ FIX
+        saveAll?.();
+        autoPushToCloud?.();
+        refreshAll?.();
+        renderTable();
+
+        showToast(unmatched ? `Imported ${created} BOE ✅ (Unmatched: ${unmatched})` : `Imported ${created} BOE ✅`);
+      }catch(err){
+        console.error(err);
+        showToast("Import failed", true);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // ---------- init ----------
+  function init(){
+    renderSupplierDropdown();
+    const dt = document.getElementById('boeDate');
+    if(dt && !dt.value) dt.value = todayISO();
+
+    const body = document.getElementById('boeItemsBody');
+    if(body && !body.children.length) addRow();
+
+    document.getElementById('boeSearch')?.addEventListener('input', renderTable);
+
+    document.getElementById('boeFileInput')?.addEventListener('change', (e)=>{
+      const f = e.target.files?.[0];
+      if(f) importExcel(f);
+      e.target.value = '';
+    });
+
+    renderTable();
+  }
+
+  return {
+    init,
+    renderSupplierDropdown,
+    addRow,
+    resetForm,
+    submit,
+    renderTable,
+    view,
+    closeView,
+    print,
+    printFromView,
+    editFromView,
+    openEdit,
+    remove,
+    printSummary,
+    importExcel,
+    saveBills // ✅ FIX: BOE.saveBills() now exists
+  };
+})();
+
+/* ✅ alias for convenience */
+const BOE = window.BOE;
+
+/* =========================
+   ✅ WRAPPERS (so your existing onclick still works)
+========================= */
+function renderBOESupplierDropdown(){ BOE.renderSupplierDropdown(); }
+function boeAddRow(){
+  // Always use the BOE module row (search input + dropdown)
+  if (window.BOE && typeof BOE.addRow === "function") {
+    BOE.addRow();
+    return;
+  }
+  console.error("BOE.addRow not available");
+}
+const KEY_BILLS = "SM_BILLS_V1";
+let bills = [];
+
+
+
+
+
+function submitBillEntry(){ BOE.submit();
+saveBills();
+autoPushToCloud();
+ }
+function resetBillEntryForm(){ BOE.resetForm(); }
+function renderBillsTable(){
+  const tb = document.getElementById('boeTableBody');
+  if(!tb) return;
+
+  tb.innerHTML = (bills && bills.length) ? '' : `
+    <tr><td colspan="8" class="text-muted">No bills found</td></tr>
+  `;
+
+  (bills || []).forEach(b=>{
+    tb.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>${escapeHtml(b.date||'')}</td>
+        <td>${escapeHtml(b.productCode||'')}</td>
+        <td><b>${escapeHtml(b.boeNo||'')}</b></td>
+        <td>${escapeHtml(b.productName||'')}</td>
+        <td>${escapeHtml(b.supplier||'')}</td>
+        <td class="text-end">${Number(b.totalQty||0)}</td>
+        <td class="text-center">${(b.items||[]).length}</td>
+        <td>...</td>
+      </tr>
+    `);
+  });
+}
+
+
+function closeBOEView(){ BOE.closeView(); }
+function printBOEFromView(){ BOE.printFromView(); }
+function editBOEFromView(){ BOE.editFromView(); }
+function printBOESummaryReport(){ BOE.printSummary(); }
+
+function boeTriggerImport(){
+  const inp = document.getElementById('boeFileInput');
+  if(!inp) return;
+  inp.value = '';
+  inp.click();
+}
+
+/* ✅ Call once (safe even if pages hidden) */
+BOE.init();
+
+
+
+
+
+
+
+
+function getGroupNameFromText(name){
+  // first word group (same logic you use in FG/RM grouping)
+  return String(name || '').trim().split(/\s+/)[0]?.toLowerCase() || '';
+}
+
+function normGroup(g){
+  return String(g || '').trim().toLowerCase();
+}
+
+
+/* =========================================================
+   PRODUCTION ENTRY (Fixed)
+   - uses openPage() (not gotoPage)
+   - adds openModal() / closeAppModal() for your custom modal
+   - uses Bootstrap layout inside modal (row/col-*)
+========================================================= */
+
+/** Ensure "right" class exists in CSS:
+.right { text-align:right; }
+**/
+const KEY_PROD = 'sms_productions_v1';
+window.KEY_PROD = KEY_PROD; // ✅ expose globally
+
+let productions = JSON.parse(localStorage.getItem(KEY_PROD) || '[]');
+window.productions = productions; // ✅ expose
+
+function bomKey(v){
+  return normalizeGroup(v); // your normalizeGroup() = UPPERCASE + remove spaces
+}
+
+function getBOMRMForFG(fgId){
+  const fg = (Array.isArray(fgProducts) ? fgProducts : []).find(x => String(x.id) === String(fgId));
+  if(!fg) return { fg:null, key:'', list:[] };
+
+  const key = bomKey(fg.group); // ✅ ONLY fg.group
+
+  const list = (Array.isArray(products) ? products : []).filter(rm=>{
+    const gs = Array.isArray(rm.groups) ? rm.groups : [];
+    if(!gs.length) return false;
+
+    // respect exclusive (only first group)
+    const use = rm.exclusive ? [gs[0]] : gs;
+
+    return use.some(g => bomKey(g) === key);
+  });
+
+  return { fg, key, list };
+}
+
+function renderBOM(){
+  const fgId  = String(document.getElementById('prodFG')?.value || '').trim();
+  const fgQty = Number(document.getElementById('prodFGQty')?.value || 0) || 0;
+  const body  = document.getElementById('prodBOMBody');
+  if(!body) return;
+
+  body.innerHTML = '';
+
+  if(!fgId){
+    body.innerHTML = `<tr><td colspan="5" class="text-muted">Select FG product</td></tr>`;
+    return;
+  }
+
+  const { fg, key, list } = getBOMRMForFG(fgId);
+
+  if(!fg){
+    body.innerHTML = `<tr><td colspan="5" class="text-muted">FG not found</td></tr>`;
+    return;
+  }
+
+  if(!key){
+    body.innerHTML = `<tr><td colspan="5" class="text-muted">This FG has no group set</td></tr>`;
+    return;
+  }
+
+  if(!list.length){
+    body.innerHTML = `<tr><td colspan="5" class="text-muted">
+      No RM found in group: <b>${escapeHtml(key)}</b><br>
+      (Add same group inside RM → Groups field)
+    </td></tr>`;
+    return;
+  }
+
+  list.forEach(rm=>{
+    // If you don’t have qtyPerFG yet, default 1 (so table still shows)
+    const per = Number(rm.qtyPerFG || 1);
+    const req = per * fgQty;
+
+body.insertAdjacentHTML('beforeend', `
+  <tr data-rm="${escapeHtml(String(rm.id))}">
+    <td><b>${escapeHtml(rm.name || 'Unknown')}</b></td>
+    <td class="text-end reqQty">${Number(req.toFixed(6))}</td>
+    <td class="text-end">
+      <input class="form-control form-control-sm damQty"
+             type="number" min="0" step="0.0001" value="0"
+             oninput="calcNetUsed(this)">
+    </td>
+    <td class="text-end netUsed">${Number(req.toFixed(6))}</td>
+  </tr>
+`);
+
+  });
+}
+
+function calcNetUsed(el){
+  const tr = el.closest('tr');
+  if(!tr) return;
+
+  const req = Number(tr.querySelector('.reqQty')?.textContent || 0);
+  const dmg = Number(tr.querySelector('.damQty')?.value || 0);
+
+  if(dmg < 0){
+    el.value = 0;
+    return;
+  }
+
+  if(dmg > req){
+    el.value = req;
+  }
+
+  const net = Math.max(0, req - Number(el.value || 0));
+  tr.querySelector('.netUsed').textContent = Number(net.toFixed(6));
+}
+
+
+function submitProduction(){
+  if(!canProduction()){ showToast("No permission to create production", true); return; }
+
+  const prodNoEl = document.getElementById('prodNo');
+  const prodDtEl = document.getElementById('prodDate');
+  const fgEl     = document.getElementById('prodFG');
+  const qtyEl    = document.getElementById('prodFGQty');
+  const remEl    = document.getElementById('prodRemark');
+
+  const prodNo   = (prodNoEl?.value || '').trim();
+  const prodDate = (prodDtEl?.value || todayISO());
+  const fgId     = (fgEl?.value || '').trim();
+  const fgQty    = Number(qtyEl?.value || 0);
+  const remark   = (remEl?.value || '').trim();
+
+  if(!prodNo){ showToast("Production No required", true); return; }
+  if(!fgId){ showToast("Select FG product", true); return; }
+  if(!(fgQty > 0)){ showToast("FG Qty must be > 0", true); return; }
+
+  const rows = [...document.querySelectorAll('#prodBOMBody tr[data-rm]')];
+  if(!rows.length){ showToast("No BOM rows (add BOM to FG first)", true); return; }
+
+  const rmLines = rows.map(tr=>{
+    const rmId = tr.dataset.rm;
+    const req  = Number(tr.querySelector('.reqQty')?.textContent || 0);
+    const dmg = Number(tr.querySelector('.damQty')?.value || 0);
+return { rmId, req, dmg };
+
+  });
+
+  // validations
+  for(const l of rmLines){
+    if(l.ret < 0 || l.dmg < 0){
+      showToast("Return/Damage cannot be negative", true); return;
+    }
+    if(l.ret + l.dmg > l.req){
+      showToast("Return + Damage cannot exceed Required", true); return;
+    }
+
+    const netOut = l.req - l.ret - l.dmg;
+    if(netOut > 0){
+      const bal = computeBalance(l.rmId);
+      if(netOut > bal){
+        const p = products.find(x => x.id === l.rmId);
+        showToast(`RM stock insufficient: ${p?.name || 'RM'} (Bal ${bal})`, true);
+        return;
+      }
+    }
+  }
+
+  const productionId = 'prod_' + genId();
+  const fg = fgProducts.find(x=>x.id===fgId);
+
+  productions.push({
+    id: productionId,
+    prodNo,
+    date: prodDate,
+    fgId,
+    fgName: fg?.name || '',
+    fgQty,
+    remark,
+    rmLines,
+    createdAt: new Date().toISOString(),
+    createdBy: currentUser?.username || ''
+  });
+logChange("PROD_CREATE", productionId, {
+  prodNo,
+  date: prodDate,
+  fgId,
+  fgName: fg?.name || "",
+  fgQty,
+  rmLines: rmLines.length
+});
+
+  saveProductions();
+
+  // FG IN
+fgMovements.push({
+  id: genId(),
+  fgId,
+  type: 'IN',
+  qty: fgQty,
+  date: prodDate,
+  remark: `PROD ${prodNo}${remark ? ' - ' + remark : ''}`,
+  productionId,
+
+  // ✅ time + user
+  createdAt: nowISO(),
+  createdBy: who()
+});
+
+
+  // RM OUT/IN
+rmLines.forEach(l=>{
+  const netOut = Number((l.req - l.dmg).toFixed(6));
+
+  // RM USED (OUT)
+  if(netOut > 0){
+    stockMovements.push({
+      id: genId(),
+      productId: l.rmId,
+      type: 'OUT',
+      quantity: netOut,
+      date: prodDate,
+      remark: `PROD ${prodNo} RM Used`,
+      productionId,
+      createdAt: nowISO(),
+      createdBy: who()
+    });
+  }
+
+  // RM DAMAGE (OUT)
+  if(l.dmg > 0){
+    stockMovements.push({
+      id: genId(),
+      productId: l.rmId,
+      type: 'OUT',
+      quantity: l.dmg,
+      date: prodDate,
+      remark: `PROD ${prodNo} RM Damage`,
+      productionId,
+      createdAt: nowISO(),
+      createdBy: who()
+    });
+  }
+});
+
+
+  saveAllRM();
+  saveFG();
+  refreshAll();
+  showToast("Production saved ✅");
+
+  // reset UI
+  if(prodNoEl) prodNoEl.value = '';
+  if(remEl) remEl.value = '';
+  if(fgEl) fgEl.value = '';
+  if(qtyEl) qtyEl.value = 1;
+
+  const bomBody = document.getElementById('prodBOMBody');
+  if(bomBody) bomBody.innerHTML = `<tr><td colspan="5" class="text-muted">Select FG product</td></tr>`;
+
+  // go to records
+  openPage('pageProductionRecords');
+  renderProductionsTable();
+}
+
+function renderProductionsTable(){
+  const tb = document.getElementById('prodTableBody');
+  if(!tb) return;
+
+  const productions = Array.isArray(window.productions) ? window.productions : []; // ✅ no crash
+  const rows = productions.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+
+  tb.innerHTML = rows.length ? '' : `<tr><td colspan="7" class="muted">No production records</td></tr>`;
+  rows.forEach(p=>{
+    tb.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>${escapeHtml(p.date||'')}</td>
+        <td><b>${escapeHtml(p.prodNo||'')}</b></td>
+        <td>${escapeHtml(p.fgName||'')}</td>
+        <td class="right">${Number(p.fgQty||0)}</td>
+        <td class="right">${(p.rmLines||[]).length}</td>
+        <td>${escapeHtml(p.createdBy||'')}</td>
+        <td><button class="btn btn-sm btn-outline-secondary" onclick="viewProduction('${p.id}')">View</button></td>
+      </tr>
+    `);
+  });
+}
+function renderProdFGDropdown(){
+  const sel = document.getElementById('prodFG');
+  if(!sel) return;
+
+  const list = Array.isArray(window.fgProducts) ? window.fgProducts : [];
+  sel.innerHTML = `<option value="">Select FG Product</option>`;
+
+  list
+    .slice()
+    .sort((a,b)=> String(a.name||'').localeCompare(String(b.name||'')))
+    .forEach(f=>{
+      sel.insertAdjacentHTML(
+        'beforeend',
+        `<option value="${escapeHtml(f.id)}">${escapeHtml(f.name || 'Unnamed')}</option>`
+      );
+    });
+}
+
+
+
+
+function wireProductionEvents(){
+  const fgSel = document.getElementById('prodFG');
+  const qtyEl = document.getElementById('prodFGQty');
+
+  if(fgSel){
+    fgSel.addEventListener('change', () => {
+      console.log("prodFG changed =>", fgSel.value);
+      renderBOM();
+    });
+  }
+  if(qtyEl){
+    qtyEl.addEventListener('input', () => {
+      console.log("prodFGQty input =>", qtyEl.value);
+      renderBOM();
+    });
+  }
+}
+
+document.addEventListener('DOMContentLoaded', wireProductionEvents);
+
+
+
+
+
+
+
+
+
+
+
+
+/* ---------- Simple App Modal Helpers (uses your existing #modal) ---------- */
+function openModal(title, html){
+  const modal = document.getElementById('modal');
+  if(!modal) return;
+
+  const t = document.getElementById('modalTitle2');
+  const b = document.getElementById('modalBody');
+
+  if(t) t.textContent = title || 'Modal';
+  if(b) b.innerHTML = html || '';
+
+  modal.style.display = 'block';
+}
+function closeAppModal(){
+  const modal = document.getElementById('modal');
+  if(modal) modal.style.display = 'none';
+}
+// if your close button calls closeModal(), keep it:
+window.closeModal = window.closeModal || closeAppModal;
+
+function viewProduction(id){
+  const p = (productions || []).find(x => x.id === id);
+  if(!p) return;
+
+  const lines = (p.rmLines || []).map(l=>{
+    const rm  = products.find(x=>x.id===l.rmId);
+    const net = Number((Number(l.req||0) - Number(l.ret||0) - Number(l.dmg||0)).toFixed(6));
+    return `
+      <tr>
+        <td>${escapeHtml(rm?.name || 'Unknown')}</td>
+        <td class="right">${Number(l.req || 0)}</td>
+        <td class="right">${Number(l.ret || 0)}</td>
+        <td class="right">${Number(l.dmg || 0)}</td>
+        <td class="right"><b>${net}</b></td>
+      </tr>
+    `;
+  }).join('') || `<tr><td colspan="5" class="text-muted">No lines</td></tr>`;
+
+  openModal(`Production ${escapeHtml(p.prodNo)}`, `
+    <div class="row g-2">
+      <div class="col-12 col-md-3"><div class="text-muted small">Date</div><b>${escapeHtml(p.date||'')}</b></div>
+      <div class="col-12 col-md-6"><div class="text-muted small">FG</div><b>${escapeHtml(p.fgName||'')}</b></div>
+      <div class="col-12 col-md-3"><div class="text-muted small">FG Qty</div><b>${Number(p.fgQty||0)}</b></div>
+      <div class="col-12"><div class="text-muted small">Remark</div><div>${escapeHtml(p.remark||'')}</div></div>
+
+      <div class="col-12 mt-2" style="overflow:auto">
+        <b>RM Lines</b>
+        <table class="table table-sm mt-2">
+          <thead class="table-light">
+            <tr>
+              <th>RM</th>
+              <th class="text-end">Req</th>
+              <th class="text-end">Return</th>
+              <th class="text-end">Damage</th>
+              <th class="text-end">Net Used</th>
+            </tr>
+          </thead>
+          <tbody>${lines}</tbody>
+        </table>
+      </div>
+    </div>
+  `);
+}
+
+function saveProductions(){
+  localStorage.setItem(KEY_PROD, JSON.stringify(productions));
+  window.productions = productions; // ✅ keep synced
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// RM USED body
+
+/* =========================
+   ✅ RM DELIVERY NOTE (DN)
+========================= */
+const KEY_DN = 'sms_delivery_notes_v1';
+let deliveryNotes = JSON.parse(localStorage.getItem(KEY_DN) || '[]');
+
+function saveDeliveryNotes(){
+  localStorage.setItem(KEY_DN, JSON.stringify(deliveryNotes));
+}
+
+function resetDeliveryNoteForm(){
+  const no = document.getElementById('dnNo');
+  const dt = document.getElementById('dnDate');
+  const from = document.getElementById('dnFrom');
+  const to = document.getElementById('dnTo');
+  const pref = document.getElementById('dnProdRef');
+  const rem = document.getElementById('dnRemark');
+  const body = document.getElementById('dnItemsBody');
+
+  if(no) no.value = '';
+  if(dt) dt.value = todayISO();
+  if(from) from.value = from.value || 'Main Store';
+  if(to) to.value = to.value || 'Factory';
+  if(pref) pref.value = '';
+  if(rem) rem.value = '';
+  if(body) body.innerHTML = '';
+
+  dnAddRow();
+}
+
+function dnRowProductOptions(selectedId=''){
+  if(!Array.isArray(products) || !products.length){
+    return `<option value="">No RM products found</option>`;
+  }
+  const sorted = [...products].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  return `<option value="">Select RM Product</option>` + sorted.map(p=>{
+    const sel = p.id === selectedId ? 'selected' : '';
+    const code = p.code ? `(${p.code}) ` : '';
+    return `<option ${sel} value="${escapeHtml(p.id)}">${escapeHtml(code + (p.name||''))}</option>`;
+  }).join('');
+}
+
+function dnAddRow(prefill=null){
+  const body = document.getElementById('dnItemsBody');
+  if(!body) return;
+
+  const rowId = 'dnRow_' + genId();
+  const selectedProductId = prefill?.productId || '';
+  const qty = prefill?.qty ?? '';
+  const remark = prefill?.remark ?? '';
+
+  body.insertAdjacentHTML('beforeend', `
+    <tr id="${rowId}">
+      <td>
+        <select class="small" style="width:100%" data-dn="product">
+          ${dnRowProductOptions(selectedProductId)}
+        </select>
+      </td>
+      <td>
+        <input class="small" type="number" min="0" step="1" style="width:100%" data-dn="qty" value="${escapeHtml(qty)}">
+      </td>
+      <td>
+        <input class="small" style="width:100%" data-dn="remark" value="${escapeHtml(remark)}" placeholder="Remark (optional)">
+      </td>
+      <td style="text-align:center">
+        <button class="btn out" style="padding:6px 10px" onclick="dnRemoveRow('${rowId}')">X</button>
+      </td>
+    </tr>
+  `);
+}
+
+function dnRemoveRow(rowId){
+  const tr = document.getElementById(rowId);
+  if(tr) tr.remove();
+  const body = document.getElementById('dnItemsBody');
+  if(body && body.children.length === 0) dnAddRow();
+}
+
+function getDNItemsFromUI(){
+  const body = document.getElementById('dnItemsBody');
+  if(!body) return [];
+
+  const items = [];
+  [...body.querySelectorAll('tr')].forEach(tr=>{
+    const prodSel = tr.querySelector('[data-dn="product"]');
+    const qtyInp  = tr.querySelector('[data-dn="qty"]');
+    const remInp  = tr.querySelector('[data-dn="remark"]');
+
+    const productId = (prodSel?.value || '').trim();
+    const qty = Number(qtyInp?.value || 0);
+    const remark = (remInp?.value || '').trim();
+
+    if(productId && qty > 0){
+      items.push({ productId, qty, remark });
+    }
+  });
+
+  return items;
+}
+
+function dnTotalQty(dn){
+  return (dn.items || []).reduce((s,it)=> s + Number(it.qty||0), 0);
+}
+
+let lastDNViewedId = null;
+
+function submitDeliveryNote(){
+  // ✅ No stock movement here (Production Entry handles stock out)
+
+  const dnNo = (document.getElementById('dnNo')?.value || '').trim();
+  const dnDate = (document.getElementById('dnDate')?.value || todayISO());
+  const from = (document.getElementById('dnFrom')?.value || '').trim();
+  const to = (document.getElementById('dnTo')?.value || '').trim();
+  const prodRef = (document.getElementById('dnProdRef')?.value || '').trim();
+  const generalRemark = (document.getElementById('dnRemark')?.value || '').trim();
+
+  if(!dnNo){ showToast("DN No is required", true); return; }
+  if(!dnDate){ showToast("DN Date is required", true); return; }
+  if(!to){ showToast("To (Factory) is required", true); return; }
+
+  const items = getDNItemsFromUI();
+  if(!items.length){ showToast("Add at least 1 RM item (qty > 0)", true); return; }
+
+  const dnId = 'dn_' + genId();
+
+  const dn = {
+    id: dnId,
+    dnNo,
+    date: dnDate,
+    from,
+    to,
+    prodRef,
+    generalRemark,
+    items,
+    createdAt: new Date().toISOString(),
+    createdBy: currentUser?.username || ''
+  };
+
+  deliveryNotes.push(dn);
+  saveDeliveryNotes();
+
+  // ✅ cloud sync (no stockMovements change)
+  autoPushToCloud?.();
+  refreshAll();
+
+  showToast("Delivery Note saved ✅");
+  resetDeliveryNoteForm();
+}
+
+
+function renderDNTable(){
+  const tbody = document.querySelector('#dnTable tbody');
+  if(!tbody) return;
+
+  const q = (document.getElementById('dnSearch')?.value || '').toLowerCase().trim();
+  tbody.innerHTML = '';
+
+  const list = [...deliveryNotes].sort((a,b)=> new Date(b.date) - new Date(a.date));
+
+  list.forEach(dn=>{
+    const hay = `${dn.dnNo||''} ${dn.to||''} ${dn.prodRef||''} ${dn.generalRemark||''}`.toLowerCase();
+    if(q && !hay.includes(q)) return;
+
+    const total = dnTotalQty(dn);
+    const itemsCount = (dn.items || []).length;
+    const canDel = (currentUser?.role === 'admin');
+
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>${fmtDate(dn.date)}</td>
+        <td>${escapeHtml(dn.dnNo)}</td>
+        <td>${escapeHtml(dn.to || '')}</td>
+        <td>${total}</td>
+        <td>${itemsCount}</td>
+        <td>
+          <button class="btn info" onclick="viewDN('${escapeHtml(dn.id)}')">View</button>
+          <button class="btn secondary" onclick="printDN('${escapeHtml(dn.id)}')">Print</button>
+          ${canDel ? `<button class="btn out" onclick="deleteDN('${escapeHtml(dn.id)}')">Delete</button>` : ``}
+        </td>
+      </tr>
+    `);
+  });
+
+  applyPermissions?.();
+}
+
+function viewDN(id){
+  const dn = deliveryNotes.find(x=>x.id===id);
+  if(!dn) return;
+
+  lastDNViewedId = id;
+
+  document.getElementById('dnViewTitle').textContent = `Delivery Note — ${dn.dnNo}`;
+  document.getElementById('dnViewMeta').innerHTML =
+    `<b>Date:</b> ${fmtDate(dn.date)}
+     &nbsp; | &nbsp; <b>From:</b> ${escapeHtml(dn.from || '-')}
+     &nbsp; | &nbsp; <b>To:</b> ${escapeHtml(dn.to || '-')}
+     ${dn.prodRef ? ` &nbsp; | &nbsp; <b>Production Ref:</b> ${escapeHtml(dn.prodRef)}` : ''}
+     ${dn.createdBy ? ` &nbsp; | &nbsp; <b>By:</b> ${escapeHtml(dn.createdBy)}` : ''}
+     ${dn.generalRemark ? `<br><b>Remark:</b> ${escapeHtml(dn.generalRemark)}` : ''}`;
+
+  const body = document.getElementById('dnViewBody');
+  body.innerHTML = '';
+
+  (dn.items || []).forEach(it=>{
+    const p = products.find(x=>x.id===it.productId);
+    body.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>${escapeHtml(p?.name || 'Unknown')}</td>
+        <td>${Number(it.qty||0)}</td>
+        <td>${escapeHtml(it.remark||'')}</td>
+      </tr>
+    `);
+  });
+
+  document.getElementById('dnViewModal').style.display = 'flex';
+}
+
+function closeDNView(){
+  document.getElementById('dnViewModal').style.display = 'none';
+}
+
+function printDNFromModal(){
+  if(!lastDNViewedId) return;
+  printDN(lastDNViewedId);
+}
+
+function printDN(id){
+  const dn = deliveryNotes.find(x=>x.id===id);
+  if(!dn) return;
+
+  const rows = (dn.items || []).map((it, idx)=>{
+    const p = products.find(x=>x.id===it.productId);
+    return {
+      sr: idx+1,
+      product: p?.name || 'Unknown',
+      qty: Number(it.qty||0),
+      remark: it.remark || ''
+    };
+  });
+
+  const totalQty = rows.reduce((s,r)=> s + Number(r.qty||0), 0);
+
+  const w = window.open('', '_blank');
+  if(!w){ showToast("Popup blocked by browser", true); return; }
+
+  w.document.write(`
+    <html>
+    <head>
+      <title>Delivery Note ${escapeHtml(dn.dnNo)}</title>
+      <style>
+        body{font-family:Arial;padding:22px;color:#111}
+        .head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+        .box{border:1px solid #ccc;border-radius:10px;padding:12px}
+        h2{margin:0 0 6px}
+        .meta{font-size:13px;line-height:1.6;color:#333}
+        table{width:100%;border-collapse:collapse;margin-top:12px}
+        th,td{border:1px solid #ccc;padding:8px;text-align:left;font-size:13px}
+        th{background:#007bff;color:#fff}
+        .foot{display:flex;justify-content:space-between;margin-top:18px;gap:12px}
+        .sign{flex:1;border-top:1px dashed #999;padding-top:10px;font-size:13px}
+        .small{font-size:12px;color:#555;margin-top:6px}
+        .right{text-align:right}
+      </style>
+    </head>
+    <body>
+      <div class="head">
+        <div>
+          <h2>RM DELIVERY NOTE</h2>
+          <div class="meta">
+            <b>DN No:</b> ${escapeHtml(dn.dnNo)}<br>
+            <b>Date:</b> ${escapeHtml(fmtDate(dn.date))}<br>
+            <b>From:</b> ${escapeHtml(dn.from || '-')}<br>
+            <b>To:</b> ${escapeHtml(dn.to || '-')}<br>
+            ${dn.prodRef ? `<b>Production Ref:</b> ${escapeHtml(dn.prodRef)}<br>` : ``}
+            ${dn.generalRemark ? `<b>Remark:</b> ${escapeHtml(dn.generalRemark)}<br>` : ``}
+          </div>
+        </div>
+        <div class="box right">
+          <div style="font-weight:700">Stock Manager</div>
+          <div class="small">Printable Delivery Note</div>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width:60px">Sr</th>
+            <th>RM Product</th>
+            <th style="width:120px">Qty</th>
+            <th>Remark</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r=>`
+            <tr>
+              <td>${r.sr}</td>
+              <td>${escapeHtml(r.product)}</td>
+              <td>${r.qty}</td>
+              <td>${escapeHtml(r.remark)}</td>
+            </tr>
+          `).join('')}
+          <tr>
+            <td colspan="2" style="text-align:right"><b>Total</b></td>
+            <td><b>${totalQty}</b></td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="foot">
+        <div class="sign"><b>Prepared By</b><div class="small">Name / Sign</div></div>
+        <div class="sign"><b>Issued By (Store)</b><div class="small">Name / Sign</div></div>
+        <div class="sign"><b>Received By (Factory)</b><div class="small">Name / Sign</div></div>
+      </div>
+
+      <script>window.onload=()=>window.print();<\/script>
+    </body>
+    </html>
+  `);
+
+  w.document.close();
+}
+
+function deleteDN(id){
+  if(currentUser?.role !== 'admin'){
+    showToast("Only admin can delete DN", true);
+    return;
+  }
+  const dn = deliveryNotes.find(x=>x.id===id);
+  if(!dn) return;
+
+  if(!confirm(`Delete DN "${dn.dnNo}"?`)) return;
+
+  deliveryNotes = deliveryNotes.filter(x=>x.id!==id);
+  saveDeliveryNotes();
+
+  autoPushToCloud?.();
+  refreshAll();
+
+  showToast("DN deleted ✅");
+}
+
+
 function addFGProduct(){
   if(!canAdd()){ showToast("No permission to add", true); return; }
 
-  const name = fgNewName.value.trim();
-  const rawGroup = fgNewGroup.value.trim();
+  const elCode = document.getElementById('fgNewProductcode');
+  const elBar  = document.getElementById('fgNewBarcode');
+  const elName = document.getElementById('fgNewName');
+  const elVol  = document.getElementById('fgNewVolume');
+  const elGrp  = document.getElementById('fgNewGroup');
+  const elBat  = document.getElementById('fgNewBatch');
+  const elExp  = document.getElementById('fgNewExpiry');
+  const elThr  = document.getElementById('fgNewThreshold');
+
+  const name = (elName?.value || "").trim();
+  const rawGroup = (elGrp?.value || "").trim();
+
   if(!name || !rawGroup){ showToast("Name & Group required", true); return; }
 
-  const group = normalizeGroup(rawGroup);
-
   fgProducts.push({
-    id:'fg_' + genId(),
+    id: 'fg_' + genId(),
     name,
-    group,
-    volume: fgNewVolume.value.trim(),
-    batch: fgNewBatch.value.trim(),
-    expiry: fgNewExpiry.value,
-    threshold: Number(fgNewThreshold.value || 5)
+    group: normalizeGroup(rawGroup),
+    productcode: (elCode?.value || "").trim(),
+    barcode: (elBar?.value || "").trim(),
+    volume: (elVol?.value || "").trim(),
+    batch: (elBat?.value || "").trim(),
+    expiry: (elExp?.value || "").trim(),
+    threshold: Number(elThr?.value || 5)
   });
 
   saveFGLocal();
-  autoPushFGToCloud();
+  autoPushFGToCloud?.();
   refreshAll();
 
-  fgNewName.value=''; fgNewVolume.value=''; fgNewGroup.value=''; fgNewBatch.value='';
-  fgNewExpiry.value=''; fgNewThreshold.value='';
+  if(elName) elName.value = '';
+  if(elVol) elVol.value = '';
+  if(elGrp) elGrp.value = '';
+  if(elBat) elBat.value = '';
+  if(elExp) elExp.value = '';
+  if(elThr) elThr.value = '';
+  if(elCode) elCode.value = '';
+  if(elBar) elBar.value = '';
 
   showToast("FG product added ✅");
 }
 
+
+
 function editFGProduct(fgId){
   if(!canEdit()){ showToast("No permission to edit", true); return; }
 
-  const fg = fgProducts.find(f=>f.id===fgId);
+  const fg = fgProducts.find(f => f.id === fgId);
   if(!fg) return;
 
-  const newName = prompt("Edit Product Name:", fg.name);
-  if(newName===null || !newName.trim()) return;
+  const newProductcode = prompt("Edit Product Code:", fg.productcode || "");
+  if(newProductcode === null) return;
+  if(!newProductcode.trim()){ showToast("Product code required", true); return; }
 
-  const newVolume = prompt("Edit Volume / Size:", fg.volume || '');
-  if(newVolume===null) return;
+  const newBarcode = prompt("Edit Product barcode:", fg.barcode || "");
+  if(newBarcode === null) return;
+  if(!newBarcode.trim()){ showToast("Barcode required", true); return; } // ✅ fixed: no newName here
 
-  const newGroup = prompt("Edit Group Prefix:", fg.group || '');
-  if(newGroup===null || !newGroup.trim()) return;
+  const newName = prompt("Edit Product Name:", fg.name || "");
+  if(newName === null) return;
+  if(!newName.trim()){ showToast("Name required", true); return; }
 
-  const newBatch = prompt("Edit Batch / Lot No:", fg.batch || '');
-  if(newBatch===null) return;
+  const newVolume = prompt("Edit Volume / Size:", fg.volume || "");
+  if(newVolume === null) return;
 
-  const newExpiry = prompt("Edit Expiry Date (YYYY-MM-DD):", fg.expiry || '');
-  if(newExpiry===null) return;
+  const newGroup = prompt("Edit Group Prefix:", fg.group || "");
+  if(newGroup === null) return;
+  if(!newGroup.trim()){ showToast("Group required", true); return; }
 
-  const newThreshold = prompt("Edit Low Stock Threshold:", fg.threshold ?? 5);
-  if(newThreshold===null || isNaN(newThreshold)) return;
+  const newBatch = prompt("Edit Batch / Lot No:", fg.batch || "");
+  if(newBatch === null) return;
+
+  const newExpiry = prompt("Edit Expiry Date (YYYY-MM-DD):", fg.expiry || "");
+  if(newExpiry === null) return;
+
+  const newThreshold = prompt("Edit Low Stock Threshold:", String(fg.threshold ?? 5));
+  if(newThreshold === null) return;
+  if(isNaN(Number(newThreshold))){ showToast("Threshold must be a number", true); return; }
 
   fg.name = newName.trim();
+  fg.productcode = newProductcode.trim();        // ✅ was wrong in your code
+  fg.barcode = newBarcode.trim();                // ✅ was wrong in your code
   fg.volume = newVolume.trim();
-  fg.group = normalizeGroup(newGroup);
+  fg.group = normalizeGroup(newGroup.trim());
   fg.batch = newBatch.trim();
   fg.expiry = newExpiry.trim();
   fg.threshold = Number(newThreshold);
@@ -1626,16 +3684,17 @@ function editFGProduct(fgId){
   showToast("FG updated ✅");
 }
 
+
 function deleteFGProduct(fgId){
   if(!canDelete()){ showToast("No permission to delete", true); return; }
 
-  const fg = fgProducts.find(f=>f.id===fgId);
+  const fg = fgProducts.find(f => f.id === fgId);
   if(!fg) return;
 
   if(!confirm(`Delete FG "${fg.name}"? (History also deleted)`)) return;
 
-  fgProducts = fgProducts.filter(f=>f.id!==fgId);
-  fgMovements = fgMovements.filter(m=>m.fgId!==fgId);
+  fgProducts = fgProducts.filter(f => f.id !== fgId);
+  fgMovements = fgMovements.filter(m => m.fgId !== fgId);
 
   saveFGLocal();
   autoPushFGToCloud();
@@ -1693,6 +3752,7 @@ function renderStockIn(){
     const bal = computeBalance(p.id);
     tbody.insertAdjacentHTML('beforeend',`
       <tr>
+	<td>${escapeHtml(p.code||'')}</td>
         <td>${escapeHtml(p.name||'')}</td>
         <td>${bal}</td>
         <td>${lastMovement(p.id,'IN')}</td>
@@ -1714,6 +3774,7 @@ function renderStockOut(){
     const bal = computeBalance(p.id);
     tbody.insertAdjacentHTML('beforeend',`
       <tr>
+	<td>${escapeHtml(p.code||'')}</td>
         <td>${escapeHtml(p.name||'')}</td>
         <td>${bal}</td>
         <td>${lastMovement(p.id,'OUT')}</td>
@@ -1787,7 +3848,23 @@ function openStockModal(productId, type){
     if(qty <= 0){ showToast("Invalid quantity", true); return; }
     if(type==='OUT' && qty > computeBalance(productId)){ showToast("Quantity exceeds balance", true); return; }
 
-    stockMovements.push({ id:genId(), productId, type, quantity:qty, date:todayISO(), remark });
+stockMovements.push({
+  id: genId(),
+  productId,
+  type,
+  quantity: qty,
+  date: todayISO(),
+  remark,
+
+  createdAt: nowISO(),
+  createdBy: who()
+});
+
+logChange(type === 'IN' ? "RM_STOCK_IN" : "RM_STOCK_OUT", productId, {
+  qty,
+  remark
+});
+
     saveAll();
     autoPushToCloud();
     closeModal();
@@ -1818,18 +3895,25 @@ function openFGModal(fgId, type){
     if(qty <= 0){ showToast("Invalid quantity", true); return; }
     if(type==='OUT' && qty > computeFGBalance(fgId)){ showToast("Quantity exceeds FG balance", true); return; }
 
-    fgMovements.push({
-      id:genId(),
-      fgId,
-      type,
-      qty,
-      batch: fg.batch || '',
-      expiry: fg.expiry || '',
-      date: todayISO(),
-      remark
-    });
+ fgMovements.push({
+  id: genId(),
+  fgId,
+  type,
+  qty,
+  batch: fg.batch || '',
+  expiry: fg.expiry || '',
+  date: todayISO(),
+  remark,
 
-    saveFGLocal();
+  createdAt: nowISO(),
+  createdBy: who()
+});
+
+logChange(type === 'IN' ? "FG_STOCK_IN" : "FG_STOCK_OUT", fgId, {
+  qty,
+  remark
+});
+GLocal();
     autoPushFGToCloud();
     closeModal();
     refreshAll();
@@ -2097,6 +4181,12 @@ function deleteProduct(productId){
 
   products = products.filter(p => p.id !== productId);
   stockMovements = stockMovements.filter(m => m.productId !== productId);
+logChange("PROD_DELETE", id, {
+  prodNo: p.prodNo,
+  date: p.date,
+  fgName: p.fgName,
+  fgQty: p.fgQty
+});
 
   saveAll();
   autoPushToCloud();
@@ -2236,6 +4326,7 @@ function renderDashboardGrouped(){
         const bal = computeBalance(p.id);
         tbody.insertAdjacentHTML('beforeend', `
           <tr>
+		<td>${escapeHtml(p.code||'')}</td>
             <td style="padding-left:25px">${escapeHtml(p.name||'')}</td>
             <td class="${bal <= Number(p.threshold ?? 5) ? 'low-stock':''}">${bal}</td>
             <td>${Number(p.threshold ?? 5)}</td>
@@ -2251,50 +4342,195 @@ function renderDashboardGrouped(){
       });
     }
   });
+buildGroupIndexes();     // ✅ important (connects BOM to grouping)
+  hydrateProductionFG();   
 
   applyPermissions();
 }
+function groupKey(v){
+  return normalizeGroup(v); // UPPERCASE + remove spaces
+}
+
+function normGroup(g){
+  return String(g || '').trim().toLowerCase();
+}
+function groupFromName(name){
+  return String(name || '').trim().split(/\s+/)[0]?.toLowerCase() || '';
+}
+function buildGroupIndexes(){
+  if(!window._idx) window._idx = {};
+  window._idx.fgById = new Map();
+  window._idx.rmByGroup = new Map();
+
+  // FG list
+  const fgList = Array.isArray(fgProducts) ? fgProducts : [];
+  fgList.forEach(f => window._idx.fgById.set(String(f.id), f));
+
+  // RM list
+  const rmList = Array.isArray(products) ? products : [];
+  rmList.forEach(rm=>{
+    const arr = Array.isArray(rm.groups) ? rm.groups : [];
+    if(!arr.length) return;
+
+    // if exclusive: only first group
+    const groupsToUse = rm.exclusive ? [arr[0]] : arr;
+
+    groupsToUse.forEach(g=>{
+      const k = groupKey(g);
+      if(!k) return;
+      if(!window._idx.rmByGroup.has(k)) window._idx.rmByGroup.set(k, []);
+      window._idx.rmByGroup.get(k).push(rm);
+    });
+  });
+}
+
+function hydrateProductionFG(){
+  const sel = document.getElementById('prodFG');
+  if(!sel) return;
+
+  const fgList = Array.from(window._idx.fgById.values());
+
+  sel.innerHTML = `<option value="">-- Select FG --</option>` +
+    fgList
+      .slice()
+      .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')))
+      .map(f => `<option value="${escapeHtml(String(f.id))}">${escapeHtml(f.name||'')}</option>`)
+      .join('');
+}
+
+function loadBills(){
+  try { bills = JSON.parse(localStorage.getItem(KEY_BILLS) || "[]"); }
+  catch { bills = []; }
+}
+function saveBills(){
+  localStorage.setItem(KEY_BILLS, JSON.stringify(bills || []));
+}
+
+function loadProductions(){
+  try { productions = JSON.parse(localStorage.getItem(KEY_PROD) || "[]"); }
+  catch { productions = []; }
+}
+function saveProductions(){
+  localStorage.setItem(KEY_PROD, JSON.stringify(productions || []));
+}
+
+function saveAllRM(){
+  localStorage.setItem(KEY_PRODUCTS, JSON.stringify(products || []));
+  localStorage.setItem(KEY_MOVES, JSON.stringify(stockMovements || []));
+  saveBills();
+  saveProductions();
+}
 
 /* =========================
-   ✅ CLOUD SYNC (RM + FG)
+   ✅ CLOUD SYNC (RM + FG) — SAFE GLOBAL VERSION
+   Works even if your main data lives inside an IIFE
 ========================= */
-function autoPushFGToCloud(){
-  cloudDB.ref('fgManager').set({
-    products: fgProducts,
-    movements: fgMovements,
-    syncedAt: new Date().toISOString()
-  });
-}
-function autoPullFGFromCloud(){
-  cloudDB.ref('fgManager').once('value').then(snap=>{
-    if(!snap.exists()) return;
-    fgProducts = snap.val().products || [];
-    fgMovements = snap.val().movements || [];
-    saveFGLocal();
-    initFGVolumeSelection();
-    refreshAll();
-  });
+
+function toArray(v){
+  if(Array.isArray(v)) return v;
+  if(v && typeof v === "object") return Object.values(v);
+  return [];
 }
 
+function autoPushToCloud(){
+  if (typeof cloudDB === "undefined" || !cloudDB) return Promise.resolve();
+
+  const payload = {
+    products,
+    stockMovements,
+    bills: (window.savedBills || bills || []),
+    productions,
+    auditLog,
+    syncedAt: nowISO()
+  };
+
+  return cloudDB.ref("stockManager").set(payload)
+    .catch(err => console.error("autoPushToCloud failed:", err));
+}
+
+
 function autoPullFromCloud(){
-  cloudDB.ref("stockManager").once("value")
+  if (typeof cloudDB === "undefined" || !cloudDB) return Promise.resolve();
+
+  return cloudDB.ref("stockManager").once("value")
     .then(snapshot=>{
       const data = snapshot.val();
       if(!data) return;
+
       products = data.products || [];
       stockMovements = data.stockMovements || [];
-      saveAll();
-      refreshAll();
+      productions = data.productions || [];
+
+      // bills are owned by BOE module
+      if (Array.isArray(data.bills)) {
+        localStorage.setItem("sms_bills_v1", JSON.stringify(data.bills));
+        window.savedBills = data.bills;
+      }
+
+      // audit log
+      auditLog = Array.isArray(data.auditLog) ? data.auditLog : auditLog;
+      saveAudit();
+
+      saveAll?.();
+      saveProductions?.();
+      refreshAll?.();
+
+      // refresh BOE table if module exists
+      BOE?.renderTable?.();
     })
-    .catch(err=> console.error("Auto pull failed:", err));
+    .catch(err => console.error("Auto pull failed:", err));
 }
-function autoPushToCloud(){
-  cloudDB.ref("stockManager").set({
-    products,
-    stockMovements,
-    syncedAt: new Date().toISOString()
+
+
+function autoPullFGFromCloud(){
+  if (typeof cloudDB === "undefined" || !cloudDB) return Promise.resolve();
+
+  return cloudDB.ref("fgManager").once("value")
+    .then(snap=>{
+      if(!snap.exists()) return;
+
+      const data = snap.val() || {};
+      const normArr = (v) => Array.isArray(v) ? v : (v && typeof v === "object" ? Object.values(v) : []);
+
+window.fgProducts  = normArr(data.products);
+window.fgMovements = normArr(data.movements);
+
+// ✅ keep local variables in sync (very important)
+fgProducts  = window.fgProducts;
+fgMovements = window.fgMovements;
+
+
+      // ✅ call your existing save/render hooks
+      window.saveFG?.();
+      window.saveFGLocal?.();
+      window.initFGVolumeSelection?.();
+      window.refreshAll?.();
+    })
+    .catch(err=>{
+      console.error("autoPullFGFromCloud failed:", err);
+      window.showToast?.("FG pull failed (check Firebase rules)", true);
+    });
+renderProdFGDropdown?.();
+renderBOM?.(); // optional (if FG already selected)
+
+}
+
+function autoPushFGToCloud(){
+  if (typeof cloudDB === "undefined" || !cloudDB) return Promise.resolve();
+
+  const payload = {
+    products: Array.isArray(window.fgProducts) ? window.fgProducts : [],
+    movements: Array.isArray(window.fgMovements) ? window.fgMovements : [],
+    updatedAt: new Date().toISOString()
+  };
+
+  return cloudDB.ref("fgManager").set(payload).catch(err=>{
+    console.error("autoPushFGToCloud failed:", err);
+    window.showToast?.("FG sync failed (check Firebase rules)", true);
   });
 }
+
+
 
 /* =========================
    ✅ REPORTS + EXPORT/IMPORT
@@ -2306,8 +4542,7 @@ function printStockReport(){
     .map(p=>({
       Code: p.code || '',
       Product: p.name || '',
-      Category: p.category || '',
-      Balance: computeBalance(p.id),
+           Balance: computeBalance(p.id),
       Threshold: Number(p.threshold ?? 5),
       LastIN: lastMovement(p.id,'IN'),
       LastOUT: lastMovement(p.id,'OUT')
@@ -2526,13 +4761,15 @@ function exportPDF(){
 }
 
 /* =========================
-   ✅ SUPPLIERS (local)
+   ✅ SUPPLIERS (RM)
 ========================= */
 const KEY_SUPPLIERS = 'sms_suppliers_v1';
 let suppliers = JSON.parse(localStorage.getItem(KEY_SUPPLIERS) || '[]');
+window.suppliers = suppliers; // BOE uses window.suppliers
 
 function saveSuppliers(){
   localStorage.setItem(KEY_SUPPLIERS, JSON.stringify(suppliers));
+  window.suppliers = suppliers;
 }
 
 function renderSuppliers(){
@@ -2542,65 +4779,102 @@ function renderSuppliers(){
   const q = (document.getElementById('supplierSearch')?.value || '').toLowerCase().trim();
   tbody.innerHTML = '';
 
-  const list = suppliers.filter(s=>{
-    if(!q) return true;
-    return (s.name||'').toLowerCase().includes(q) || (s.contact||'').toLowerCase().includes(q);
-  });
+  const list = [...suppliers].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  let i = 1;
 
-  list.forEach((s, idx)=>{
-    tbody.insertAdjacentHTML('beforeend',`
+  list.forEach(s=>{
+    const hay = `${s.name||''} ${s.contact||''}`.toLowerCase();
+    if(q && !hay.includes(q)) return;
+
+    tbody.insertAdjacentHTML('beforeend', `
       <tr>
-        <td>${idx+1}</td>
+        <td>${i++}</td>
         <td>${escapeHtml(s.name||'')}</td>
         <td>${escapeHtml(s.contact||'')}</td>
-        <td><button class="btn secondary btn-edit" onclick="editSupplier('${s.id}')">Edit</button></td>
-        <td><button class="btn out btn-delete" onclick="deleteSupplier('${s.id}')">Delete</button></td>
+        <td><button class="btn secondary btn-edit" onclick="editSupplier('${escapeHtml(s.id)}')">Edit</button></td>
+        <td><button class="btn out btn-delete" onclick="deleteSupplier('${escapeHtml(s.id)}')">Delete</button></td>
       </tr>
     `);
   });
 
-  applyPermissions();
+  applyPermissions?.();
 }
 
 function addSupplier(){
-  if(!canAdd()){ showToast("No permission to add", true); return; }
-  const name = (document.getElementById('newSupplierName')?.value || '').trim();
-  const contact = (document.getElementById('newSupplierContact')?.value || '').trim();
+  if(!canAdd?.()){ showToast("No permission to add", true); return; }
+
+  const nameEl = document.getElementById('newSupplierName');
+  const contactEl = document.getElementById('newSupplierContact');
+
+  const name = (nameEl?.value || '').trim();
+  const contact = (contactEl?.value || '').trim();
+
   if(!name){ showToast("Supplier name required", true); return; }
 
-  suppliers.push({ id:'sup_'+genId(), name, contact });
+  suppliers.push({
+    id: 'sup_' + genId(),
+    name,
+    contact,
+    createdAt: new Date().toISOString(),
+    createdBy: currentUser?.username || ''
+  });
+
   saveSuppliers();
+  autoPushToCloud?.();
   renderSuppliers();
-  document.getElementById('newSupplierName').value='';
-  document.getElementById('newSupplierContact').value='';
+  renderBOESupplierDropdown?.();
+
+  if(nameEl) nameEl.value = '';
+  if(contactEl) contactEl.value = '';
+
   showToast("Supplier added ✅");
 }
+
 function editSupplier(id){
-  if(!canEdit()){ showToast("No permission to edit", true); return; }
+  if(!canEdit?.()){ showToast("No permission to edit", true); return; }
   const s = suppliers.find(x=>x.id===id);
   if(!s) return;
 
-  const name = prompt("Supplier name:", s.name||'');
-  if(name === null || !name.trim()) return;
+  const newName = prompt("Edit supplier name:", s.name || "");
+  if(newName === null) return;
+  if(!newName.trim()){ showToast("Name required", true); return; }
 
-  const contact = prompt("Contact info:", s.contact||'');
-  if(contact === null) return;
+  const newContact = prompt("Edit contact info:", s.contact || "");
+  if(newContact === null) return;
 
-  s.name = name.trim();
-  s.contact = contact.trim();
+  s.name = newName.trim();
+  s.contact = newContact.trim();
+
   saveSuppliers();
+  autoPushToCloud?.();
   renderSuppliers();
+  renderBOESupplierDropdown?.();
   showToast("Supplier updated ✅");
 }
+
 function deleteSupplier(id){
-  if(!canDelete()){ showToast("No permission to delete", true); return; }
-  if(!confirm("Delete this supplier?")) return;
+  if(!canDelete?.()){ showToast("No permission to delete", true); return; }
+  const s = suppliers.find(x=>x.id===id);
+  if(!s) return;
+
+  if(!confirm(`Delete supplier "${s.name}"?`)) return;
 
   suppliers = suppliers.filter(x=>x.id!==id);
   saveSuppliers();
+  autoPushToCloud?.();
   renderSuppliers();
+  renderBOESupplierDropdown?.();
   showToast("Supplier deleted ✅");
 }
+
+/* hook supplier add button safely */
+(function initSuppliersUI(){
+  const btn = document.getElementById('addSupplierBtn');
+  if(btn) btn.onclick = addSupplier;
+
+  const search = document.getElementById('supplierSearch');
+  if(search) search.oninput = ()=> renderSuppliers();
+})();
 
 /* =========================
    ✅ EVENTS / MENU / INIT
@@ -2622,6 +4896,15 @@ document.querySelectorAll('.submenu').forEach(sm=>{
     if(action && typeof window[action]==='function') window[action]();
   });
 });
+document.querySelectorAll('[data-page]').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    const page = el.dataset.page;
+    document.querySelectorAll('.page').forEach(p=>p.style.display='none');
+    document.getElementById(page).style.display='block';
+    refreshAll?.();
+  });
+});
+
 
 // Searches
 document.getElementById('productSearch')?.addEventListener('input', renderProductsTable);
@@ -2633,6 +4916,12 @@ document.getElementById('fgInSearch')?.addEventListener('input', renderFGStockIn
 document.getElementById('fgOutSearch')?.addEventListener('input', renderFGStockOut);
 document.getElementById('supplierSearch')?.addEventListener('input', renderSuppliers);
 document.getElementById('addSupplierBtn')?.addEventListener('click', addSupplier);
+document.getElementById('boeSearch')?.addEventListener('input', renderBillsTable);
+document.getElementById('prodSearch')?.addEventListener('input', renderProductionsTable);
+document.getElementById('dnSearch')?.addEventListener('input', renderDNTable);
+document.getElementById('prodFG')?.addEventListener('change', renderBOM);
+document.getElementById('prodFGQty')?.addEventListener('input', renderBOM);
+
 
 // Sidebar toggle
 const sidebarToggle = document.getElementById('sidebarToggle');
@@ -2670,6 +4959,9 @@ window.addEventListener('load', ()=>{
    ✅ REFRESH ALL
 ========================= */
 function refreshAll(){
+  buildGroupIndexes();   // ✅ must come before BOM + dropdown
+  hydrateProductionFG(); // ✅ dropdown uses _idx
+
   renderProductsTable();
   renderStockIn();
   renderStockOut();
@@ -2679,10 +4971,16 @@ function refreshAll(){
   renderFGStockIn();
   renderFGStockOut();
 
+  renderProductionsTable();
+  renderDNTable();
+
   renderMainDashboard();
   renderDashboardGrouped();
+  renderBillsTable();
+
   applyPermissions();
 }
+
 
 /* Expose to window (safe) */
 window.handleDashboardSearch = handleDashboardSearch;
@@ -2696,7 +4994,14 @@ window.importExcel = importExcel;
 window.exportPDF = exportPDF;
 window.openFGFromDashboard = openFGFromDashboard;
 window.openLowFGFromDashboard = openLowFGFromDashboard;
+window.renderProductionsTable = renderProductionsTable;
+window.viewProduction = viewProduction;
+
 </script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
 
 </body>
 </html>

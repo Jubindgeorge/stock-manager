@@ -385,6 +385,36 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
     print-color-adjust:exact;
   }
 }
+.app-modal{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+}
+.app-modal-backdrop{
+  position:absolute;
+  inset:0;
+  background:rgba(0,0,0,.45);
+}
+.app-modal-box{
+  position:relative;
+  max-width:900px;
+  margin:5vh auto;
+  background:#fff;
+  border-radius:12px;
+  padding:16px;
+  box-shadow:0 20px 60px rgba(0,0,0,.3);
+}
+.app-modal-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  border-bottom:1px solid #eee;
+  margin-bottom:12px;
+}
+.app-modal-body{
+  max-height:70vh;
+  overflow:auto;
+}
 
 </style>
  </head>
@@ -986,6 +1016,19 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
         </div>
       </div>
     </div>
+<!-- GENERIC APP MODAL -->
+<div id="modal" class="app-modal" style="display:none">
+  <div class="app-modal-backdrop" onclick="closeModal()"></div>
+
+  <div class="app-modal-box">
+    <div class="app-modal-header">
+      <h5 id="modalTitle2">Modal</h5>
+      <button class="btn btn-sm btn-outline-secondary" onclick="closeModal()">✖</button>
+    </div>
+
+    <div id="modalBody" class="app-modal-body"></div>
+  </div>
+</div>
 
 
     <!-- PRODUCTION RECORDS -->
@@ -1162,6 +1205,41 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
 
     <!-- Toast -->
     <div id="stockToast" class="toast" style="display:none;"></div>
+<!-- ✅ BOE VIEW MODAL -->
+<div id="boeViewModal" class="modal" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
+  <div class="modal-card" style="width:min(900px,95vw);background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.25);overflow:hidden;">
+    
+    <div class="modal-head" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #eee;">
+      <div>
+        <div id="boeViewTitle" style="font-weight:700;font-size:16px;">Bill of Entry</div>
+        <div id="boeViewMeta" style="font-size:12px;color:#666;margin-top:4px;"></div>
+      </div>
+
+      <button type="button" class="btn out" onclick="BOE.closeView()" style="padding:6px 10px;">Close</button>
+    </div>
+
+    <div class="modal-body" style="padding:12px 14px;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+        <button type="button" class="btn secondary" onclick="BOE.printFromView()">Print</button>
+        <button type="button" class="btn secondary" onclick="BOE.editFromView()">Edit</button>
+      </div>
+
+      <div style="max-height:60vh;overflow:auto;border:1px solid #eee;border-radius:10px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:#f7f7f7;">
+              <th style="text-align:left;padding:10px;border-bottom:1px solid #eee;">RM Product</th>
+              <th style="text-align:right;padding:10px;border-bottom:1px solid #eee;width:120px;">Qty</th>
+              <th style="text-align:left;padding:10px;border-bottom:1px solid #eee;">Remark</th>
+            </tr>
+          </thead>
+          <tbody id="boeViewBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
 
   </main>
 </div>
@@ -3212,47 +3290,63 @@ function closeAppModal(){
 window.closeModal = window.closeModal || closeAppModal;
 
 function viewProduction(id){
-  const p = (productions || []).find(x => x.id === id);
-  if(!p) return;
+  const list = Array.isArray(window.productions) ? window.productions : [];
+  const p = list.find(x => String(x.id) === String(id));
+  if(!p){
+    showToast("Production not found", true);
+    return;
+  }
 
   const lines = (p.rmLines || []).map(l=>{
-    const rm  = products.find(x=>x.id===l.rmId);
-    const net = Number((Number(l.req||0) - Number(l.dmg||0)).toFixed(6));
-
+    const rm = products.find(x=>x.id===l.rmId);
+    const net = Number((Number(l.req||0) - Number(l.dmg||0)).toFixed(6)); // net used
     return `
       <tr>
         <td>${escapeHtml(rm?.name || 'Unknown')}</td>
-        <td class="right">${Number(l.req || 0)}</td>
-        <td class="right">${Number(l.dmg || 0)}</td>
-        <td class="right"><b>${net}</b></td>
+        <td class="text-end"><b>${net}</b></td>
+        <td class="text-end">${Number(l.dmg || 0)}</td>
       </tr>
     `;
-  }).join('') || `<tr><td colspan="4" class="text-muted">No lines</td></tr>`;
+  }).join('') || `<tr><td colspan="3" class="text-muted">No lines</td></tr>`;
 
-  openModal(`Production ${escapeHtml(p.prodNo)}`, `
-    <div class="row g-2">
-      <div class="col-12 col-md-3"><div class="text-muted small">Date</div><b>${escapeHtml(p.date||'')}</b></div>
-      <div class="col-12 col-md-6"><div class="text-muted small">FG</div><b>${escapeHtml(p.fgName||'')}</b></div>
-      <div class="col-12 col-md-3"><div class="text-muted small">FG Qty</div><b>${Number(p.fgQty||0)}</b></div>
-      <div class="col-12"><div class="text-muted small">Remark</div><div>${escapeHtml(p.remark||'')}</div></div>
+  // ✅ fallback modal ids (supports both your modalTitle2 or modalTitle)
+  const modal = document.getElementById('modal');
+  if(!modal){
+    alert("Modal element #modal not found");
+    return;
+  }
+  const titleEl = document.getElementById('modalTitle2') || document.getElementById('modalTitle');
+  const bodyEl  = document.getElementById('modalBody');
 
-      <div class="col-12 mt-2" style="overflow:auto">
-        <b>RM Lines</b>
-        <table class="table table-sm mt-2">
-          <thead class="table-light">
-            <tr>
-              <th>RM</th>
-              <th class="text-end">Req</th>
-              <th class="text-end">Damage</th>
-              <th class="text-end">Net Used</th>
-            </tr>
-          </thead>
-          <tbody>${lines}</tbody>
-        </table>
+  if(titleEl) titleEl.textContent = `Production ${p.prodNo || ''}`;
+  if(bodyEl){
+    bodyEl.innerHTML = `
+      <div class="row g-2">
+        <div class="col-12 col-md-3"><div class="text-muted small">Date</div><b>${escapeHtml(p.date||'')}</b></div>
+        <div class="col-12 col-md-6"><div class="text-muted small">FG</div><b>${escapeHtml(p.fgName||'')}</b></div>
+        <div class="col-12 col-md-3"><div class="text-muted small">FG Qty</div><b>${Number(p.fgQty||0)}</b></div>
+        <div class="col-12"><div class="text-muted small">Remark</div><div>${escapeHtml(p.remark||'')}</div></div>
+
+        <div class="col-12 mt-2" style="overflow:auto">
+          <b>RM Lines</b>
+          <table class="table table-sm mt-2">
+            <thead class="table-light">
+              <tr>
+                <th>RM</th>
+                <th class="text-end">Net Used</th>
+                <th class="text-end">Damage</th>
+              </tr>
+            </thead>
+            <tbody>${lines}</tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  `);
+    `;
+  }
+
+  modal.style.display = 'block';
 }
+window.viewProduction = viewProduction;
 
 
 function saveProductions(){
@@ -3961,9 +4055,17 @@ saveFGLocal();
 }
 
 function closeModal(){
-  document.getElementById('stockModal').style.display='none';
+  // Close Stock IN/OUT modal (existing)
+  const stockModal = document.getElementById('stockModal');
+  if(stockModal) stockModal.style.display = 'none';
+
+  // Close Generic App Modal (production view)
+  const appModal = document.getElementById('modal');
+  if(appModal) appModal.style.display = 'none';
+
   modalCurrent = null;
 }
+window.closeModal = closeModal;
 
 /* RM history modal */
 function openHistory(productId){

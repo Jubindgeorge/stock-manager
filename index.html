@@ -479,7 +479,7 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
 
       <li class="menu-title collapsible">Finished Goods <span class="arrow">▾</span></li>
       <ul class="subgroup">
-        <li class="submenu" data-page="fgStock"> Stock Ledger</li>
+        <li class="submenu" data-page="fgStock">FG Stock</li>
         <li class="submenu admin-only" data-page="fgAddProduct">Add Product</li>
         <li class="submenu" data-page="fgStockIn">Physical Entry In</li>
         <li class="submenu" data-page="fgStockOut">Physical Entry Out</li>
@@ -2749,9 +2749,6 @@ function boeAddRow(){
   }
   console.error("BOE.addRow not available");
 }
-const KEY_BILLS = "SM_BILLS_V1";
-let bills = [];
-
 
 
 
@@ -2809,34 +2806,60 @@ BOE.init();
 
 
 
-function getGroupNameFromText(name){
-  // first word group (same logic you use in FG/RM grouping)
-  return String(name || '').trim().split(/\s+/)[0]?.toLowerCase() || '';
-}
-
-function normGroup(g){
-  return String(g || '').trim().toLowerCase();
-}
-
-
 /* =========================================================
-   PRODUCTION ENTRY (Fixed)
-   - uses openPage() (not gotoPage)
-   - adds openModal() / closeAppModal() for your custom modal
-   - uses Bootstrap layout inside modal (row/col-*)
+   ✅ PRODUCTION MODULE (FULL REWRITE)
+   - FG IN + RM OUT saved properly (local + cloud)
+   - No dependency on broken saveBills()
+   - Works with your existing:
+     products, stockMovements, fgProducts, fgMovements,
+     computeBalance(), saveFGLocal(), autoPushFGToCloud(),
+     autoPushToCloud(), refreshAll(), showToast(), escapeHtml(),
+     genId(), todayISO(), nowISO(), who()
 ========================================================= */
 
-/** Ensure "right" class exists in CSS:
-.right { text-align:right; }
-**/
+/* ---------- STORAGE KEYS ---------- */
 const KEY_PROD = 'sms_productions_v1';
-window.KEY_PROD = KEY_PROD; // ✅ expose globally
+window.KEY_PROD = KEY_PROD;
 
+/* ---------- STATE ---------- */
 let productions = JSON.parse(localStorage.getItem(KEY_PROD) || '[]');
-window.productions = productions; // ✅ expose
+window.productions = productions;
 
+/* ---------- SAFE SAVERS (NO bills here) ---------- */
+function saveProductions(){
+  localStorage.setItem(KEY_PROD, JSON.stringify(productions || []));
+  window.productions = productions;
+}
+window.saveProductions = saveProductions;
+
+function saveAllRM(){
+  // ✅ RM only (do NOT call saveBills here)
+  localStorage.setItem(KEY_PRODUCTS, JSON.stringify(products || []));
+  localStorage.setItem(KEY_MOVES, JSON.stringify(stockMovements || []));
+}
+window.saveAllRM = saveAllRM;
+
+function saveFG(){
+  saveFGLocal?.();
+  autoPushFGToCloud?.();
+}
+window.saveFG = saveFG;
+
+/* ---------- PERMISSION ---------- */
+function canProduction(){
+  // allow if no login
+  if(!window.currentUser) return true;
+
+  const role = String(window.currentUser.role || '').toLowerCase();
+  return role === 'admin' || role === 'manager' || role === 'production';
+}
+window.canProduction = canProduction;
+
+/* ---------- BOM HELPERS ----------
+   Your rule: RM.groups matches FG.group (normalized)
+---------------------------------- */
 function bomKey(v){
-  return normalizeGroup(v); // your normalizeGroup() = UPPERCASE + remove spaces
+  return normalizeGroup(v); // your normalizeGroup(): trim + uppercase + remove spaces
 }
 
 function getBOMRMForFG(fgId){
@@ -2849,15 +2872,16 @@ function getBOMRMForFG(fgId){
     const gs = Array.isArray(rm.groups) ? rm.groups : [];
     if(!gs.length) return false;
 
-    // respect exclusive (only first group)
+    // exclusive => first group only
     const use = rm.exclusive ? [gs[0]] : gs;
-
     return use.some(g => bomKey(g) === key);
   });
 
   return { fg, key, list };
 }
+window.getBOMRMForFG = getBOMRMForFG;
 
+/* ---------- UI: Render BOM Table ---------- */
 function renderBOM(){
   const fgId  = String(document.getElementById('prodFG')?.value || '').trim();
   const fgQty = Number(document.getElementById('prodFGQty')?.value || 0) || 0;
@@ -2877,12 +2901,10 @@ function renderBOM(){
     body.innerHTML = `<tr><td colspan="5" class="text-muted">FG not found</td></tr>`;
     return;
   }
-
   if(!key){
     body.innerHTML = `<tr><td colspan="5" class="text-muted">This FG has no group set</td></tr>`;
     return;
   }
-
   if(!list.length){
     body.innerHTML = `<tr><td colspan="5" class="text-muted">
       No RM found in group: <b>${escapeHtml(key)}</b><br>
@@ -2892,101 +2914,111 @@ function renderBOM(){
   }
 
   list.forEach(rm=>{
-    // If you don’t have qtyPerFG yet, default 1 (so table still shows)
+    // qtyPerFG optional. If not present, default 1
     const per = Number(rm.qtyPerFG || 1);
     const req = per * fgQty;
 
-body.insertAdjacentHTML('beforeend', `
-  <tr data-rm="${escapeHtml(String(rm.id))}">
-    <td><b>${escapeHtml(rm.name || 'Unknown')}</b></td>
-    <td class="text-end reqQty">${Number(req.toFixed(6))}</td>
-    <td class="text-end">
-      <input class="form-control form-control-sm damQty"
-             type="number" min="0" step="0.0001" value="0"
-             oninput="calcNetUsed(this)">
-    </td>
-    <td class="text-end netUsed">${Number(req.toFixed(6))}</td>
-  </tr>
-`);
+    body.insertAdjacentHTML('beforeend', `
+      <tr data-rm="${escapeHtml(String(rm.id))}">
+        <td><b>${escapeHtml(rm.name || 'Unknown')}</b></td>
 
+        <td class="text-end reqQty">${Number(req.toFixed(6))}</td>
+
+        <td class="text-end">
+          <input class="form-control form-control-sm damQty"
+                 type="number" min="0" step="0.0001" value="0"
+                 oninput="calcNetUsed(this)">
+        </td>
+
+        <td class="text-end netUsed">${Number(req.toFixed(6))}</td>
+
+        <td class="text-muted small">
+          Bal: <span class="rmBal">${Number(computeBalance(rm.id) || 0)}</span>
+        </td>
+      </tr>
+    `);
   });
 }
+window.renderBOM = renderBOM;
 
+/* ---------- UI: Net used calc ---------- */
 function calcNetUsed(el){
   const tr = el.closest('tr');
   if(!tr) return;
 
   const req = Number(tr.querySelector('.reqQty')?.textContent || 0);
-  const dmg = Number(tr.querySelector('.damQty')?.value || 0);
+  let dmg = Number(tr.querySelector('.damQty')?.value || 0);
 
-  if(dmg < 0){
-    el.value = 0;
-    return;
-  }
+  if(dmg < 0) dmg = 0;
+  if(dmg > req) dmg = req;
 
-  if(dmg > req){
-    el.value = req;
-  }
-
-  const net = Math.max(0, req - Number(el.value || 0));
+  tr.querySelector('.damQty').value = String(dmg);
+  const net = Math.max(0, req - dmg);
   tr.querySelector('.netUsed').textContent = Number(net.toFixed(6));
 }
+window.calcNetUsed = calcNetUsed;
 
-
-function submitProduction(){
-  if(!canProduction()){ showToast("No permission to create production", true); return; }
-
-  const prodNoEl = document.getElementById('prodNo');
-  const prodDtEl = document.getElementById('prodDate');
-  const fgEl     = document.getElementById('prodFG');
-  const qtyEl    = document.getElementById('prodFGQty');
-  const remEl    = document.getElementById('prodRemark');
-
-  const prodNo   = (prodNoEl?.value || '').trim();
-  const prodDate = (prodDtEl?.value || todayISO());
-  const fgId     = (fgEl?.value || '').trim();
-  const fgQty    = Number(qtyEl?.value || 0);
-  const remark   = (remEl?.value || '').trim();
-
-  if(!prodNo){ showToast("Production No required", true); return; }
-  if(!fgId){ showToast("Select FG product", true); return; }
-  if(!(fgQty > 0)){ showToast("FG Qty must be > 0", true); return; }
-
+/* ---------- Collect RM Lines from Table ---------- */
+function collectRMLines(){
   const rows = [...document.querySelectorAll('#prodBOMBody tr[data-rm]')];
-  if(!rows.length){ showToast("No BOM rows (add BOM to FG first)", true); return; }
-
-  const rmLines = rows.map(tr=>{
-    const rmId = tr.dataset.rm;
+  return rows.map(tr=>{
+    const rmId = String(tr.dataset.rm || '').trim();
     const req  = Number(tr.querySelector('.reqQty')?.textContent || 0);
-    const dmg = Number(tr.querySelector('.damQty')?.value || 0);
-return { rmId, req, dmg };
+    const dmg  = Number(tr.querySelector('.damQty')?.value || 0);
+    const net  = Number((req - dmg).toFixed(6));
+    return { rmId, req, dmg, net };
+  }).filter(l => l.rmId);
+}
 
-  });
+/* ---------- Validation ---------- */
+function validateProductionInput(prodNo, fgId, fgQty, rmLines){
+  if(!prodNo) return "Production No required";
+  if(!fgId) return "Select FG product";
+  if(!(fgQty > 0)) return "FG Qty must be > 0";
+  if(!rmLines.length) return "No BOM rows found";
 
-  // validations
   for(const l of rmLines){
-    if(l.ret < 0 || l.dmg < 0){
-      showToast("Return/Damage cannot be negative", true); return;
-    }
-    if(l.ret + l.dmg > l.req){
-      showToast("Return + Damage cannot exceed Required", true); return;
-    }
+    if(l.dmg < 0) return "Damage cannot be negative";
+    if(l.dmg > l.req) return "Damage cannot exceed Required";
 
-    const netOut = l.req - l.ret - l.dmg;
-    if(netOut > 0){
-      const bal = computeBalance(l.rmId);
-      if(netOut > bal){
+    // Only validate balance for net used (req - dmg)
+    if(l.net > 0){
+      const bal = Number(computeBalance(l.rmId) || 0);
+      if(l.net > bal){
         const p = products.find(x => x.id === l.rmId);
-        showToast(`RM stock insufficient: ${p?.name || 'RM'} (Bal ${bal})`, true);
-        return;
+        return `RM stock insufficient: ${p?.name || 'RM'} (Bal ${bal})`;
       }
     }
   }
+  return "";
+}
 
+/* ---------- SUBMIT PRODUCTION (THE MAIN ONE) ---------- */
+function submitProduction(){
+  if(!canProduction()){
+    showToast("No permission to create production", true);
+    return;
+  }
+
+  const prodNo   = String(document.getElementById('prodNo')?.value || '').trim();
+  const prodDate = String(document.getElementById('prodDate')?.value || todayISO());
+  const fgId     = String(document.getElementById('prodFG')?.value || '').trim();
+  const fgQty    = Number(document.getElementById('prodFGQty')?.value || 0);
+  const remark   = String(document.getElementById('prodRemark')?.value || '').trim();
+
+  const rmLines = collectRMLines();
+
+  const err = validateProductionInput(prodNo, fgId, fgQty, rmLines);
+  if(err){
+    showToast(err, true);
+    return;
+  }
+
+  const fg = (fgProducts || []).find(x => x.id === fgId);
   const productionId = 'prod_' + genId();
-  const fg = fgProducts.find(x=>x.id===fgId);
 
-  productions.push({
+  // 1) Save production record
+  const record = {
     id: productionId,
     prodNo,
     date: prodDate,
@@ -2994,100 +3026,100 @@ return { rmId, req, dmg };
     fgName: fg?.name || '',
     fgQty,
     remark,
-    rmLines,
-    createdAt: new Date().toISOString(),
-    createdBy: currentUser?.username || ''
+    rmLines: rmLines.map(({rmId, req, dmg}) => ({ rmId, req, dmg })), // store clean
+    createdAt: nowISO?.() || new Date().toISOString(),
+    createdBy: who?.() || (currentUser?.username || '')
+  };
+
+  productions.push(record);
+
+  // 2) FG IN movement
+  fgMovements.push({
+    id: genId(),
+    fgId,
+    type: 'IN',
+    qty: fgQty,
+    date: prodDate,
+    remark: `PROD ${prodNo}${remark ? ' - ' + remark : ''}`,
+    productionId,
+    createdAt: nowISO?.() || new Date().toISOString(),
+    createdBy: who?.() || (currentUser?.username || '')
   });
-logChange("PROD_CREATE", productionId, {
-  prodNo,
-  date: prodDate,
-  fgId,
-  fgName: fg?.name || "",
-  fgQty,
-  rmLines: rmLines.length
-});
 
+  // 3) RM OUT movements
+  rmLines.forEach(l=>{
+    // net used
+    if(l.net > 0){
+      stockMovements.push({
+        id: genId(),
+        productId: l.rmId,
+        type: 'OUT',
+        quantity: l.net,
+        date: prodDate,
+        remark: `PROD ${prodNo} RM Used`,
+        productionId,
+        createdAt: nowISO?.() || new Date().toISOString(),
+        createdBy: who?.() || (currentUser?.username || '')
+      });
+    }
+
+    // damage out
+    if(l.dmg > 0){
+      stockMovements.push({
+        id: genId(),
+        productId: l.rmId,
+        type: 'OUT',
+        quantity: Number(l.dmg.toFixed(6)),
+        date: prodDate,
+        remark: `PROD ${prodNo} RM Damage`,
+        productionId,
+        createdAt: nowISO?.() || new Date().toISOString(),
+        createdBy: who?.() || (currentUser?.username || '')
+      });
+    }
+  });
+
+  // 4) Persist (local)
   saveProductions();
-
-  // FG IN
-fgMovements.push({
-  id: genId(),
-  fgId,
-  type: 'IN',
-  qty: fgQty,
-  date: prodDate,
-  remark: `PROD ${prodNo}${remark ? ' - ' + remark : ''}`,
-  productionId,
-
-  // ✅ time + user
-  createdAt: nowISO(),
-  createdBy: who()
-});
-
-
-  // RM OUT/IN
-rmLines.forEach(l=>{
-  const netOut = Number((l.req - l.dmg).toFixed(6));
-
-  // RM USED (OUT)
-  if(netOut > 0){
-    stockMovements.push({
-      id: genId(),
-      productId: l.rmId,
-      type: 'OUT',
-      quantity: netOut,
-      date: prodDate,
-      remark: `PROD ${prodNo} RM Used`,
-      productionId,
-      createdAt: nowISO(),
-      createdBy: who()
-    });
-  }
-
-  // RM DAMAGE (OUT)
-  if(l.dmg > 0){
-    stockMovements.push({
-      id: genId(),
-      productId: l.rmId,
-      type: 'OUT',
-      quantity: l.dmg,
-      date: prodDate,
-      remark: `PROD ${prodNo} RM Damage`,
-      productionId,
-      createdAt: nowISO(),
-      createdBy: who()
-    });
-  }
-});
-
-
   saveAllRM();
   saveFG();
-  refreshAll();
+
+  // 5) Persist (cloud) — VERY IMPORTANT so autoPull doesn't wipe your RM OUT
+  autoPushToCloud?.();
+
+  // 6) UI
+  refreshAll?.();
   showToast("Production saved ✅");
 
-  // reset UI
+  // reset form
+  const prodNoEl = document.getElementById('prodNo');
+  const remEl    = document.getElementById('prodRemark');
+  const fgEl     = document.getElementById('prodFG');
+  const qtyEl    = document.getElementById('prodFGQty');
+  const bomBody  = document.getElementById('prodBOMBody');
+
   if(prodNoEl) prodNoEl.value = '';
   if(remEl) remEl.value = '';
   if(fgEl) fgEl.value = '';
   if(qtyEl) qtyEl.value = 1;
-
-  const bomBody = document.getElementById('prodBOMBody');
   if(bomBody) bomBody.innerHTML = `<tr><td colspan="5" class="text-muted">Select FG product</td></tr>`;
 
-  // go to records
-  openPage('pageProductionRecords');
-  renderProductionsTable();
+  // go to records page if you use it
+  openPage?.('pageProductionRecords');
+  renderProductionsTable?.();
 }
+window.submitProduction = submitProduction;
 
+/* ---------- TABLE: Production Records ---------- */
 function renderProductionsTable(){
   const tb = document.getElementById('prodTableBody');
   if(!tb) return;
 
-  const productions = Array.isArray(window.productions) ? window.productions : []; // ✅ no crash
-  const rows = productions.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const list = Array.isArray(window.productions) ? window.productions : [];
+  const rows = list.slice().sort((a,b)=> (b.date||'').localeCompare(a.date||''));
 
   tb.innerHTML = rows.length ? '' : `<tr><td colspan="7" class="muted">No production records</td></tr>`;
+
   rows.forEach(p=>{
     tb.insertAdjacentHTML('beforeend', `
       <tr>
@@ -3097,11 +3129,18 @@ function renderProductionsTable(){
         <td class="right">${Number(p.fgQty||0)}</td>
         <td class="right">${(p.rmLines||[]).length}</td>
         <td>${escapeHtml(p.createdBy||'')}</td>
-        <td><button class="btn btn-sm btn-outline-secondary" onclick="viewProduction('${p.id}')">View</button></td>
+        <td>
+          <button class="btn btn-sm btn-outline-secondary" onclick="viewProduction('${escapeHtml(p.id)}')">
+            View
+          </button>
+        </td>
       </tr>
     `);
   });
 }
+window.renderProductionsTable = renderProductionsTable;
+
+/* ---------- DROPDOWN: FG list ---------- */
 function renderProdFGDropdown(){
   const sel = document.getElementById('prodFG');
   if(!sel) return;
@@ -3119,29 +3158,27 @@ function renderProdFGDropdown(){
       );
     });
 }
+window.renderProdFGDropdown = renderProdFGDropdown;
 
-
-
-
+/* ---------- EVENTS (BOM refresh) ---------- */
 function wireProductionEvents(){
   const fgSel = document.getElementById('prodFG');
   const qtyEl = document.getElementById('prodFGQty');
 
-  if(fgSel){
-    fgSel.addEventListener('change', () => {
-      console.log("prodFG changed =>", fgSel.value);
-      renderBOM();
-    });
-  }
-  if(qtyEl){
-    qtyEl.addEventListener('input', () => {
-      console.log("prodFGQty input =>", qtyEl.value);
-      renderBOM();
-    });
-  }
+  if(fgSel) fgSel.onchange = renderBOM;
+  if(qtyEl) qtyEl.oninput  = renderBOM;
 }
-
 document.addEventListener('DOMContentLoaded', wireProductionEvents);
+window.wireProductionEvents = wireProductionEvents;
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3180,17 +3217,17 @@ function viewProduction(id){
 
   const lines = (p.rmLines || []).map(l=>{
     const rm  = products.find(x=>x.id===l.rmId);
-    const net = Number((Number(l.req||0) - Number(l.ret||0) - Number(l.dmg||0)).toFixed(6));
+    const net = Number((Number(l.req||0) - Number(l.dmg||0)).toFixed(6));
+
     return `
       <tr>
         <td>${escapeHtml(rm?.name || 'Unknown')}</td>
         <td class="right">${Number(l.req || 0)}</td>
-        <td class="right">${Number(l.ret || 0)}</td>
         <td class="right">${Number(l.dmg || 0)}</td>
         <td class="right"><b>${net}</b></td>
       </tr>
     `;
-  }).join('') || `<tr><td colspan="5" class="text-muted">No lines</td></tr>`;
+  }).join('') || `<tr><td colspan="4" class="text-muted">No lines</td></tr>`;
 
   openModal(`Production ${escapeHtml(p.prodNo)}`, `
     <div class="row g-2">
@@ -3206,7 +3243,6 @@ function viewProduction(id){
             <tr>
               <th>RM</th>
               <th class="text-end">Req</th>
-              <th class="text-end">Return</th>
               <th class="text-end">Damage</th>
               <th class="text-end">Net Used</th>
             </tr>
@@ -3217,6 +3253,7 @@ function viewProduction(id){
     </div>
   `);
 }
+
 
 function saveProductions(){
   localStorage.setItem(KEY_PROD, JSON.stringify(productions));
@@ -3914,7 +3951,8 @@ logChange(type === 'IN' ? "FG_STOCK_IN" : "FG_STOCK_OUT", fgId, {
   qty,
   remark
 });
-GLocal();
+saveFGLocal();
+
     autoPushFGToCloud();
     closeModal();
     refreshAll();
@@ -5020,4 +5058,3 @@ window.viewProduction = viewProduction;
 
 </body>
 </html>
-

@@ -416,6 +416,45 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
   overflow:auto;
 }
 
+/* ===== Custom button skins (Bootstrap-safe) ===== */
+.btn.secondary{
+  background:#f3f4f6;
+  border:1px solid rgba(0,0,0,.15);
+  color:#111;
+}
+.btn.secondary:hover{ background:#e9edf2; }
+
+.btn.info{
+  background:#0ea5e9;
+  border:1px solid rgba(0,0,0,.08);
+  color:#fff;
+}
+.btn.info:hover{ filter:brightness(.95); }
+
+.btn.out{
+  background:#dc2626;
+  border:1px solid rgba(0,0,0,.08);
+  color:#fff;
+}
+.btn.out:hover{ filter:brightness(.95); }
+
+/* ===== Toast element fix ===== */
+#stockToast{
+  position:fixed;
+  top:20px;
+  right:20px;
+  background:#16a34a;
+  color:#fff;
+  padding:10px 20px;
+  border-radius:10px;
+  box-shadow:0 4px 12px rgba(0,0,0,.20);
+  font-weight:700;
+  z-index:10000;
+  opacity:0;
+  transition:opacity .25s ease;
+}
+#stockToast.out{ background:#dc2626; }
+
 </style>
  </head>
 
@@ -1468,7 +1507,7 @@ function isUserTypingInForms(){
   if(!el) return false;
 
   // If cursor is inside any of these forms, DO NOT re-render/reset them
-  const inForms = el.closest('#rmDeliveryNote, #billEntry, #productionEntry');
+  const inForms = el.closest('#rmDeliveryNote, #billEntry, #productionAuto');
   const isField = el.matches('input, textarea, select');
 
   return !!(inForms && isField);
@@ -4052,19 +4091,18 @@ function editFGProduct(fgId){
   if(newThreshold === null) return;
   if(isNaN(Number(newThreshold))){ showToast("Threshold must be a number", true); return; }
 
-  fg.name = newName.trim();
-  fg.productcode = newProductcode.trim();        // ✅ was wrong in your code
-  fg.barcode = newBarcode.trim();                // ✅ was wrong in your code
-  fg.volume = newVolume.trim();
-  fg.group = normalizeGroup(newGroup.trim());
-  fg.batch = newBatch.trim();
-  fg.expiry = newExpiry.trim();
-  fg.threshold = Number(newThreshold);
+  fg.name       = newName.trim();
+  fg.productcode= newProductcode.trim();
+  fg.barcode    = newBarcode.trim();
+  fg.volume     = (newVolume || '').trim();
+  fg.group      = normalizeGroup(newGroup);
+  fg.batch      = (newBatch || '').trim();
+  fg.expiry     = (newExpiry || '').trim();
+  fg.threshold  = Number(newThreshold);
 
   saveFGLocal();
-  autoPushFGToCloud();
-  refreshAll();
-
+  autoPushFGToCloud?.();
+  refreshAll?.();
   showToast("FG updated ✅");
 }
 
@@ -4838,22 +4876,75 @@ function toArray(v){
   return [];
 }
 
+/* =========================
+   ✅ CLOUD SYNC (RM + FG + Suppliers + BOE + DN + Production)
+========================= */
 function autoPushToCloud(){
-  if (!window.cloudDB) return Promise.resolve();
+  if(!window.cloudDB) return;
 
   const payload = {
-    products: Array.isArray(products) ? products : [],
-    stockMovements: Array.isArray(stockMovements) ? stockMovements : [],
-    bills: getBillsForCloud(),              // ✅ FIXED
-    productions: Array.isArray(productions) ? productions : [],
-    auditLog: Array.isArray(auditLog) ? auditLog : [],
-    syncedAt: nowISO()
+    products: (products || []),
+    stockMovements: (stockMovements || []),
+    fgProducts: (fgProducts || []),
+    fgMovements: (fgMovements || []),
+
+    suppliers: (window.suppliers || []),
+
+    bills: (window.savedBills || []),          // from BOE module
+    productions: (window.productions || []),
+    deliveryNotes: (window.deliveryNotes || []) // if you make it global; else remove
   };
 
-  return cloudDB.ref("stockManager").set(payload)
-    .then(()=> console.log("✅ Cloud push OK (including bills)"))
-    .catch(err => console.error("❌ autoPushToCloud failed:", err));
+  cloudDB.ref(CLOUD_PATH_RM).set(payload)
+    .then(()=> console.log("☁️ pushed:", CLOUD_PATH_RM))
+    .catch(err=> console.error("☁️ push failed:", err));
 }
+window.autoPushToCloud = autoPushToCloud;
+
+async function autoPullFromCloud(){
+  if(!window.cloudDB) return;
+
+  try{
+    const snap = await cloudDB.ref(CLOUD_PATH_RM).once("value");
+    const data = snap.val();
+    if(!data){ console.warn("☁️ no data at:", CLOUD_PATH_RM); return; }
+
+    if(Array.isArray(data.products)) products = data.products;
+    if(Array.isArray(data.stockMovements)) stockMovements = data.stockMovements;
+
+    if(Array.isArray(data.fgProducts)) fgProducts = data.fgProducts;
+    if(Array.isArray(data.fgMovements)) fgMovements = data.fgMovements;
+
+    if(Array.isArray(data.suppliers)) window.suppliers = data.suppliers;
+
+    if(Array.isArray(data.bills)) {
+      window.savedBills = data.bills;
+      localStorage.setItem("sms_bills_v1", JSON.stringify(window.savedBills));
+    }
+
+    if(Array.isArray(data.productions)) {
+      window.productions = data.productions;
+      localStorage.setItem("sms_productions_v1", JSON.stringify(window.productions));
+    }
+
+    // persist locals
+    localStorage.setItem(KEY_PRODUCTS, JSON.stringify(products || []));
+    localStorage.setItem(KEY_MOVES, JSON.stringify(stockMovements || []));
+    saveFGLocal?.();
+    saveSuppliers?.();
+
+    // refresh UI
+    refreshAll?.();
+    renderSuppliers?.();
+    BOE?.renderTable?.();
+    renderBOESupplierDropdown?.();
+
+    console.log("☁️ pulled:", CLOUD_PATH_RM);
+  }catch(err){
+    console.error("☁️ pull failed:", err);
+  }
+}
+window.autoPullFromCloud = autoPullFromCloud;
 
 
 function autoPullFromCloud(){
@@ -5172,53 +5263,13 @@ function exportPDF(){
 
 
 /* =========================
-   ✅ SUPPLIERS MODULE (RM)
-   - Fix: suppliers saved but not displaying
-   - LocalStorage + optional Firebase sync
-   - Updates BOE supplier dropdown automatically
+   ✅ SUPPLIERS MODULE (FIXED)
 ========================= */
 const KEY_SUPPLIERS = "sms_suppliers_v1";
-
-// global array (so BOE module can read window.suppliers)
-window.suppliers = JSON.parse(localStorage.getItem(KEY_SUPPLIERS) || "[]");
+window.suppliers = JSON.parse(localStorage.getItem(KEY_SUPPLIERS) || "[]"); // ✅ global for BOE
 
 function saveSuppliers(){
   localStorage.setItem(KEY_SUPPLIERS, JSON.stringify(window.suppliers || []));
-}
-
-function supplierCloudRef(){
-  // Uses your CLOUD_PATH_RM = "stockManager/v1"
-  // Stores at: stockManager/v1/suppliers/{id}
-  return cloudDB.ref(`${CLOUD_PATH_RM}/suppliers`);
-}
-
-async function pullSuppliersFromCloud(){
-  try{
-    const snap = await supplierCloudRef().once("value");
-    if(!snap.exists()) return;
-
-    const val = snap.val() || {};
-    const list = Object.values(val);
-
-    // only accept array-like objects
-    if(Array.isArray(list)){
-      window.suppliers = list.filter(s => s && s.id && s.name);
-      saveSuppliers();
-    }
-  }catch(err){
-    console.warn("pullSuppliersFromCloud failed:", err);
-  }
-}
-
-async function pushSuppliersToCloud(){
-  try{
-    // store as object keyed by supplier.id
-    const obj = {};
-    (window.suppliers || []).forEach(s => { obj[s.id] = s; });
-    await supplierCloudRef().set(obj);
-  }catch(err){
-    console.warn("pushSuppliersToCloud failed:", err);
-  }
 }
 
 function renderSuppliers(){
@@ -5229,38 +5280,41 @@ function renderSuppliers(){
   const list = Array.isArray(window.suppliers) ? window.suppliers : [];
 
   const filtered = list
-    .filter(s => {
-      if(!q) return true;
+    .filter(s=>{
       const hay = `${s.name||""} ${s.contact||""} ${s.phone||""} ${s.email||""}`.toLowerCase();
-      return hay.includes(q);
+      return !q || hay.includes(q);
     })
     .sort((a,b)=> String(a.name||"").localeCompare(String(b.name||"")));
 
-  tbody.innerHTML = filtered.length ? "" : `<tr><td colspan="7" class="text-muted">No suppliers</td></tr>`;
+  tbody.innerHTML = filtered.length ? "" : `<tr><td colspan="7" class="text-muted">No suppliers found</td></tr>`;
 
-  filtered.forEach((s, i)=>{
+  filtered.forEach((s, idx)=>{
+    const canEditRow = (currentUser?.role === "admin") || canEdit?.();
+    const canDelRow  = (currentUser?.role === "admin") || canDelete?.();
+
     tbody.insertAdjacentHTML("beforeend", `
       <tr>
-        <td>${i+1}</td>
-        <td>${escapeHtml(s.name||"")}</td>
+        <td>${idx+1}</td>
+        <td><b>${escapeHtml(s.name||"")}</b></td>
         <td>${escapeHtml(s.contact||"")}</td>
         <td>${escapeHtml(s.phone||"")}</td>
         <td>${escapeHtml(s.email||"")}</td>
         <td>
-          <button class="btn btn-sm btn-outline-secondary btn-edit" onclick="editSupplier('${escapeHtml(s.id)}')">Edit</button>
+          ${canEditRow ? `<button class="btn secondary btn-sm" type="button" onclick="editSupplier('${escapeHtml(s.id)}')">Edit</button>` : ``}
         </td>
         <td>
-          <button class="btn btn-sm btn-outline-danger btn-delete" onclick="deleteSupplier('${escapeHtml(s.id)}')">Delete</button>
+          ${canDelRow ? `<button class="btn out btn-sm" type="button" onclick="deleteSupplier('${escapeHtml(s.id)}')">Delete</button>` : ``}
         </td>
       </tr>
     `);
   });
 
-  applyPermissions?.();
+  // keep BOE dropdown fresh
+  renderBOESupplierDropdown?.();
 }
 
 function addSupplier(){
-  if(!canAdd()){ showToast("No permission to add", true); return; }
+  if(!canAdd?.()){ showToast("No permission to add supplier", true); return; }
 
   const nameEl = document.getElementById("newSupplierName");
   const contactEl = document.getElementById("newSupplierContact");
@@ -5274,8 +5328,8 @@ function addSupplier(){
 
   if(!name){ showToast("Supplier name required", true); return; }
 
-  // prevent duplicates (same name)
-  const exists = (window.suppliers||[]).some(s => String(s.name||"").toLowerCase() === name.toLowerCase());
+  // prevent duplicates by name
+  const exists = (window.suppliers || []).some(s => (s.name||"").toLowerCase() === name.toLowerCase());
   if(exists){ showToast("Supplier already exists", true); return; }
 
   window.suppliers.push({
@@ -5289,10 +5343,8 @@ function addSupplier(){
   });
 
   saveSuppliers();
-  pushSuppliersToCloud(); // optional (won’t break if rules deny)
+  autoPushToCloud?.();              // ✅ push to cloud if you have it
   renderSuppliers();
-
-  // refresh BOE dropdown (your wrapper calls BOE.renderSupplierDropdown)
   renderBOESupplierDropdown?.();
 
   if(nameEl) nameEl.value = "";
@@ -5304,16 +5356,16 @@ function addSupplier(){
 }
 
 function editSupplier(id){
-  if(!canEdit()){ showToast("No permission to edit", true); return; }
+  if(!canEdit?.()){ showToast("No permission to edit supplier", true); return; }
 
-  const s = (window.suppliers||[]).find(x => x.id === id);
+  const s = (window.suppliers || []).find(x => x.id === id);
   if(!s) return;
 
   const newName = prompt("Supplier Name:", s.name || "");
   if(newName === null) return;
 
-  const newContact = prompt("Address Info:", s.contact || "");
-  if(newContact === null) return;
+  const newAddr = prompt("Address Info:", s.contact || "");
+  if(newAddr === null) return;
 
   const newPhone = prompt("Phone:", s.phone || "");
   if(newPhone === null) return;
@@ -5321,54 +5373,59 @@ function editSupplier(id){
   const newEmail = prompt("Email:", s.email || "");
   if(newEmail === null) return;
 
-  s.name = newName.trim();
-  s.contact = newContact.trim();
-  s.phone = newPhone.trim();
-  s.email = newEmail.trim();
+  s.name = String(newName).trim();
+  s.contact = String(newAddr).trim();
+  s.phone = String(newPhone).trim();
+  s.email = String(newEmail).trim();
   s.updatedAt = new Date().toISOString();
   s.updatedBy = currentUser?.username || "";
 
-  if(!s.name){ showToast("Name cannot be empty", true); return; }
-
   saveSuppliers();
-  pushSuppliersToCloud();
+  autoPushToCloud?.();
   renderSuppliers();
   renderBOESupplierDropdown?.();
   showToast("Supplier updated ✅");
 }
 
 function deleteSupplier(id){
-  if(!canDelete()){ showToast("No permission to delete", true); return; }
+  if(!canDelete?.()){ showToast("No permission to delete supplier", true); return; }
 
-  const s = (window.suppliers||[]).find(x => x.id === id);
+  const s = (window.suppliers || []).find(x => x.id === id);
   if(!s) return;
 
   if(!confirm(`Delete supplier "${s.name}"?`)) return;
 
-  window.suppliers = (window.suppliers||[]).filter(x => x.id !== id);
+  window.suppliers = (window.suppliers || []).filter(x => x.id !== id);
+
   saveSuppliers();
-  pushSuppliersToCloud();
+  autoPushToCloud?.();
   renderSuppliers();
   renderBOESupplierDropdown?.();
   showToast("Supplier deleted ✅");
 }
 
-// bind UI once
-document.addEventListener("DOMContentLoaded", async () => {
-  // search input
-  document.getElementById("supplierSearch")?.addEventListener("input", renderSuppliers);
-
-  // add button
+/* ✅ Wire suppliers UI */
+document.addEventListener("DOMContentLoaded", ()=>{
   document.getElementById("addSupplierBtn")?.addEventListener("click", addSupplier);
-
-  // pull from cloud (if allowed), then render
-  await pullSuppliersFromCloud();
-  renderSuppliers();
+  document.getElementById("supplierSearch")?.addEventListener("input", renderSuppliers);
 });
 
 
 
 
+window.Dashboard = window.Dashboard || {
+  refresh(){
+    try{
+      refreshAll?.();
+      const el = document.getElementById("dashUpdatedAt");
+      if(el) el.textContent = new Date().toLocaleString();
+      showToast("Dashboard refreshed ✅");
+    }catch(e){
+      console.error(e);
+      showToast("Dashboard refresh error", true);
+    }
+  }
+};
 
 
 

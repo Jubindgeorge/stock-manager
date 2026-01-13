@@ -509,7 +509,7 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
 
       <li class="menu-title collapsible">Finished Goods <span class="arrow">▾</span></li>
       <ul class="subgroup">
-        <li class="submenu" data-page="fgStock">FG Stock</li>
+        <li class="submenu" data-page="fgStock">Stock Ledger</li>
         <li class="submenu admin-only" data-page="fgAddProduct">Add Product</li>
         <li class="submenu" data-page="fgStockIn">Physical Entry In</li>
         <li class="submenu" data-page="fgStockOut">Physical Entry Out</li>
@@ -597,26 +597,120 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
 
 
     <!-- MAIN DASHBOARD -->
-    <section id="dashboardPage" class="page" style="display:none">
-      <h2>Dashboard</h2>
+  <!-- DASHBOARD (Bootstrap) -->
+<section id="dashboardPage" class="page container-fluid py-3" style="display:none">
 
-      <div class="dashboard-grid">
-        <div class="dash-card"><h3>Total RM Products</h3><div id="dashTotalProducts">0</div></div>
-        <div class="dash-card"><h3>Total RM Stock</h3><div id="dashTotalStock">0</div></div>
-        <div class="dash-card"><h3>Low Stock Items</h3><div id="dashLowStock">0</div></div>
-        <div class="dash-card" onclick="openFGFromDashboard()" style="cursor:pointer"><h3>Total FG Balance</h3><div id="dashFGBalance">0</div></div>
-        <div class="dash-card" onclick="openFGFromDashboard()" style="cursor:pointer"><h3>FG Products</h3><div id="dashFGTotalProducts">0</div></div>
-        <div class="dash-card" onclick="openLowFGFromDashboard()" style="cursor:pointer"><h3>Low FG Stock</h3><div id="dashFGLowStock">0</div></div>
-        <div class="dash-card"><h3>Max FG Balance</h3><div id="dashFGMaxBalance">-</div></div>
-        <div class="dash-card"><h3>Min FG Balance</h3><div id="dashFGMinBalance">-</div></div>
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+    <div>
+      <h2 class="m-0">Dashboard</h2>
+      <div class="text-muted small" id="dashUpdatedAt">—</div>
+    </div>
+
+    <div class="d-flex gap-2 flex-wrap">
+      <button class="btn btn-outline-secondary btn-sm" type="button" onclick="Dashboard.refresh()">
+        Refresh
+      </button>
+      <button class="btn btn-primary btn-sm" type="button" onclick="openFGFromDashboard?.()">
+        Open FG
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="row g-3">
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="text-muted small">Total RM Products</div>
+          <div class="fs-2 fw-semibold" id="dashTotalProducts">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="text-muted small">Total RM Stock</div>
+          <div class="fs-2 fw-semibold" id="dashTotalStock">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="text-muted small">Low Stock Items (RM)</div>
+          <div class="fs-2 fw-semibold" id="dashLowStock">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="card shadow-sm h-100" role="button" onclick="openFGFromDashboard?.()" style="cursor:pointer">
+        <div class="card-body">
+          <div class="text-muted small">Total FG Balance</div>
+          <div class="fs-2 fw-semibold" id="dashFGBalance">0</div>
+          <div class="small text-muted mt-1">Click to open FG</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="card shadow-sm h-100" role="button" onclick="openFGFromDashboard?.()" style="cursor:pointer">
+        <div class="card-body">
+          <div class="text-muted small">FG Products</div>
+          <div class="fs-2 fw-semibold" id="dashFGTotalProducts">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="card shadow-sm h-100" role="button" onclick="openLowFGFromDashboard?.()" style="cursor:pointer">
+        <div class="card-body">
+          <div class="text-muted small">Low FG Stock</div>
+          <div class="fs-2 fw-semibold" id="dashFGLowStock">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="text-muted small">Max FG Balance</div>
+          <div class="fs-2 fw-semibold" id="dashFGMaxBalance">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="text-muted small">Min FG Balance</div>
+          <div class="fs-2 fw-semibold" id="dashFGMinBalance">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILTERS + CHART -->
+  <div class="card shadow-sm mt-3">
+    <div class="card-body">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div class="fw-semibold">FG Balance Chart</div>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <div class="text-muted small">Volume filter:</div>
+          <div id="fgVolumeFilter" class="d-flex gap-2 flex-wrap"></div>
+        </div>
       </div>
 
-      <div id="fgVolumeFilter" class="fg-filter"></div>
-
-      <div class="fg-chart-box">
+      <div class="mt-3" style="height:360px">
         <canvas id="fgStockChart"></canvas>
       </div>
-    </section>
+    </div>
+  </div>
+
+</section>
+
 
 
     <!-- FG STOCK LIST -->
@@ -705,9 +799,9 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
           <input id="boeSupplierOther" class="form-control" placeholder="Supplier Name (if Other)" style="display:none">
         </div>
       </div>
-
+      <div class="row g-2 mb-3">
       <div class="border rounded-3">
-        <div class="table-responsive">
+       
           <table class="table table-sm table-hover align-middle mb-0">
             <thead class="table-light">
               <tr>
@@ -721,7 +815,7 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
           </table>
         </div>
       </div>
-
+    
       <div class="d-flex flex-wrap gap-2 mt-3">
         <button class="btn btn-outline-primary" onclick="boeAddRow()">➕ Add Item</button>
         <button class="btn btn-primary" onclick="submitBillEntry()">✅ Save Bill & Stock IN</button>
@@ -852,7 +946,8 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
 
       <div class="d-flex gap-2 flex-wrap align-items-center mb-3">
         <input id="newSupplierName" class="sm-small" placeholder="Supplier Name">
-        <input id="newSupplierContact" class="sm-small" placeholder="Contact Info">
+        <input id="newSupplierContact" class="sm-small" placeholder="Address Info">   	<input id="newSupplierPhone" class="sm-small" placeholder="phone">
+        <input id="newSupplierEmail" class="sm-small" placeholder="email">
         <button id="addSupplierBtn" class="btn btn-primary">Add Supplier</button>
       </div>
 
@@ -863,7 +958,7 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
       <div class="table-responsive" style="max-height:65vh">
         <table id="suppliersTable" class="table table-sm table-hover align-middle">
           <thead class="table-light">
-          <tr><th>#</th><th>Name</th><th>Contact</th><th>Edit</th><th>Delete</th></tr>
+          <tr><th>#</th><th>Name</th><th>Address</th><th>Phone</th><th>Email</th><th>Edit</th><th>Delete</th></tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -946,10 +1041,19 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
             <label class="sm-lbl">Date</label>
             <input id="prodDate" class="sm-inp" type="date">
           </div>
-          <div class="gcol-4">
-            <label class="sm-lbl">FG Product</label>
-            <select id="prodFG" class="sm-inp"></select>
-          </div>
+<div class="gcol-3">
+         <!-- FG Search Select (replaces <select id="prodFG">) -->
+<div class="position-relative" id="prodFGWrap">
+  <input id="prodFGSearch" class="form-control" placeholder="Search FG..." autocomplete="off">
+  <div id="prodFGList"
+       class="list-group position-absolute w-100 shadow"
+       style="z-index: 2000; max-height: 260px; overflow:auto; display:none;">
+  </div>
+
+  <!-- keep actual select for compatibility (hidden) -->
+  <select id="prodFG" class="d-none"></select>
+</div>
+  </div>
           <div class="gcol-2">
             <label class="sm-lbl">FG Qty</label>
             <input id="prodFGQty" class="sm-inp" type="number" min="0" step="0.01" value="1">
@@ -1244,11 +1348,6 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
   </main>
 </div>
 
-</body>
-</html>
-
-  </main>
-
 
 <script>
 /* =========================
@@ -1356,9 +1455,9 @@ function openPage(pageId){
   if(pageId === 'dashboard'){
     renderDashboardGrouped();
   }
-  if(pageId === 'boesupplier'){
-    renderSuppliers();
-  }
+if(pageId === 'suppliers'){
+  renderSuppliers?.();
+}
 if(pageId === 'billEntry'){
   renderBOESupplierDropdown();
   if(!document.getElementById('boeDate').value) document.getElementById('boeDate').value = todayISO();
@@ -2023,6 +2122,39 @@ function viewFGHistory(fgId){
       `);
     });
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3248,6 +3380,89 @@ function wireProductionEvents(){
 }
 document.addEventListener('DOMContentLoaded', wireProductionEvents);
 window.wireProductionEvents = wireProductionEvents;
+
+
+function renderFGOptions(){
+  const sel = document.getElementById('prodFG');
+  if(!sel) return;
+
+  const list = Array.isArray(window.fgProducts) ? window.fgProducts : [];
+  sel.innerHTML = `<option value="">-- Select FG --</option>` + list.map(p =>
+    `<option value="${escapeHtml(String(p.id))}">${escapeHtml(p.name || 'Unnamed')}</option>`
+  ).join('');
+}
+window.renderFGOptions = renderFGOptions;
+
+function initFGSearchSelect(){
+  const input = document.getElementById('prodFGSearch');
+  const box   = document.getElementById('prodFGList');
+  const sel   = document.getElementById('prodFG');
+  if(!input || !box || !sel) return;
+
+  const getList = () => (Array.isArray(window.fgProducts) ? window.fgProducts : []);
+
+  function openBox(){ box.style.display = 'block'; }
+  function closeBox(){ box.style.display = 'none'; }
+
+  function draw(filterText){
+    const q = String(filterText || '').trim().toLowerCase();
+    const items = getList()
+      .filter(p => (p.name || '').toLowerCase().includes(q) || String(p.code||'').toLowerCase().includes(q))
+      .slice(0, 50);
+
+    if(!items.length){
+      box.innerHTML = `<div class="list-group-item text-muted small">No results</div>`;
+      openBox();
+      return;
+    }
+
+    box.innerHTML = items.map(p => `
+      <button type="button" class="list-group-item list-group-item-action"
+              data-id="${escapeHtml(String(p.id))}"
+              data-name="${escapeHtml(p.name || '')}">
+        <div class="fw-semibold">${escapeHtml(p.name || 'Unnamed')}</div>
+        ${p.code ? `<div class="small text-muted">${escapeHtml(String(p.code))}</div>` : ``}
+      </button>
+    `).join('');
+
+    openBox();
+  }
+
+  // typing search
+  input.addEventListener('input', () => draw(input.value));
+  input.addEventListener('focus', () => draw(input.value));
+
+  // choose item
+  box.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-id]');
+    if(!btn) return;
+    const id = btn.dataset.id;
+    const name = btn.dataset.name || '';
+
+    // set hidden select value so your existing renderBOM works
+    sel.value = id;
+
+    // show chosen name in input
+    input.value = name;
+
+    closeBox();
+    renderBOM?.(); // ✅ triggers your BOM render
+  });
+
+  // close when clicking outside
+  document.addEventListener('click', (e) => {
+    if(!e.target.closest('#prodFGWrap')) closeBox();
+  });
+
+  // if something else changes select programmatically
+  sel.addEventListener('change', () => {
+    const opt = sel.options[sel.selectedIndex];
+    input.value = opt?.textContent?.trim() || '';
+    renderBOM?.();
+  });
+}
+window.initFGSearchSelect = initFGSearchSelect;
+
 
 
 
@@ -4915,121 +5130,288 @@ function exportPDF(){
   }
 }
 
+
+
+
+
 /* =========================
-   ✅ SUPPLIERS (RM)
+   ✅ SUPPLIERS MODULE (RM Suppliers)
+   - LocalStorage save/load
+   - Render + Search
+   - Add/Edit/Delete
+   - Keeps window.suppliers synced for BOE dropdown
 ========================= */
+
 const KEY_SUPPLIERS = 'sms_suppliers_v1';
+
+// Global list used by BOE module
 let suppliers = JSON.parse(localStorage.getItem(KEY_SUPPLIERS) || '[]');
-window.suppliers = suppliers; // BOE uses window.suppliers
+window.suppliers = suppliers;
 
 function saveSuppliers(){
-  localStorage.setItem(KEY_SUPPLIERS, JSON.stringify(suppliers));
-  window.suppliers = suppliers;
+  localStorage.setItem(KEY_SUPPLIERS, JSON.stringify(suppliers || []));
+  window.suppliers = suppliers; // keep BOE dropdown in sync
+}
+
+function canManageSuppliers(){
+  // allow admin full control; others follow canEdit/canDelete if you want
+  if(currentUser?.role === 'admin') return true;
+  return true; // change to false if you want only admin
 }
 
 function renderSuppliers(){
   const tbody = document.querySelector('#suppliersTable tbody');
   if(!tbody) return;
 
-  const q = (document.getElementById('supplierSearch')?.value || '').toLowerCase().trim();
+  const q = (document.getElementById('supplierSearch')?.value || '')
+    .toLowerCase()
+    .trim();
+
+  const list = (suppliers || [])
+    .slice()
+    .sort((a,b)=> String(a.name||'').localeCompare(String(b.name||'')));
+
   tbody.innerHTML = '';
 
-  const list = [...suppliers].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-  let i = 1;
+  if(!list.length){
+    tbody.innerHTML = `<tr><td colspan="7" class="text-muted">No suppliers added</td></tr>`;
+    renderBOESupplierDropdown?.();
+    return;
+  }
 
+  let i = 1;
   list.forEach(s=>{
-    const hay = `${s.name||''} ${s.contact||''}`.toLowerCase();
+    const hay = `${s.name||''} ${s.contact||''} ${s.phone||''} ${s.email||''}`.toLowerCase();
     if(q && !hay.includes(q)) return;
+
+    const canEditRow = (currentUser?.role === 'admin') || canEdit?.() || false;
+    const canDelRow  = (currentUser?.role === 'admin') || canDelete?.() || false;
 
     tbody.insertAdjacentHTML('beforeend', `
       <tr>
         <td>${i++}</td>
-        <td>${escapeHtml(s.name||'')}</td>
+        <td><b>${escapeHtml(s.name||'')}</b></td>
         <td>${escapeHtml(s.contact||'')}</td>
-        <td><button class="btn secondary btn-edit" onclick="editSupplier('${escapeHtml(s.id)}')">Edit</button></td>
-        <td><button class="btn out btn-delete" onclick="deleteSupplier('${escapeHtml(s.id)}')">Delete</button></td>
+        <td>${escapeHtml(s.phone||'')}</td>
+        <td>${escapeHtml(s.email||'')}</td>
+        <td>
+          ${
+            canEditRow
+              ? `<button class="btn btn-sm btn-outline-secondary" onclick="editSupplier('${escapeHtml(s.id)}')">Edit</button>`
+              : ``
+          }
+        </td>
+        <td>
+          ${
+            canDelRow
+              ? `<button class="btn btn-sm btn-outline-danger" onclick="deleteSupplier('${escapeHtml(s.id)}')">Delete</button>`
+              : ``
+          }
+        </td>
       </tr>
     `);
   });
 
+  renderBOESupplierDropdown?.(); // refresh BOE supplier dropdown
   applyPermissions?.();
 }
 
 function addSupplier(){
-  if(!canAdd?.()){ showToast("No permission to add", true); return; }
+  if(!canManageSuppliers()){
+    showToast("No permission to add suppliers", true);
+    return;
+  }
 
   const nameEl = document.getElementById('newSupplierName');
   const contactEl = document.getElementById('newSupplierContact');
+  const phoneEl = document.getElementById('newSupplierPhone');
+  const emailEl = document.getElementById('newSupplierEmail');
 
   const name = (nameEl?.value || '').trim();
   const contact = (contactEl?.value || '').trim();
+  const phone = (phoneEl?.value || '').trim();
+  const email = (emailEl?.value || '').trim();
 
-  if(!name){ showToast("Supplier name required", true); return; }
+  if(!name){
+    showToast("Supplier name required", true);
+    return;
+  }
+
+  // prevent duplicates by name (case-insensitive)
+  const exists = (suppliers || []).some(s => String(s.name||'').toLowerCase() === name.toLowerCase());
+  if(exists){
+    showToast("Supplier already exists", true);
+    return;
+  }
 
   suppliers.push({
     id: 'sup_' + genId(),
     name,
     contact,
+    phone,
+    email,
     createdAt: new Date().toISOString(),
     createdBy: currentUser?.username || ''
   });
 
   saveSuppliers();
-  autoPushToCloud?.();
+  autoPushToCloud?.(); // optional if you later include suppliers in cloud push
   renderSuppliers();
-  renderBOESupplierDropdown?.();
 
   if(nameEl) nameEl.value = '';
   if(contactEl) contactEl.value = '';
+  if(phoneEl) phoneEl.value = '';
+  if(emailEl) emailEl.value = '';
 
   showToast("Supplier added ✅");
 }
 
 function editSupplier(id){
-  if(!canEdit?.()){ showToast("No permission to edit", true); return; }
-  const s = suppliers.find(x=>x.id===id);
+  if(!(currentUser?.role === 'admin') && !canEdit?.()){
+    showToast("No permission to edit", true);
+    return;
+  }
+
+  const s = (suppliers || []).find(x => x.id === id);
   if(!s) return;
 
-  const newName = prompt("Edit supplier name:", s.name || "");
+  const newName = prompt("Supplier Name:", s.name || '');
   if(newName === null) return;
-  if(!newName.trim()){ showToast("Name required", true); return; }
 
-  const newContact = prompt("Edit contact info:", s.contact || "");
-  if(newContact === null) return;
+  const name = String(newName).trim();
+  if(!name){
+    showToast("Name required", true);
+    return;
+  }
 
-  s.name = newName.trim();
-  s.contact = newContact.trim();
+  const contactInput = prompt("Info:", s.contact || '');
+  const phoneInput   = prompt("Phone:", s.phone || '');
+  const emailInput   = prompt("Email:", s.email || '');
+
+  // If user clicks Cancel, keep old value; otherwise trim new value
+  const contact = contactInput === null ? (s.contact || '') : String(contactInput).trim();
+  const phone   = phoneInput   === null ? (s.phone   || '') : String(phoneInput).trim();
+  const email   = emailInput   === null ? (s.email   || '') : String(emailInput).trim();
+
+  s.name = name;
+  s.contact = contact;
+  s.phone = phone;
+  s.email = email;
+  s.updatedAt = new Date().toISOString();
+  s.updatedBy = currentUser?.username || '';
 
   saveSuppliers();
   autoPushToCloud?.();
   renderSuppliers();
-  renderBOESupplierDropdown?.();
   showToast("Supplier updated ✅");
 }
 
 function deleteSupplier(id){
-  if(!canDelete?.()){ showToast("No permission to delete", true); return; }
-  const s = suppliers.find(x=>x.id===id);
+  if(!(currentUser?.role === 'admin') && !canDelete?.()){
+    showToast("No permission to delete", true);
+    return;
+  }
+
+  const s = (suppliers || []).find(x=>x.id === id);
   if(!s) return;
 
   if(!confirm(`Delete supplier "${s.name}"?`)) return;
 
-  suppliers = suppliers.filter(x=>x.id!==id);
+  suppliers = (suppliers || []).filter(x=>x.id !== id);
+  window.suppliers = suppliers;
+
   saveSuppliers();
   autoPushToCloud?.();
   renderSuppliers();
-  renderBOESupplierDropdown?.();
   showToast("Supplier deleted ✅");
 }
 
-/* hook supplier add button safely */
-(function initSuppliersUI(){
+// Init once
+function initSuppliers(){
   const btn = document.getElementById('addSupplierBtn');
-  if(btn) btn.onclick = addSupplier;
+  if(btn && !btn._wired){
+    btn._wired = true;
+    btn.addEventListener('click', addSupplier);
+  }
 
   const search = document.getElementById('supplierSearch');
-  if(search) search.oninput = ()=> renderSuppliers();
-})();
+  if(search && !search._wired){
+    search._wired = true;
+    search.addEventListener('input', renderSuppliers);
+  }
+
+  renderSuppliers();
+}
+
+// Call after DOM ready (safe because your script is at bottom)
+initSuppliers();
+
+// expose if needed elsewhere
+window.renderSuppliers = renderSuppliers;
+window.addSupplier = addSupplier;
+window.editSupplier = editSupplier;
+window.deleteSupplier = deleteSupplier;
+window.saveSuppliers = saveSuppliers;
+
+
+
+function suppliersRef(){
+  return firebase.database().ref(`${DB_ROOT}/suppliers`);
+}
+
+// Save to cloud as an OBJECT keyed by id (best for RTDB)
+function pushSuppliersToCloud(){
+  const obj = {};
+  (suppliers || []).forEach(s => { if(s?.id) obj[s.id] = s; });
+
+  return suppliersRef().set(obj)
+    .then(()=> console.log("✅ Suppliers pushed to cloud"))
+    .catch(err => console.error("❌ Push suppliers failed:", err));
+}
+
+// Pull once (manual)
+function pullSuppliersFromCloud(){
+  return suppliersRef().once("value")
+    .then(snap=>{
+      const data = snap.val() || {};
+      suppliers = Object.values(data);
+
+      // optional: sort by name
+      suppliers.sort((a,b)=> (a.name||'').localeCompare(b.name||''));
+
+      saveSuppliers();                 // your existing local save
+      renderSuppliers();               // refresh table
+      renderBOESupplierDropdown?.();   // refresh dropdown if you use it
+
+      console.log("✅ Suppliers pulled:", suppliers.length);
+    })
+    .catch(err => console.error("❌ Pull suppliers failed:", err));
+}
+
+// Live sync (recommended): auto updates when cloud changes
+function startSuppliersLiveSync(){
+  suppliersRef().on("value", snap=>{
+    const data = snap.val() || {};
+    suppliers = Object.values(data);
+    suppliers.sort((a,b)=> (a.name||'').localeCompare(b.name||''));
+
+    saveSuppliers();
+    renderSuppliers();
+    renderBOESupplierDropdown?.();
+
+    console.log("🔄 Suppliers live update:", suppliers.length);
+  }, err=>{
+    console.error("❌ Suppliers live sync error:", err);
+  });
+}
+
+
+
+
+
+
+
+
 
 /* =========================
    ✅ EVENTS / MENU / INIT
@@ -5133,6 +5515,9 @@ function refreshAll(){
   renderDashboardGrouped();
   renderBillsTable();
 
+renderFGOptions();
+initFGSearchSelect();
+ renderSuppliers();
   applyPermissions();
 }
 

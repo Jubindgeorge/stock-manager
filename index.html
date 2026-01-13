@@ -980,29 +980,98 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
 
 
     <!-- SUPPLIERS -->
-    <section id="suppliers" class="page" style="display:none">
-      <h2>Raw Material Suppliers</h2>
+   <section id="suppliers" class="page" style="display:none">
+  <h2>Raw Material Suppliers</h2>
 
-      <div class="d-flex gap-2 flex-wrap align-items-center mb-3">
-        <input id="newSupplierName" class="sm-small" placeholder="Supplier Name">
-        <input id="newSupplierContact" class="sm-small" placeholder="Address Info">   	<input id="newSupplierPhone" class="sm-small" placeholder="phone">
-        <input id="newSupplierEmail" class="sm-small" placeholder="email">
-        <button id="addSupplierBtn" class="btn btn-primary">Add Supplier</button>
-      </div>
+  <!-- Add Supplier -->
+  <form id="supplierForm" class="d-flex gap-2 flex-wrap align-items-center mb-3" autocomplete="on">
+    <div>
+      <label for="newSupplierName" class="visually-hidden">Supplier Name</label>
+      <input
+        id="newSupplierName"
+        name="supplierName"
+        class="sm-small form-control"
+        type="text"
+        placeholder="Supplier Name"
+        autocomplete="organization"
+        required
+      >
+    </div>
 
-      <div class="mb-3">
-        <input id="supplierSearch" class="sm-search" placeholder="Search suppliers...">
-      </div>
+    <div>
+      <label for="newSupplierContact" class="visually-hidden">Address Info</label>
+      <input
+        id="newSupplierContact"
+        name="supplierAddress"
+        class="sm-small form-control"
+        type="text"
+        placeholder="Address Info"
+        autocomplete="street-address"
+      >
+    </div>
 
-      <div class="table-responsive" style="max-height:65vh">
-        <table id="suppliersTable" class="table table-sm table-hover align-middle">
-          <thead class="table-light">
-          <tr><th>#</th><th>Name</th><th>Address</th><th>Phone</th><th>Email</th><th>Edit</th><th>Delete</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
+    <div>
+      <label for="newSupplierPhone" class="visually-hidden">Phone</label>
+      <input
+        id="newSupplierPhone"
+        name="supplierPhone"
+        class="sm-small form-control"
+        type="tel"
+        placeholder="Phone"
+        inputmode="tel"
+        autocomplete="tel"
+      >
+    </div>
+
+    <div>
+      <label for="newSupplierEmail" class="visually-hidden">Email</label>
+      <input
+        id="newSupplierEmail"
+        name="supplierEmail"
+        class="sm-small form-control"
+        type="email"
+        placeholder="Email"
+        autocomplete="email"
+      >
+    </div>
+
+    <button id="addSupplierBtn" type="submit" class="btn btn-primary">
+      Add Supplier
+    </button>
+  </form>
+
+  <!-- Search -->
+  <div class="mb-3">
+    <label for="supplierSearch" class="visually-hidden">Search suppliers</label>
+    <input
+      id="supplierSearch"
+      name="supplierSearch"
+      class="sm-search form-control"
+      type="search"
+      placeholder="Search suppliers..."
+      autocomplete="off"
+    >
+  </div>
+
+  <!-- Table -->
+  <div class="table-responsive" style="max-height:65vh">
+    <table id="suppliersTable" class="table table-sm table-hover align-middle">
+      <thead class="table-light">
+        <tr>
+          <th scope="col">#</th>
+          <th scope="col">Name</th>
+          <th scope="col">Address</th>
+          <th scope="col">Phone</th>
+          <th scope="col">Email</th>
+          <th scope="col">Edit</th>
+          <th scope="col">Delete</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
 
 
     <!-- FG STOCK IN -->

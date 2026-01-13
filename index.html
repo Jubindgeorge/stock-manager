@@ -1024,73 +1024,109 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
 
 
     <!-- PRODUCTION ENTRY -->
-    <section class="page" id="productionAuto" style="display:none">
+ <section class="page" id="productionAuto" style="display:none">
 
-      <div class="sm-card">
-        <b>Production Entry</b>
-        <div class="muted">FG IN + RM OUT, with optional RM Return + RM Damage.</div>
-      </div>
-
-      <div class="sm-card">
-        <div class="sm-grid">
-          <div class="gcol-3">
-            <label class="sm-lbl">Production No</label>
-            <input id="prodNo" class="sm-inp" placeholder="PROD-001">
-          </div>
-          <div class="gcol-3">
-            <label class="sm-lbl">Date</label>
-            <input id="prodDate" class="sm-inp" type="date">
-          </div>
-<div class="gcol-3">
-         <!-- FG Search Select (replaces <select id="prodFG">) -->
-<div class="position-relative" id="prodFGWrap">
-  <input id="prodFGSearch" class="form-control" placeholder="Search FG..." autocomplete="off">
-  <div id="prodFGList"
-       class="list-group position-absolute w-100 shadow"
-       style="z-index: 2000; max-height: 260px; overflow:auto; display:none;">
+  <!-- Header -->
+  <div class="sm-card d-flex align-items-start justify-content-between gap-3 flex-wrap">
+    <div>
+      <div class="h5 mb-1 fw-semibold">Production Entry</div>
+      <div class="text-muted small">FG IN + RM OUT, with optional RM Return + RM Damage.</div>
+    </div>
+    <div class="small text-muted">
+      Tip: Search FG → enter Qty → check BOM → Save
+    </div>
   </div>
 
-  <!-- keep actual select for compatibility (hidden) -->
-  <select id="prodFG" class="d-none"></select>
+  <!-- Form -->
+  <div class="sm-card">
+    <div class="row g-3 align-items-end">
+
+      <div class="col-12 col-md-3">
+        <label class="form-label fw-semibold">Production No</label>
+        <input id="prodNo" class="form-control" placeholder="PROD-001">
+      </div>
+
+      <div class="col-12 col-md-3">
+        <label class="form-label fw-semibold">Date</label>
+        <input id="prodDate" type="date" class="form-control">
+      </div>
+
+      <div class="col-12 col-md-4">
+        <label class="form-label fw-semibold">FG Product</label>
+
+        <div class="position-relative" id="prodFGWrap">
+          <input id="prodFGSearch"
+                 class="form-control"
+                 placeholder="Search FG..."
+                 autocomplete="off">
+
+          <div id="prodFGList"
+               class="list-group position-absolute w-100 shadow"
+               style="z-index:2000; max-height:260px; overflow:auto; display:none;">
+          </div>
+
+          <!-- hidden select for compatibility -->
+          <select id="prodFG" class="d-none"></select>
+        </div>
+
 </div>
+
+      <div class="col-12 col-md-2">
+        <label class="form-label fw-semibold">FG Qty</label>
+        <input id="prodFGQty"
+               type="number"
+               class="form-control text-end"
+               min="0"
+               step="0.01"
+               value="1">
+      </div>
+
+      <div class="col-12">
+        <label class="form-label fw-semibold">Production Remark (optional)</label>
+        <input id="prodRemark" class="form-control" placeholder="Batch / Operator / Shift...">
+      </div>
+
+    </div>
   </div>
-          <div class="gcol-2">
-            <label class="sm-lbl">FG Qty</label>
-            <input id="prodFGQty" class="sm-inp" type="number" min="0" step="0.01" value="1">
-          </div>
 
-          <div class="gcol-12">
-            <label class="sm-lbl">Production Remark (optional)</label>
-            <input id="prodRemark" class="sm-inp" placeholder="Batch / Operator / Shift...">
-          </div>
-        </div>
-      </div>
+  <!-- BOM Table -->
+  <div class="sm-card">
+    <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">
+      <div class="fw-semibold">BOM Consumption <span class="text-muted fw-normal">(FG BOM × FG Qty)</span></div>
+      <div class="text-muted small">Damage is added to usage. (Return can be added if you want)</div>
+    </div>
 
-      <div class="sm-card" style="overflow:auto">
-        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-          <b>BOM Consumption (FG BOM × FG Qty)</b>
-          <span class="muted">Return/Damage inside production entry.</span>
-        </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th style="min-width:240px">RM Product</th>
+            <th class="text-end" style="min-width:120px">Required</th>
+            <th class="text-end" style="min-width:140px">Damage</th>
+            <th class="text-end" style="min-width:120px">Net Used</th>
+          </tr>
+        </thead>
+        <tbody id="prodBOMBody">
+          <tr>
+            <td colspan="4" class="text-muted">Select FG to load BOM.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-        <div class="table-responsive">
-          <table class="table table-sm table-hover align-middle mb-0">
-            <thead class="table-light">
-              <tr>
-                <th>RM Product</th>
-                <th class="text-end">Required</th>
-                <th class="text-end">Damage</th>
-                <th class="text-end">Net Used</th>
-              </tr>
-            </thead>
-            <tbody id="prodBOMBody"></tbody>
-          </table>
-        </div>
-      </div>
+  <!-- Actions -->
+  <div class="sm-card d-flex justify-content-end gap-2 flex-wrap">
+    <button class="btn btn-outline-secondary" type="button" onclick="resetProductionForm?.()">
+      Reset
+    </button>
+    <button class="btn btn-primary" type="button" onclick="submitProduction()">
+      Save Production
+    </button>
+  </div>
 
-      <div class="sm-card">
-        <button class="btn btn-primary" onclick="submitProduction()">Save Production</button>
-      </div>
-    </section>
+</section>
+
 
 
     <!-- PRODUCTION VIEW MODAL -->

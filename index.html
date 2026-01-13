@@ -1055,7 +1055,7 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
         <label class="form-label fw-semibold">FG Product</label>
 
         <div class="position-relative" id="prodFGWrap">
-          <input id="prodFGSearch"
+          <input id="productionFGSearch"
                  class="form-control"
                  placeholder="Search FG..."
                  autocomplete="off">
@@ -3431,7 +3431,7 @@ function renderFGOptions(){
 window.renderFGOptions = renderFGOptions;
 
 function initFGSearchSelect(){
-  const input = document.getElementById('prodFGSearch');
+  const input = document.getElementById('productionFGSearch');
   const box   = document.getElementById('prodFGList');
   const sel   = document.getElementById('prodFG');
   if(!input || !box || !sel) return;

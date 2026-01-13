@@ -325,7 +325,7 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
 /* =========================================
    TOAST
 ========================================= */
-.toast{
+.sm-toast{
   position:fixed;
   top:20px;
   right:20px;
@@ -862,7 +862,7 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
   </div>
 
 </section>
-</section>
+
 
     <!-- ADD RM PRODUCT -->
     <section id="rmAddProduct" class="page" style="display:none">
@@ -1498,8 +1498,9 @@ if(pageId === 'billEntry'){
   renderBOESupplierDropdown();
   if(!document.getElementById('boeDate').value) document.getElementById('boeDate').value = todayISO();
   if(!document.getElementById('boeItemsBody').children.length) boeAddRow();
-  renderBillsTable();
+  BOE.renderTable(); // ✅ correct
 }
+
   if(pageId === 'productionAuto'){
     renderProdFGDropdown();
     renderBOM();
@@ -5171,275 +5172,200 @@ function exportPDF(){
 
 
 /* =========================
-   ✅ SUPPLIERS MODULE (RM Suppliers)
-   - LocalStorage save/load
-   - Render + Search
-   - Add/Edit/Delete
-   - Keeps window.suppliers synced for BOE dropdown
+   ✅ SUPPLIERS MODULE (RM)
+   - Fix: suppliers saved but not displaying
+   - LocalStorage + optional Firebase sync
+   - Updates BOE supplier dropdown automatically
 ========================= */
+const KEY_SUPPLIERS = "sms_suppliers_v1";
 
-const KEY_SUPPLIERS = 'sms_suppliers_v1';
-
-// Global list used by BOE module
-let suppliers = JSON.parse(localStorage.getItem(KEY_SUPPLIERS) || '[]');
-window.suppliers = suppliers;
+// global array (so BOE module can read window.suppliers)
+window.suppliers = JSON.parse(localStorage.getItem(KEY_SUPPLIERS) || "[]");
 
 function saveSuppliers(){
-  localStorage.setItem(KEY_SUPPLIERS, JSON.stringify(suppliers || []));
-  window.suppliers = suppliers; // keep BOE dropdown in sync
+  localStorage.setItem(KEY_SUPPLIERS, JSON.stringify(window.suppliers || []));
 }
 
-function canManageSuppliers(){
-  // allow admin full control; others follow canEdit/canDelete if you want
-  if(currentUser?.role === 'admin') return true;
-  return true; // change to false if you want only admin
+function supplierCloudRef(){
+  // Uses your CLOUD_PATH_RM = "stockManager/v1"
+  // Stores at: stockManager/v1/suppliers/{id}
+  return cloudDB.ref(`${CLOUD_PATH_RM}/suppliers`);
+}
+
+async function pullSuppliersFromCloud(){
+  try{
+    const snap = await supplierCloudRef().once("value");
+    if(!snap.exists()) return;
+
+    const val = snap.val() || {};
+    const list = Object.values(val);
+
+    // only accept array-like objects
+    if(Array.isArray(list)){
+      window.suppliers = list.filter(s => s && s.id && s.name);
+      saveSuppliers();
+    }
+  }catch(err){
+    console.warn("pullSuppliersFromCloud failed:", err);
+  }
+}
+
+async function pushSuppliersToCloud(){
+  try{
+    // store as object keyed by supplier.id
+    const obj = {};
+    (window.suppliers || []).forEach(s => { obj[s.id] = s; });
+    await supplierCloudRef().set(obj);
+  }catch(err){
+    console.warn("pushSuppliersToCloud failed:", err);
+  }
 }
 
 function renderSuppliers(){
-  const tbody = document.querySelector('#suppliersTable tbody');
+  const tbody = document.querySelector("#suppliersTable tbody");
   if(!tbody) return;
 
-  const q = (document.getElementById('supplierSearch')?.value || '')
-    .toLowerCase()
-    .trim();
+  const q = (document.getElementById("supplierSearch")?.value || "").toLowerCase().trim();
+  const list = Array.isArray(window.suppliers) ? window.suppliers : [];
 
-  const list = (suppliers || [])
-    .slice()
-    .sort((a,b)=> String(a.name||'').localeCompare(String(b.name||'')));
+  const filtered = list
+    .filter(s => {
+      if(!q) return true;
+      const hay = `${s.name||""} ${s.contact||""} ${s.phone||""} ${s.email||""}`.toLowerCase();
+      return hay.includes(q);
+    })
+    .sort((a,b)=> String(a.name||"").localeCompare(String(b.name||"")));
 
-  tbody.innerHTML = '';
+  tbody.innerHTML = filtered.length ? "" : `<tr><td colspan="7" class="text-muted">No suppliers</td></tr>`;
 
-  if(!list.length){
-    tbody.innerHTML = `<tr><td colspan="7" class="text-muted">No suppliers added</td></tr>`;
-    renderBOESupplierDropdown?.();
-    return;
-  }
-
-  let i = 1;
-  list.forEach(s=>{
-    const hay = `${s.name||''} ${s.contact||''} ${s.phone||''} ${s.email||''}`.toLowerCase();
-    if(q && !hay.includes(q)) return;
-
-    const canEditRow = (currentUser?.role === 'admin') || canEdit?.() || false;
-    const canDelRow  = (currentUser?.role === 'admin') || canDelete?.() || false;
-
-    tbody.insertAdjacentHTML('beforeend', `
+  filtered.forEach((s, i)=>{
+    tbody.insertAdjacentHTML("beforeend", `
       <tr>
-        <td>${i++}</td>
-        <td><b>${escapeHtml(s.name||'')}</b></td>
-        <td>${escapeHtml(s.contact||'')}</td>
-        <td>${escapeHtml(s.phone||'')}</td>
-        <td>${escapeHtml(s.email||'')}</td>
+        <td>${i+1}</td>
+        <td>${escapeHtml(s.name||"")}</td>
+        <td>${escapeHtml(s.contact||"")}</td>
+        <td>${escapeHtml(s.phone||"")}</td>
+        <td>${escapeHtml(s.email||"")}</td>
         <td>
-          ${
-            canEditRow
-              ? `<button class="btn btn-sm btn-outline-secondary" onclick="editSupplier('${escapeHtml(s.id)}')">Edit</button>`
-              : ``
-          }
+          <button class="btn btn-sm btn-outline-secondary btn-edit" onclick="editSupplier('${escapeHtml(s.id)}')">Edit</button>
         </td>
         <td>
-          ${
-            canDelRow
-              ? `<button class="btn btn-sm btn-outline-danger" onclick="deleteSupplier('${escapeHtml(s.id)}')">Delete</button>`
-              : ``
-          }
+          <button class="btn btn-sm btn-outline-danger btn-delete" onclick="deleteSupplier('${escapeHtml(s.id)}')">Delete</button>
         </td>
       </tr>
     `);
   });
 
-  renderBOESupplierDropdown?.(); // refresh BOE supplier dropdown
   applyPermissions?.();
 }
 
 function addSupplier(){
-  if(!canManageSuppliers()){
-    showToast("No permission to add suppliers", true);
-    return;
-  }
+  if(!canAdd()){ showToast("No permission to add", true); return; }
 
-  const nameEl = document.getElementById('newSupplierName');
-  const contactEl = document.getElementById('newSupplierContact');
-  const phoneEl = document.getElementById('newSupplierPhone');
-  const emailEl = document.getElementById('newSupplierEmail');
+  const nameEl = document.getElementById("newSupplierName");
+  const contactEl = document.getElementById("newSupplierContact");
+  const phoneEl = document.getElementById("newSupplierPhone");
+  const emailEl = document.getElementById("newSupplierEmail");
 
-  const name = (nameEl?.value || '').trim();
-  const contact = (contactEl?.value || '').trim();
-  const phone = (phoneEl?.value || '').trim();
-  const email = (emailEl?.value || '').trim();
+  const name = (nameEl?.value || "").trim();
+  const contact = (contactEl?.value || "").trim();
+  const phone = (phoneEl?.value || "").trim();
+  const email = (emailEl?.value || "").trim();
 
-  if(!name){
-    showToast("Supplier name required", true);
-    return;
-  }
+  if(!name){ showToast("Supplier name required", true); return; }
 
-  // prevent duplicates by name (case-insensitive)
-  const exists = (suppliers || []).some(s => String(s.name||'').toLowerCase() === name.toLowerCase());
-  if(exists){
-    showToast("Supplier already exists", true);
-    return;
-  }
+  // prevent duplicates (same name)
+  const exists = (window.suppliers||[]).some(s => String(s.name||"").toLowerCase() === name.toLowerCase());
+  if(exists){ showToast("Supplier already exists", true); return; }
 
-  suppliers.push({
-    id: 'sup_' + genId(),
+  window.suppliers.push({
+    id: "sup_" + genId(),
     name,
     contact,
     phone,
     email,
     createdAt: new Date().toISOString(),
-    createdBy: currentUser?.username || ''
+    createdBy: currentUser?.username || ""
   });
 
   saveSuppliers();
-  autoPushToCloud?.(); // optional if you later include suppliers in cloud push
+  pushSuppliersToCloud(); // optional (won’t break if rules deny)
   renderSuppliers();
 
-  if(nameEl) nameEl.value = '';
-  if(contactEl) contactEl.value = '';
-  if(phoneEl) phoneEl.value = '';
-  if(emailEl) emailEl.value = '';
+  // refresh BOE dropdown (your wrapper calls BOE.renderSupplierDropdown)
+  renderBOESupplierDropdown?.();
+
+  if(nameEl) nameEl.value = "";
+  if(contactEl) contactEl.value = "";
+  if(phoneEl) phoneEl.value = "";
+  if(emailEl) emailEl.value = "";
 
   showToast("Supplier added ✅");
 }
 
 function editSupplier(id){
-  if(!(currentUser?.role === 'admin') && !canEdit?.()){
-    showToast("No permission to edit", true);
-    return;
-  }
+  if(!canEdit()){ showToast("No permission to edit", true); return; }
 
-  const s = (suppliers || []).find(x => x.id === id);
+  const s = (window.suppliers||[]).find(x => x.id === id);
   if(!s) return;
 
-  const newName = prompt("Supplier Name:", s.name || '');
+  const newName = prompt("Supplier Name:", s.name || "");
   if(newName === null) return;
 
-  const name = String(newName).trim();
-  if(!name){
-    showToast("Name required", true);
-    return;
-  }
+  const newContact = prompt("Address Info:", s.contact || "");
+  if(newContact === null) return;
 
-  const contactInput = prompt("Info:", s.contact || '');
-  const phoneInput   = prompt("Phone:", s.phone || '');
-  const emailInput   = prompt("Email:", s.email || '');
+  const newPhone = prompt("Phone:", s.phone || "");
+  if(newPhone === null) return;
 
-  // If user clicks Cancel, keep old value; otherwise trim new value
-  const contact = contactInput === null ? (s.contact || '') : String(contactInput).trim();
-  const phone   = phoneInput   === null ? (s.phone   || '') : String(phoneInput).trim();
-  const email   = emailInput   === null ? (s.email   || '') : String(emailInput).trim();
+  const newEmail = prompt("Email:", s.email || "");
+  if(newEmail === null) return;
 
-  s.name = name;
-  s.contact = contact;
-  s.phone = phone;
-  s.email = email;
+  s.name = newName.trim();
+  s.contact = newContact.trim();
+  s.phone = newPhone.trim();
+  s.email = newEmail.trim();
   s.updatedAt = new Date().toISOString();
-  s.updatedBy = currentUser?.username || '';
+  s.updatedBy = currentUser?.username || "";
+
+  if(!s.name){ showToast("Name cannot be empty", true); return; }
 
   saveSuppliers();
-  autoPushToCloud?.();
+  pushSuppliersToCloud();
   renderSuppliers();
+  renderBOESupplierDropdown?.();
   showToast("Supplier updated ✅");
 }
 
 function deleteSupplier(id){
-  if(!(currentUser?.role === 'admin') && !canDelete?.()){
-    showToast("No permission to delete", true);
-    return;
-  }
+  if(!canDelete()){ showToast("No permission to delete", true); return; }
 
-  const s = (suppliers || []).find(x=>x.id === id);
+  const s = (window.suppliers||[]).find(x => x.id === id);
   if(!s) return;
 
   if(!confirm(`Delete supplier "${s.name}"?`)) return;
 
-  suppliers = (suppliers || []).filter(x=>x.id !== id);
-  window.suppliers = suppliers;
-
+  window.suppliers = (window.suppliers||[]).filter(x => x.id !== id);
   saveSuppliers();
-  autoPushToCloud?.();
+  pushSuppliersToCloud();
   renderSuppliers();
+  renderBOESupplierDropdown?.();
   showToast("Supplier deleted ✅");
 }
 
-// Init once
-function initSuppliers(){
-  const btn = document.getElementById('addSupplierBtn');
-  if(btn && !btn._wired){
-    btn._wired = true;
-    btn.addEventListener('click', addSupplier);
-  }
+// bind UI once
+document.addEventListener("DOMContentLoaded", async () => {
+  // search input
+  document.getElementById("supplierSearch")?.addEventListener("input", renderSuppliers);
 
-  const search = document.getElementById('supplierSearch');
-  if(search && !search._wired){
-    search._wired = true;
-    search.addEventListener('input', renderSuppliers);
-  }
+  // add button
+  document.getElementById("addSupplierBtn")?.addEventListener("click", addSupplier);
 
+  // pull from cloud (if allowed), then render
+  await pullSuppliersFromCloud();
   renderSuppliers();
-}
+});
 
-// Call after DOM ready (safe because your script is at bottom)
-initSuppliers();
-
-// expose if needed elsewhere
-window.renderSuppliers = renderSuppliers;
-window.addSupplier = addSupplier;
-window.editSupplier = editSupplier;
-window.deleteSupplier = deleteSupplier;
-window.saveSuppliers = saveSuppliers;
-
-
-
-function suppliersRef(){
-  return firebase.database().ref(`${DB_ROOT}/suppliers`);
-}
-
-// Save to cloud as an OBJECT keyed by id (best for RTDB)
-function pushSuppliersToCloud(){
-  const obj = {};
-  (suppliers || []).forEach(s => { if(s?.id) obj[s.id] = s; });
-
-  return suppliersRef().set(obj)
-    .then(()=> console.log("✅ Suppliers pushed to cloud"))
-    .catch(err => console.error("❌ Push suppliers failed:", err));
-}
-
-// Pull once (manual)
-function pullSuppliersFromCloud(){
-  return suppliersRef().once("value")
-    .then(snap=>{
-      const data = snap.val() || {};
-      suppliers = Object.values(data);
-
-      // optional: sort by name
-      suppliers.sort((a,b)=> (a.name||'').localeCompare(b.name||''));
-
-      saveSuppliers();                 // your existing local save
-      renderSuppliers();               // refresh table
-      renderBOESupplierDropdown?.();   // refresh dropdown if you use it
-
-      console.log("✅ Suppliers pulled:", suppliers.length);
-    })
-    .catch(err => console.error("❌ Pull suppliers failed:", err));
-}
-
-// Live sync (recommended): auto updates when cloud changes
-function startSuppliersLiveSync(){
-  suppliersRef().on("value", snap=>{
-    const data = snap.val() || {};
-    suppliers = Object.values(data);
-    suppliers.sort((a,b)=> (a.name||'').localeCompare(b.name||''));
-
-    saveSuppliers();
-    renderSuppliers();
-    renderBOESupplierDropdown?.();
-
-    console.log("🔄 Suppliers live update:", suppliers.length);
-  }, err=>{
-    console.error("❌ Suppliers live sync error:", err);
-  });
-}
 
 
 

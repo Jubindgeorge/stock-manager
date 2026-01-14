@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -19,6 +18,7 @@
 
   <!-- Bootstrap -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
 <style>
 /* =========================================
    Stock Manager CSS (Bootstrap SAFE)
@@ -56,6 +56,7 @@ body{
 .muted{ color: var(--muted) !important; }
 .right{ text-align:right !important; }
 .sm-link{ color:#2563eb; cursor:pointer; font-weight:700; }
+.low-stock{ color:#dc2626; font-weight:800; }
 
 /* App wrapper */
 .app{ display:none; min-height:100vh; }
@@ -170,9 +171,7 @@ body{
   min-height:100vh;
   transition: margin-left .25s ease;
 }
-/* Works because aside.sidebar is right before main.main */
 .sidebar.minimized + .main{ margin-left: 60px; }
-/* Fallback if you toggle body class in JS */
 body.sm-sidebar-min .main{ margin-left: 60px; }
 
 .sm-logout{
@@ -196,7 +195,7 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
 }
 
 /* =========================================
-   CUSTOM (Bootstrap-safe) inputs
+   CUSTOM inputs
 ========================================= */
 .sm-search{
   padding:8px 10px;
@@ -226,106 +225,11 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
   border: 1px solid rgba(0,0,0,.04);
   margin-bottom: 12px;
 }
-.sm-grid{
-  display:grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 10px;
-}
-.gcol-12{ grid-column: span 12; }
-.gcol-6{ grid-column: span 6; }
-.gcol-4{ grid-column: span 4; }
-.gcol-3{ grid-column: span 3; }
-.gcol-2{ grid-column: span 2; }
-
-@media (max-width: 900px){
-  .gcol-6,.gcol-4,.gcol-3,.gcol-2{ grid-column: span 12; }
-}
-
-/* =========================================
-   DASHBOARD
-========================================= */
-.dashboard-grid{
-  display:grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 15px;
-  margin-top: 15px;
-}
-.dash-card{
-  background:#fff;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 4px 12px rgba(0,0,0,.08);
-  text-align:center;
-  border:1px solid rgba(0,0,0,.04);
-}
-.dash-card h3{ font-size:14px; color:#555; margin:0; }
-.dash-card div{ font-size:28px; font-weight:800; margin-top:6px; }
-
-.fg-chart-box{
-  height:260px;
-  max-height:260px;
-  overflow:hidden;
-  background:#fff;
-  border-radius:12px;
-  padding:10px;
-  box-shadow:0 4px 12px rgba(0,0,0,.08);
-}
-.fg-filter{
-  display:flex;
-  gap:12px;
-  flex-wrap:wrap;
-  margin:10px 0;
-  font-size:14px;
-}
-
-/* =========================================
-   MODAL (CUSTOM) - Bootstrap safe (NOT .modal)
-========================================= */
-.modal-backdrop{
-  display:none;
-  position:fixed; inset:0;
-  background:rgba(0,0,0,.45);
-  justify-content:center;
-  align-items:center;
-  z-index:9999;
-}
-.sm-modal{
-  background:#fff;
-  padding:20px;
-  border-radius:12px;
-  max-height:80vh;
-  overflow:auto;
-  width:700px;
-  max-width:92vw;
-  box-shadow:0 5px 15px rgba(0,0,0,.30);
-}
-.modal-header{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  margin-bottom:10px;
-}
-.modal-close{
-  cursor:pointer;
-  background:none;
-  border:none;
-  font-size:18px;
-}
-.modal-table{
-  width:100%;
-  border-collapse:collapse;
-}
-.modal-table th,
-.modal-table td{
-  border:1px solid #ccc;
-  padding:8px;
-  text-align:left;
-}
 
 /* =========================================
    TOAST
 ========================================= */
-.sm-toast{
+#stockToast{
   position:fixed;
   top:20px;
   right:20px;
@@ -338,8 +242,9 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
   z-index:10000;
   opacity:0;
   transition:opacity .25s ease;
+  display:none;
 }
-.toast.out{ background:#dc2626; }
+#stockToast.out{ background:#dc2626; }
 
 /* =========================================
    BOE SEARCH DROP DOWN (RM searchable)
@@ -377,14 +282,8 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
 .rm-search-empty{ padding:10px; color:var(--muted); font-size:13px; }
 
 /* =========================================
-   PRINT
+   SIMPLE APP MODAL
 ========================================= */
-@media print{
-  body{
-    -webkit-print-color-adjust:exact;
-    print-color-adjust:exact;
-  }
-}
 .app-modal{
   position:fixed;
   inset:0;
@@ -438,25 +337,11 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
 }
 .btn.out:hover{ filter:brightness(.95); }
 
-/* ===== Toast element fix ===== */
-#stockToast{
-  position:fixed;
-  top:20px;
-  right:20px;
-  background:#16a34a;
-  color:#fff;
-  padding:10px 20px;
-  border-radius:10px;
-  box-shadow:0 4px 12px rgba(0,0,0,.20);
-  font-weight:700;
-  z-index:10000;
-  opacity:0;
-  transition:opacity .25s ease;
+@media print{
+  body{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
 }
-#stockToast.out{ background:#dc2626; }
-
 </style>
- </head>
+</head>
 
 <body>
 
@@ -502,7 +387,6 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
   </div>
 </div>
 
-
 <!-- =========================
      APP
 ========================= -->
@@ -533,7 +417,6 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
       <li class="menu-title collapsible">Purchase <span class="arrow">▾</span></li>
       <ul class="subgroup">
         <li class="submenu" data-page="billEntry">Goods Received Note</li>
-  
         <li class="submenu" data-page="suppliers">Manage Raw Suppliers</li>
       </ul>
 
@@ -574,10 +457,8 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
     </ul>
   </aside>
 
-
   <!-- MAIN -->
   <main class="main">
-
     <button onclick="logout()" class="btn btn-danger sm-logout">Logout</button>
 
     <!-- USER MANAGEMENT -->
@@ -605,28 +486,132 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
       </div>
     </section>
 
+    <!-- MAIN DASHBOARD -->
+    <section id="dashboardPage" class="page container-fluid py-3" style="display:none">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+        <div>
+          <h2 class="m-0">Dashboard</h2>
+          <div class="text-muted small" id="dashUpdatedAt">—</div>
+        </div>
 
-    <!-- BOM / DASH TABLE -->
-    <section id="dashboard" class="page" style="display:block">
-      <h2>Bill Of Materials</h2>
-
-      <div class="d-flex gap-2 flex-wrap align-items-center mb-3">
-        <input type="text" id="dashboardSearch" class="sm-search" placeholder="Search product / group..."
-               oninput="handleDashboardSearch(this.value)">
-        <button class="btn btn-outline-secondary" onclick="clearDashboardSearch()">Clear</button>
+        <div class="d-flex gap-2 flex-wrap">
+          <button class="btn btn-outline-secondary btn-sm" type="button" onclick="Dashboard.refresh()">
+            Refresh
+          </button>
+          <button class="btn btn-primary btn-sm" type="button" onclick="openFGFromDashboard()">
+            Open FG
+          </button>
+        </div>
       </div>
 
-      <div class="table-responsive">
-        <table id="dashTable" class="table table-sm table-hover align-middle">
+      <div class="row g-3">
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <div class="text-muted small">Total RM Products</div>
+              <div class="fs-2 fw-semibold" id="dashTotalProducts">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <div class="text-muted small">Total RM Stock</div>
+              <div class="fs-2 fw-semibold" id="dashTotalStock">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <div class="text-muted small">Low Stock Items (RM)</div>
+              <div class="fs-2 fw-semibold" id="dashLowStock">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card shadow-sm h-100" role="button" onclick="openFGFromDashboard()" style="cursor:pointer">
+            <div class="card-body">
+              <div class="text-muted small">Total FG Balance</div>
+              <div class="fs-2 fw-semibold" id="dashFGBalance">0</div>
+              <div class="small text-muted mt-1">Click to open FG</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card shadow-sm h-100" role="button" onclick="openFGFromDashboard()" style="cursor:pointer">
+            <div class="card-body">
+              <div class="text-muted small">FG Products</div>
+              <div class="fs-2 fw-semibold" id="dashFGTotalProducts">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card shadow-sm h-100" role="button" onclick="openLowFGFromDashboard()" style="cursor:pointer">
+            <div class="card-body">
+              <div class="text-muted small">Low FG Stock</div>
+              <div class="fs-2 fw-semibold" id="dashFGLowStock">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <div class="text-muted small">Max FG Balance</div>
+              <div class="fs-2 fw-semibold" id="dashFGMaxBalance">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <div class="text-muted small">Min FG Balance</div>
+              <div class="fs-2 fw-semibold" id="dashFGMinBalance">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FILTERS + CHART -->
+      <div class="card shadow-sm mt-3">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="fw-semibold">FG Balance Chart</div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <div class="text-muted small">Volume filter:</div>
+              <div id="fgVolumeFilter" class="d-flex gap-2 flex-wrap"></div>
+            </div>
+          </div>
+
+          <div class="mt-3" style="height:360px">
+            <canvas id="fgStockChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RM PRODUCTS -->
+    <section id="products" class="page" style="display:none">
+      <h2>Raw Material List</h2>
+
+      <div class="mb-3 d-flex gap-2 flex-wrap">
+        <input id="productSearch" class="sm-search" placeholder="Search products...">
+        <button class="btn btn-outline-secondary" onclick="refreshAll()">Refresh</button>
+      </div>
+
+      <div class="table-responsive" style="max-height:65vh">
+        <table id="productsTable" class="table table-sm table-hover align-middle">
           <thead class="table-light">
           <tr>
-            <th>Product Code</th>
-            <th>Product Name</th>
-            <th>Balance</th>
-            <th>Threshold</th>
-            <th>Last IN</th>
-            <th>Last OUT</th>
-            <th>Actions</th>
+            <th>#</th><th>Code</th><th>Name</th><th>Category</th><th>Balance</th>
+            <th>Threshold</th><th>Barcode</th><th>History</th><th>Edit</th><th>Delete</th>
           </tr>
           </thead>
           <tbody></tbody>
@@ -634,123 +619,114 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
       </div>
     </section>
 
+    <!-- ADD RM PRODUCT -->
+    <section id="rmAddProduct" class="page" style="display:none">
+      <h2>Add Raw Material Product</h2>
 
-    <!-- MAIN DASHBOARD -->
-  <!-- DASHBOARD (Bootstrap) -->
-<section id="dashboardPage" class="page container-fluid py-3" style="display:none">
+      <div class="d-flex gap-2 flex-wrap mb-3">
+        <input id="newCode" class="sm-small" placeholder="Product Code">
+        <input id="newName" class="sm-small" placeholder="Product Name">
+        <input id="newCategory" class="sm-small" placeholder="Category">
+        <input id="newThreshold" class="sm-small" type="number" placeholder="Low Stock Threshold">
+        <input id="newBarcode" class="sm-small" placeholder="Barcode">
+        <input id="newGroups" class="sm-small" placeholder="Groups (comma separated)">
+        <input id="newQtyPerFG" class="sm-small" type="number" step="0.0001" placeholder="Qty per FG (BOM)">
+        <label class="d-flex align-items-center gap-2">
+          <input type="checkbox" id="newExclusive"> Exclusive to first group
+        </label>
+      </div>
 
-  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-    <div>
-      <h2 class="m-0">Dashboard</h2>
-      <div class="text-muted small" id="dashUpdatedAt">—</div>
-    </div>
+      <button class="btn btn-primary" onclick="addRMProduct()">Add Product</button>
+    </section>
 
-    <div class="d-flex gap-2 flex-wrap">
-      <button class="btn btn-outline-secondary btn-sm" type="button" onclick="Dashboard.refresh()">
-        Refresh
-      </button>
-      <button class="btn btn-primary btn-sm" type="button" onclick="openFGFromDashboard?.()">
-        Open FG
-      </button>
-    </div>
-  </div>
+    <!-- STOCK IN -->
+    <section id="stockIn" class="page" style="display:none">
+      <h2>RM Stock In</h2>
+      <div class="d-flex gap-2 flex-wrap mb-2">
+        <input id="inSearch" class="sm-search" placeholder="Search product">
+        <button class="btn btn-outline-secondary" onclick="stockInHistoryModal()">View Stock IN History</button>
+      </div>
 
-  <!-- KPI CARDS -->
-  <div class="row g-3">
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="card shadow-sm h-100">
-        <div class="card-body">
-          <div class="text-muted small">Total RM Products</div>
-          <div class="fs-2 fw-semibold" id="dashTotalProducts">0</div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle" id="stockInBody">
+          <thead class="table-light">
+          <tr><th>Product Code</th><th>Product Name</th><th>Balance</th><th>Last IN</th><th>Action</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- STOCK OUT -->
+    <section id="stockOut" class="page" style="display:none">
+      <h2>RM Stock Out</h2>
+      <div class="d-flex gap-2 flex-wrap mb-2">
+        <input id="outSearch" class="sm-search" placeholder="Search product">
+        <button class="btn btn-info" onclick="stockOutHistoryModal()">View Stock OUT History</button>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle" id="stockOutBody">
+          <thead class="table-light">
+          <tr><th>Product Code</th><th>Product Name</th><th>Balance</th><th>Last OUT</th><th>Action</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- COMBINED HISTORY -->
+    <section id="history" class="page" style="display:none">
+      <h2>RM Combined History</h2>
+      <div class="mb-3">
+        <input id="historySearch" class="sm-search" placeholder="Search combined history...">
+      </div>
+
+      <div class="table-responsive" style="max-height:65vh">
+        <table id="historyTable" class="table table-sm table-hover align-middle">
+          <thead class="table-light">
+          <tr><th>Date</th><th>Product</th><th>Type</th><th>Qty</th><th>Remark</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SUPPLIERS -->
+    <section id="suppliers" class="page" style="display:none">
+      <h2>Raw Material Suppliers</h2>
+
+      <form id="supplierForm" class="d-flex gap-2 flex-wrap align-items-center mb-3" autocomplete="on">
+        <div>
+          <input id="newSupplierName" class="sm-small form-control" type="text" placeholder="Supplier Name" required>
         </div>
-      </div>
-    </div>
-
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="card shadow-sm h-100">
-        <div class="card-body">
-          <div class="text-muted small">Total RM Stock</div>
-          <div class="fs-2 fw-semibold" id="dashTotalStock">0</div>
+        <div>
+          <input id="newSupplierContact" class="sm-small form-control" type="text" placeholder="Address Info">
         </div>
-      </div>
-    </div>
-
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="card shadow-sm h-100">
-        <div class="card-body">
-          <div class="text-muted small">Low Stock Items (RM)</div>
-          <div class="fs-2 fw-semibold" id="dashLowStock">0</div>
+        <div>
+          <input id="newSupplierPhone" class="sm-small form-control" type="tel" placeholder="Phone">
         </div>
-      </div>
-    </div>
-
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="card shadow-sm h-100" role="button" onclick="openFGFromDashboard?.()" style="cursor:pointer">
-        <div class="card-body">
-          <div class="text-muted small">Total FG Balance</div>
-          <div class="fs-2 fw-semibold" id="dashFGBalance">0</div>
-          <div class="small text-muted mt-1">Click to open FG</div>
+        <div>
+          <input id="newSupplierEmail" class="sm-small form-control" type="email" placeholder="Email">
         </div>
-      </div>
-    </div>
+        <button id="addSupplierBtn" type="submit" class="btn btn-primary">Add Supplier</button>
+      </form>
 
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="card shadow-sm h-100" role="button" onclick="openFGFromDashboard?.()" style="cursor:pointer">
-        <div class="card-body">
-          <div class="text-muted small">FG Products</div>
-          <div class="fs-2 fw-semibold" id="dashFGTotalProducts">0</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="card shadow-sm h-100" role="button" onclick="openLowFGFromDashboard?.()" style="cursor:pointer">
-        <div class="card-body">
-          <div class="text-muted small">Low FG Stock</div>
-          <div class="fs-2 fw-semibold" id="dashFGLowStock">0</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="card shadow-sm h-100">
-        <div class="card-body">
-          <div class="text-muted small">Max FG Balance</div>
-          <div class="fs-2 fw-semibold" id="dashFGMaxBalance">—</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-12 col-sm-6 col-xl-3">
-      <div class="card shadow-sm h-100">
-        <div class="card-body">
-          <div class="text-muted small">Min FG Balance</div>
-          <div class="fs-2 fw-semibold" id="dashFGMinBalance">—</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- FILTERS + CHART -->
-  <div class="card shadow-sm mt-3">
-    <div class="card-body">
-      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-        <div class="fw-semibold">FG Balance Chart</div>
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-          <div class="text-muted small">Volume filter:</div>
-          <div id="fgVolumeFilter" class="d-flex gap-2 flex-wrap"></div>
-        </div>
+      <div class="mb-3">
+        <input id="supplierSearch" class="sm-search form-control" type="search" placeholder="Search suppliers..." autocomplete="off">
       </div>
 
-      <div class="mt-3" style="height:360px">
-        <canvas id="fgStockChart"></canvas>
+      <div class="table-responsive" style="max-height:65vh">
+        <table id="suppliersTable" class="table table-sm table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>#</th><th>Name</th><th>Address</th><th>Phone</th><th>Email</th><th>Edit</th><th>Delete</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
-    </div>
-  </div>
-
-</section>
-
-
+    </section>
 
     <!-- FG STOCK LIST -->
     <section id="fgStock" class="page" style="display:none">
@@ -777,302 +753,23 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
       </div>
     </section>
 
-
-    <!-- PRODUCTS (RM) -->
-    <section id="products" class="page" style="display:none">
-      <h2>Raw Material List</h2>
-
-      <div class="mb-3">
-        <input id="productSearch" class="sm-search" placeholder="Search products...">
-      </div>
-
-      <div class="table-responsive" style="max-height:65vh">
-        <table id="productsTable" class="table table-sm table-hover align-middle">
-          <thead class="table-light">
-          <tr>
-            <th>#</th><th>Code</th><th>Name</th><th>Category</th><th>Balance</th>
-            <th>Threshold</th><th>Barcode</th><th>History</th><th>Edit</th><th>Delete</th>
-          </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
-
-<!-- BILL OF ENTRY (VERTICAL ONE-PAGE LAYOUT) -->
-<section id="billEntry" class="page" style="display:none;">
-
-  <!-- Header -->
-  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-    <div>
-      <h2 class="m-0">Goods Received Note</h2>
-      <div class="text-muted small">Create, manage and print Bill of Entry (BOE)</div>
-    </div>
-    <div class="d-flex gap-2 flex-wrap">
-      <button class="btn btn-outline-secondary" onclick="boeTriggerImport()">📥 Import Excel</button>
-      <button class="btn btn-success" onclick="printBOESummaryReport()">🖨️ Bills Summary</button>
-    </div>
-  </div>
-
-  <!-- BOE FORM (TOP) -->
-  <div class="card shadow-sm border-0 mb-3">
-    <div class="card-header bg-white d-flex align-items-center justify-content-between">
-      <div class="fw-bold">Create / Edit Bill of Entry</div>
-      <span id="boeEditBadge" class="badge text-bg-success" style="display:none;">EDITING MODE</span>
-    </div>
-
-    <div class="card-body">
-      <input id="boeFileInput" type="file" accept=".xlsx,.xls" class="d-none">
-
-      <div class="row g-2 mb-3">
-        <div class="col-12 col-md-6">
-          <input id="boeNo" class="form-control" placeholder="Bill No / Entry No">
-        </div>
-        <div class="col-12 col-md-6">
-          <input id="boeDate" type="date" class="form-control">
-        </div>
-        <div class="col-12 col-md-6">
-          <select id="boeSupplier" class="form-select"></select>
-        </div>
-        <div class="col-12 col-md-6">
-          <input id="boeSupplierOther" class="form-control" placeholder="Supplier Name (if Other)" style="display:none">
-        </div>
-      </div>
-      <div class="row g-2 mb-3">
-      <div class="border rounded-3">
-       
-          <table class="table table-sm table-hover align-middle mb-0">
-            <thead class="table-light">
-              <tr>
-                <th>RM Product</th>
-                <th style="width:120px">Qty</th>
-                <th>Remark</th>
-                <th class="text-center" style="width:110px">Remove</th>
-              </tr>
-            </thead>
-            <tbody id="boeItemsBody"></tbody>
-          </table>
-        </div>
-      </div>
-    
-      <div class="d-flex flex-wrap gap-2 mt-3">
-        <button class="btn btn-outline-primary" onclick="boeAddRow()">➕ Add Item</button>
-        <button class="btn btn-primary" onclick="submitBillEntry()">✅ Save Bill & Stock IN</button>
-        <button class="btn btn-danger" onclick="resetBillEntryForm()">Clear</button>
-      </div>
-
-      <div class="text-muted small mt-2">
-        Tip: Add multiple items then save once to stock-in all at the same time.
-      </div>
-    </div>
-  </div>
-
-  <!-- SAVED BILLS (BOTTOM) -->
-  <div class="card shadow-sm border-0">
-    <div class="card-header bg-white d-flex flex-wrap gap-2 align-items-center justify-content-between">
-      <div class="fw-bold">Saved Bills</div>
-      <input id="boeSearch" class="form-control" style="max-width:320px" placeholder="Search bill / supplier...">
-    </div>
-
-    <div class="card-body p-0">
-      <!-- Scroll Area -->
-      <div class="table-responsive" style="max-height:55vh; overflow:auto;">
-        <table id="boeTable" class="table table-sm table-hover align-middle mb-0">
-          <thead class="table-light sticky-top">
-            <tr>
-              <th>Date</th>
-              <th>Product Code</th>
-              <th>Bill No</th>
-              <th>Product Name</th>
-              <th>Supplier</th>
-              <th class="text-end">Total Qty</th>
-              <th class="text-center">Items</th>
-              <th style="min-width:240px">Actions</th>
-            </tr>
-          </thead>
-          <tbody ></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="card-footer bg-white text-muted small">
-      Tip: Use search to filter bills instantly.
-    </div>
-  </div>
-
-</section>
-
-
-    <!-- ADD RM PRODUCT -->
-    <section id="rmAddProduct" class="page" style="display:none">
-      <h2>Add Raw Material Product</h2>
+    <!-- ADD FG PRODUCT -->
+    <section id="fgAddProduct" class="page" style="display:none">
+      <h2>Add Finished Goods Product</h2>
 
       <div class="d-flex gap-2 flex-wrap mb-3">
-        <input id="newCode" class="sm-small" placeholder="Product Code">
-        <input id="newName" class="sm-small" placeholder="Product Name">
-        <input id="newCategory" class="sm-small" placeholder="Category">
-        <input id="newThreshold" class="sm-small" type="number" placeholder="Low Stock Threshold">
-        <input id="newBarcode" class="sm-small" placeholder="Barcode">
-        <input id="newGroups" class="sm-small" placeholder="Groups (comma separated)">
-        <label class="d-flex align-items-center gap-2">
-          <input type="checkbox" id="newExclusive"> Exclusive to first group
-        </label>
+        <input id="fgNewProductcode" class="sm-small" placeholder="Product Code">
+        <input id="fgNewBarcode" class="sm-small" placeholder="Barcode">
+        <input id="fgNewName" class="sm-small" placeholder="Product Name">
+        <input id="fgNewVolume" class="sm-small" placeholder="Volume / Size">
+        <input id="fgNewGroup" class="sm-small" placeholder="Group Prefix (ALKHOR)">
+        <input id="fgNewBatch" class="sm-small" placeholder="Batch / Lot No">
+        <input id="fgNewExpiry" class="sm-small" type="date">
+        <input id="fgNewThreshold" class="sm-small" type="number" placeholder="Low Stock Threshold">
       </div>
 
-      <button class="btn btn-primary" onclick="addRMProduct()">Add Product</button>
+      <button class="btn btn-primary" onclick="addFGProduct()">Add FG Product</button>
     </section>
-
-
-    <!-- STOCK IN -->
-    <section id="stockIn" class="page" style="display:none">
-      <h2>RM Stock In</h2>
-      <div class="d-flex gap-2 flex-wrap mb-2">
-        <input id="inSearch" class="sm-search" placeholder="Search product">
-        <button class="btn btn-outline-secondary" onclick="stockInHistoryModal()">View Stock IN History</button>
-      </div>
-
-      <div class="table-responsive">
-        <table class="table table-sm table-hover align-middle" id="stockInBody">
-          <thead class="table-light">
-          <tr><th>Product Code</th><th>Product Name</th><th>Balance</th><th>Last IN</th><th>Action</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
-
-
-    <!-- STOCK OUT -->
-    <section id="stockOut" class="page" style="display:none">
-      <h2>RM Stock Out</h2>
-      <div class="d-flex gap-2 flex-wrap mb-2">
-        <input id="outSearch" class="sm-search" placeholder="Search product">
-        <button class="btn btn-info" onclick="stockOutHistoryModal()">View Stock OUT History</button>
-      </div>
-
-      <div class="table-responsive">
-        <table class="table table-sm table-hover align-middle" id="stockOutBody">
-          <thead class="table-light">
-          <tr><th>Product Code</th><th>Product Name</th><th>Balance</th><th>Last OUT</th><th>Action</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
-
-
-    <!-- COMBINED HISTORY -->
-    <section id="history" class="page" style="display:none">
-      <h2>RM Combined History</h2>
-      <div class="mb-3">
-        <input id="historySearch" class="sm-search" placeholder="Search combined history...">
-      </div>
-
-      <div class="table-responsive" style="max-height:65vh">
-        <table id="historyTable" class="table table-sm table-hover align-middle">
-          <thead class="table-light">
-          <tr><th>Date</th><th>Product</th><th>Type</th><th>Qty</th><th>Remark</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
-
-
-    <!-- SUPPLIERS -->
-   <section id="suppliers" class="page" style="display:none">
-  <h2>Raw Material Suppliers</h2>
-
-  <!-- Add Supplier -->
-  <form id="supplierForm" class="d-flex gap-2 flex-wrap align-items-center mb-3" autocomplete="on">
-    <div>
-      <label for="newSupplierName" class="visually-hidden">Supplier Name</label>
-      <input
-        id="newSupplierName"
-        name="supplierName"
-        class="sm-small form-control"
-        type="text"
-        placeholder="Supplier Name"
-        autocomplete="organization"
-        required
-      >
-    </div>
-
-    <div>
-      <label for="newSupplierContact" class="visually-hidden">Address Info</label>
-      <input
-        id="newSupplierContact"
-        name="supplierAddress"
-        class="sm-small form-control"
-        type="text"
-        placeholder="Address Info"
-        autocomplete="street-address"
-      >
-    </div>
-
-    <div>
-      <label for="newSupplierPhone" class="visually-hidden">Phone</label>
-      <input
-        id="newSupplierPhone"
-        name="supplierPhone"
-        class="sm-small form-control"
-        type="tel"
-        placeholder="Phone"
-        inputmode="tel"
-        autocomplete="tel"
-      >
-    </div>
-
-    <div>
-      <label for="newSupplierEmail" class="visually-hidden">Email</label>
-      <input
-        id="newSupplierEmail"
-        name="supplierEmail"
-        class="sm-small form-control"
-        type="email"
-        placeholder="Email"
-        autocomplete="email"
-      >
-    </div>
-
-    <button id="addSupplierBtn" type="submit" class="btn btn-primary">
-      Add Supplier
-    </button>
-  </form>
-
-  <!-- Search -->
-  <div class="mb-3">
-    <label for="supplierSearch" class="visually-hidden">Search suppliers</label>
-    <input
-      id="supplierSearch"
-      name="supplierSearch"
-      class="sm-search form-control"
-      type="search"
-      placeholder="Search suppliers..."
-      autocomplete="off"
-    >
-  </div>
-
-  <!-- Table -->
-  <div class="table-responsive" style="max-height:65vh">
-    <table id="suppliersTable" class="table table-sm table-hover align-middle">
-      <thead class="table-light">
-        <tr>
-          <th scope="col">#</th>
-          <th scope="col">Name</th>
-          <th scope="col">Address</th>
-          <th scope="col">Phone</th>
-          <th scope="col">Email</th>
-          <th scope="col">Edit</th>
-          <th scope="col">Delete</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</section>
-
-
 
     <!-- FG STOCK IN -->
     <section id="fgStockIn" class="page" style="display:none">
@@ -1092,7 +789,6 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
       </div>
     </section>
 
-
     <!-- FG STOCK OUT -->
     <section id="fgStockOut" class="page" style="display:none">
       <h2>FG Stock Out</h2>
@@ -1111,179 +807,180 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
       </div>
     </section>
 
-
-    <!-- ADD FG PRODUCT -->
-    <section id="fgAddProduct" class="page" style="display:none">
-      <h2>Add Finished Goods Product</h2>
-
-      <div class="d-flex gap-2 flex-wrap mb-3">
-        <input id="fgNewProductcode" class="sm-small" placeholder="Product Code">
-        <input id="fgNewBarcode" class="sm-small" placeholder="Barcode">
-        <input id="fgNewName" class="sm-small" placeholder="Product Name">
-        <input id="fgNewVolume" class="sm-small" placeholder="Volume / Size">
-        <input id="fgNewGroup" class="sm-small" placeholder="Group Prefix (ALKHOR)">
-        <input id="fgNewBatch" class="sm-small" placeholder="Batch / Lot No">
-        <input id="fgNewExpiry" class="sm-small" type="date">
-        <input id="fgNewThreshold" class="sm-small" type="number" placeholder="Low Stock Threshold">
+    <!-- BILL OF ENTRY -->
+    <section id="billEntry" class="page" style="display:none;">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div>
+          <h2 class="m-0">Goods Received Note</h2>
+          <div class="text-muted small">Create, manage and print Bill of Entry (BOE)</div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <button class="btn btn-outline-secondary" onclick="boeTriggerImport()">📥 Import Excel</button>
+          <button class="btn btn-success" onclick="printBOESummaryReport()">🖨️ Bills Summary</button>
+        </div>
       </div>
 
-      <button class="btn btn-primary" onclick="addFGProduct()">Add FG Product</button>
-    </section>
+      <div class="card shadow-sm border-0 mb-3">
+        <div class="card-header bg-white d-flex align-items-center justify-content-between">
+          <div class="fw-bold">Create / Edit Bill of Entry</div>
+          <span id="boeEditBadge" class="badge text-bg-success" style="display:none;">EDITING MODE</span>
+        </div>
 
+        <div class="card-body">
+          <input id="boeFileInput" type="file" accept=".xlsx,.xls" class="d-none">
 
-    <!-- PRODUCTION ENTRY -->
- <section class="page" id="productionAuto" style="display:none">
-
-  <!-- Header -->
-  <div class="sm-card d-flex align-items-start justify-content-between gap-3 flex-wrap">
-    <div>
-      <div class="h5 mb-1 fw-semibold">Production Entry</div>
-      <div class="text-muted small">FG IN + RM OUT, with optional RM Return + RM Damage.</div>
-    </div>
-    <div class="small text-muted">
-      Tip: Search FG → enter Qty → check BOM → Save
-    </div>
-  </div>
-
-  <!-- Form -->
-  <div class="sm-card">
-    <div class="row g-3 align-items-end">
-
-      <div class="col-12 col-md-3">
-        <label class="form-label fw-semibold">Production No</label>
-        <input id="prodNo" class="form-control" placeholder="PROD-001">
-      </div>
-
-      <div class="col-12 col-md-3">
-        <label class="form-label fw-semibold">Date</label>
-        <input id="prodDate" type="date" class="form-control">
-      </div>
-
-      <div class="col-12 col-md-4">
-        <label class="form-label fw-semibold">FG Product</label>
-
-        <div class="position-relative" id="prodFGWrap">
-          <input id="productionFGSearch"
-                 class="form-control"
-                 placeholder="Search FG..."
-                 autocomplete="off">
-
-          <div id="prodFGList"
-               class="list-group position-absolute w-100 shadow"
-               style="z-index:2000; max-height:260px; overflow:auto; display:none;">
+          <div class="row g-2 mb-3">
+            <div class="col-12 col-md-6">
+              <input id="boeNo" class="form-control" placeholder="Bill No / Entry No">
+            </div>
+            <div class="col-12 col-md-6">
+              <input id="boeDate" type="date" class="form-control">
+            </div>
+            <div class="col-12 col-md-6">
+              <select id="boeSupplier" class="form-select"></select>
+            </div>
+            <div class="col-12 col-md-6">
+              <input id="boeSupplierOther" class="form-control" placeholder="Supplier Name (if Other)" style="display:none">
+            </div>
           </div>
 
-          <!-- hidden select for compatibility -->
-          <select id="prodFG" class="d-none"></select>
-        </div>
+          <div class="border rounded-3">
+            <table class="table table-sm table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>RM Product</th>
+                  <th style="width:120px">Qty</th>
+                  <th>Remark</th>
+                  <th class="text-center" style="width:110px">Remove</th>
+                </tr>
+              </thead>
+              <tbody id="boeItemsBody"></tbody>
+            </table>
+          </div>
 
-</div>
+          <div class="d-flex flex-wrap gap-2 mt-3">
+            <button class="btn btn-outline-primary" onclick="boeAddRow()">➕ Add Item</button>
+            <button class="btn btn-primary" onclick="submitBillEntry()">✅ Save Bill & Stock IN</button>
+            <button class="btn btn-danger" onclick="resetBillEntryForm()">Clear</button>
+          </div>
 
-      <div class="col-12 col-md-2">
-        <label class="form-label fw-semibold">FG Qty</label>
-        <input id="prodFGQty"
-               type="number"
-               class="form-control text-end"
-               min="0"
-               step="0.01"
-               value="1">
-      </div>
-
-      <div class="col-12">
-        <label class="form-label fw-semibold">Production Remark (optional)</label>
-        <input id="prodRemark" class="form-control" placeholder="Batch / Operator / Shift...">
-      </div>
-
-    </div>
-  </div>
-
-  <!-- BOM Table -->
-  <div class="sm-card">
-    <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">
-      <div class="fw-semibold">BOM Consumption <span class="text-muted fw-normal">(FG BOM × FG Qty)</span></div>
-      <div class="text-muted small">Damage is added to usage. (Return can be added if you want)</div>
-    </div>
-
-    <div class="table-responsive">
-      <table class="table table-sm table-hover align-middle mb-0">
-        <thead class="table-light">
-          <tr>
-            <th style="min-width:240px">RM Product</th>
-            <th class="text-end" style="min-width:120px">Required</th>
-            <th class="text-end" style="min-width:140px">Damage</th>
-            <th class="text-end" style="min-width:120px">Net Used</th>
-          </tr>
-        </thead>
-        <tbody id="prodBOMBody">
-          <tr>
-            <td colspan="4" class="text-muted">Select FG to load BOM.</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Actions -->
-  <div class="sm-card d-flex justify-content-end gap-2 flex-wrap">
-    <button class="btn btn-outline-secondary" type="button" onclick="resetProductionForm?.()">
-      Reset
-    </button>
-    <button class="btn btn-primary" type="button" onclick="submitProduction()">
-      Save Production
-    </button>
-  </div>
-
-</section>
-
-
-
-    <!-- PRODUCTION VIEW MODAL -->
-    <div id="prodViewModal" class="modal-backdrop" style="display:none;">
-      <div class="sm-modal">
-        <div class="modal-header">
-          <h3 id="prodViewTitle">Production</h3>
-          <button class="modal-close" onclick="closeProdView()">✖</button>
-        </div>
-
-        <div id="prodViewMeta" class="mb-2 text-muted"></div>
-
-        <h5 class="mt-3">RM Used</h5>
-        <table class="modal-table">
-          <thead><tr><th>RM Product</th><th style="width:120px">Qty</th><th>Remark</th></tr></thead>
-          <tbody id="prodViewRMBody"></tbody>
-        </table>
-
-        <h5 class="mt-3">RM Return</h5>
-        <table class="modal-table">
-          <thead><tr><th>RM Product</th><th style="width:120px">Qty</th><th>Remark</th></tr></thead>
-          <tbody id="prodViewRMReturnBody"></tbody>
-        </table>
-
-        <div class="d-flex justify-content-end gap-2 mt-3">
-          <button class="btn btn-outline-danger" onclick="closeProdView()">Close</button>
+          <div class="text-muted small mt-2">
+            Tip: Add multiple items then save once to stock-in all at the same time.
+          </div>
         </div>
       </div>
-    </div>
-<!-- GENERIC APP MODAL -->
-<div id="modal" class="app-modal" style="display:none">
-  <div class="app-modal-backdrop" onclick="closeModal()"></div>
 
-  <div class="app-modal-box">
-    <div class="app-modal-header">
-      <h5 id="modalTitle2">Modal</h5>
-      <button class="btn btn-sm btn-outline-secondary" onclick="closeModal()">✖</button>
-    </div>
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-white d-flex flex-wrap gap-2 align-items-center justify-content-between">
+          <div class="fw-bold">Saved Bills</div>
+          <input id="boeSearch" class="form-control" style="max-width:320px" placeholder="Search bill / supplier...">
+        </div>
 
-    <div id="modalBody" class="app-modal-body"></div>
-  </div>
-</div>
+        <div class="card-body p-0">
+          <div class="table-responsive" style="max-height:55vh; overflow:auto;">
+            <table id="boeTable" class="table table-sm table-hover align-middle mb-0">
+              <thead class="table-light sticky-top">
+                <tr>
+                  <th>Date</th>
+                  <th>Product Code</th>
+                  <th>Bill No</th>
+                  <th>Product Name</th>
+                  <th>Supplier</th>
+                  <th class="text-end">Total Qty</th>
+                  <th class="text-center">Items</th>
+                  <th style="min-width:240px">Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
 
+        <div class="card-footer bg-white text-muted small">
+          Tip: Use search to filter bills instantly.
+        </div>
+      </div>
+    </section>
+
+    <!-- PRODUCTION ENTRY -->
+    <section class="page" id="productionAuto" style="display:none">
+      <div class="sm-card d-flex align-items-start justify-content-between gap-3 flex-wrap">
+        <div>
+          <div class="h5 mb-1 fw-semibold">Production Entry</div>
+          <div class="text-muted small">FG IN + RM OUT, with optional RM Damage.</div>
+        </div>
+        <div class="small text-muted">Tip: Search FG → enter Qty → check BOM → Save</div>
+      </div>
+
+      <div class="sm-card">
+        <div class="row g-3 align-items-end">
+          <div class="col-12 col-md-3">
+            <label class="form-label fw-semibold">Production No</label>
+            <input id="prodNo" class="form-control" placeholder="PROD-001">
+          </div>
+
+          <div class="col-12 col-md-3">
+            <label class="form-label fw-semibold">Date</label>
+            <input id="prodDate" type="date" class="form-control">
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-semibold">FG Product</label>
+            <div class="position-relative" id="prodFGWrap">
+              <input id="productionFGSearch" class="form-control" placeholder="Search FG..." autocomplete="off">
+              <div id="prodFGList" class="list-group position-absolute w-100 shadow"
+                   style="z-index:2000; max-height:260px; overflow:auto; display:none;"></div>
+              <select id="prodFG" class="d-none"></select>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-2">
+            <label class="form-label fw-semibold">FG Qty</label>
+            <input id="prodFGQty" type="number" class="form-control text-end" min="0" step="0.01" value="1">
+          </div>
+
+          <div class="col-12">
+            <label class="form-label fw-semibold">Production Remark (optional)</label>
+            <input id="prodRemark" class="form-control" placeholder="Batch / Operator / Shift...">
+          </div>
+        </div>
+      </div>
+
+      <div class="sm-card">
+        <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">
+          <div class="fw-semibold">BOM Consumption <span class="text-muted fw-normal">(FG BOM × FG Qty)</span></div>
+          <div class="text-muted small">Damage is added to usage.</div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th style="min-width:240px">RM Product</th>
+                <th class="text-end" style="min-width:120px">Required</th>
+                <th class="text-end" style="min-width:140px">Damage</th>
+                <th class="text-end" style="min-width:120px">Net Used</th>
+                <th class="text-muted small">Balance</th>
+              </tr>
+            </thead>
+            <tbody id="prodBOMBody">
+              <tr><td colspan="5" class="text-muted">Select FG to load BOM.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="sm-card d-flex justify-content-end gap-2 flex-wrap">
+        <button class="btn btn-outline-secondary" type="button" onclick="resetProductionForm()">Reset</button>
+        <button class="btn btn-primary" type="button" onclick="submitProduction()">Save Production</button>
+      </div>
+    </section>
 
     <!-- PRODUCTION RECORDS -->
     <section class="page" id="pageProductionRecords" style="display:none">
       <div class="sm-card">
         <b>Production Records</b>
-        <div class="muted">View production entries and their RM Used/Return/Damage.</div>
+        <div class="muted">View production entries and their RM Used/Damage.</div>
       </div>
 
       <div class="sm-card" style="overflow:auto">
@@ -1300,7 +997,6 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
         </div>
       </div>
     </section>
-
 
     <!-- RM DELIVERY NOTE -->
     <section id="rmDeliveryNote" class="page" style="display:none">
@@ -1356,40 +1052,48 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
       </div>
     </section>
 
-
     <!-- DN VIEW MODAL -->
-    <div id="dnViewModal" class="modal-backdrop">
-      <div class="sm-modal">
-        <div class="modal-header">
-          <h3 id="dnViewTitle">Delivery Note</h3>
-          <button class="modal-close" onclick="closeDNView()">✖</button>
+    <div id="dnViewModal" class="modal" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
+      <div style="width:min(900px,95vw);background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.25);overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #eee;">
+          <div>
+            <div id="dnViewTitle" style="font-weight:700;font-size:16px;">Delivery Note</div>
+            <div id="dnViewMeta" style="font-size:12px;color:#666;margin-top:4px;"></div>
+          </div>
+          <button type="button" class="btn out" onclick="closeDNView()" style="padding:6px 10px;">Close</button>
         </div>
 
-        <div id="dnViewMeta" class="mb-2 text-muted"></div>
+        <div style="padding:12px 14px;">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+            <button type="button" class="btn secondary" onclick="printDNFromModal()">Print</button>
+          </div>
 
-        <table class="modal-table">
-          <thead><tr><th>RM Product</th><th>Qty</th><th>Remark</th></tr></thead>
-          <tbody id="dnViewBody"></tbody>
-        </table>
-
-        <div class="d-flex justify-content-end gap-2 mt-3 flex-wrap">
-          <button class="btn btn-outline-secondary" onclick="printDNFromModal()">🖨 Print</button>
-          <button class="btn btn-danger" onclick="closeDNView()">Close</button>
+          <div style="max-height:60vh;overflow:auto;border:1px solid #eee;border-radius:10px;">
+            <table style="width:100%;border-collapse:collapse;">
+              <thead>
+                <tr style="background:#f7f7f7;">
+                  <th style="text-align:left;padding:10px;border-bottom:1px solid #eee;">RM Product</th>
+                  <th style="text-align:right;padding:10px;border-bottom:1px solid #eee;width:120px;">Qty</th>
+                  <th style="text-align:left;padding:10px;border-bottom:1px solid #eee;">Remark</th>
+                </tr>
+              </thead>
+              <tbody id="dnViewBody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
 
-
-    <!-- MODALS (HISTORY / STOCK) -->
-    <div id="historyModal" class="modal-backdrop">
-      <div class="sm-modal">
-        <div class="modal-header">
-          <h3 id="modalTitle">Product History</h3>
-          <button onclick="closeHistoryModal()" class="modal-close">✖</button>
+    <!-- MODALS (History / Stock Modal) -->
+    <div id="historyModal" class="modal" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
+      <div style="width:min(980px,95vw);background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.25);overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #eee;">
+          <h3 id="modalTitle" style="margin:0;font-size:16px;">History</h3>
+          <button class="btn out" onclick="closeHistoryModal()" style="padding:6px 10px;">Close</button>
         </div>
-        <div class="modal-body">
-          <table class="modal-table">
-            <thead>
+        <div style="padding:12px 14px; max-height:70vh; overflow:auto;">
+          <table class="table table-sm">
+            <thead class="table-light">
               <tr>
                 <th>Date</th><th>Product</th><th>Type</th><th>Qty</th><th>Batch</th><th>Expiry</th><th>Remark</th>
               </tr>
@@ -1400,94 +1104,73 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
       </div>
     </div>
 
-    <div id="stockInHistoryModal" class="modal-backdrop">
-      <div class="sm-modal">
-        <div class="modal-header">
-          <h3>Stock IN History</h3>
-          <button onclick="closeStockInHistory()" class="modal-close">✖</button>
+    <div id="stockModal" class="modal" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
+      <div style="width:min(520px,95vw);background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.25);overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #eee;">
+          <h3 id="modalProductName" style="margin:0;font-size:16px;">Product</h3>
+          <button class="btn out" onclick="closeStockModal()" style="padding:6px 10px;">Close</button>
         </div>
-        <div class="modal-body">
-          <table class="modal-table">
-            <thead><tr><th>Date</th><th>Product</th><th>Qty</th><th>Remark</th></tr></thead>
-            <tbody id="stockInHistoryPopupBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div id="stockOutHistoryModal" class="modal-backdrop">
-      <div class="sm-modal">
-        <div class="modal-header">
-          <h3>Stock OUT History</h3>
-          <button onclick="closeStockOutHistory()" class="modal-close">✖</button>
-        </div>
-        <div class="modal-body">
-          <table class="modal-table">
-            <thead><tr><th>Date</th><th>Product</th><th>Qty</th><th>Remark</th></tr></thead>
-            <tbody id="stockOutHistoryPopupBody"></tbody>
-          </table>
+        <div style="padding:12px 14px;">
+          <p class="mb-2">Balance: <span id="modalProductBalance" class="fw-bold">0</span></p>
+          <div class="d-flex gap-2 flex-wrap">
+            <input id="modalQty" class="form-control" type="number" placeholder="Enter quantity">
+            <input id="modalRemark" class="form-control" placeholder="Enter remark (optional)">
+          </div>
+          <div class="d-flex gap-2 mt-3">
+            <button id="modalSave" class="btn btn-primary">Submit</button>
+            <button onclick="closeStockModal()" class="btn btn-outline-secondary">Close</button>
+          </div>
         </div>
       </div>
     </div>
 
-    <div id="stockModal" class="modal-backdrop">
-      <div class="sm-modal">
-        <div class="modal-header">
-          <h3 id="modalProductName">Product Name</h3>
-          <button class="modal-close" onclick="closeModal()">&times;</button>
+    <!-- GENERIC APP MODAL -->
+    <div id="modal" class="app-modal" style="display:none">
+      <div class="app-modal-backdrop" onclick="closeModal()"></div>
+      <div class="app-modal-box">
+        <div class="app-modal-header">
+          <h5 id="modalTitle2">Modal</h5>
+          <button class="btn btn-sm btn-outline-secondary" onclick="closeModal()">✖</button>
+        </div>
+        <div id="modalBody" class="app-modal-body"></div>
+      </div>
+    </div>
+
+    <!-- BOE VIEW MODAL -->
+    <div id="boeViewModal" class="modal" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
+      <div style="width:min(900px,95vw);background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.25);overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #eee;">
+          <div>
+            <div id="boeViewTitle" style="font-weight:700;font-size:16px;">Bill of Entry</div>
+            <div id="boeViewMeta" style="font-size:12px;color:#666;margin-top:4px;"></div>
+          </div>
+          <button type="button" class="btn out" onclick="BOE.closeView()" style="padding:6px 10px;">Close</button>
         </div>
 
-        <p>Balance: <span id="modalProductBalance" class="fw-bold">0</span> PCS</p>
+        <div style="padding:12px 14px;">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+            <button type="button" class="btn secondary" onclick="BOE.printFromView()">Print</button>
+            <button type="button" class="btn secondary" onclick="BOE.editFromView()">Edit</button>
+          </div>
 
-        <div class="d-flex gap-2 flex-wrap">
-          <input id="modalQty" class="sm-small" type="number" placeholder="Enter quantity">
-          <input id="modalRemark" class="sm-small" placeholder="Enter remark (optional)">
-        </div>
-
-        <div class="d-flex gap-2 mt-3">
-          <button id="modalSave" class="btn btn-primary">Submit</button>
-          <button onclick="closeModal()" class="btn btn-outline-secondary">Close</button>
+          <div style="max-height:60vh;overflow:auto;border:1px solid #eee;border-radius:10px;">
+            <table style="width:100%;border-collapse:collapse;">
+              <thead>
+                <tr style="background:#f7f7f7;">
+                  <th style="text-align:left;padding:10px;border-bottom:1px solid #eee;">RM Product</th>
+                  <th style="text-align:right;padding:10px;border-bottom:1px solid #eee;width:120px;">Qty</th>
+                  <th style="text-align:left;padding:10px;border-bottom:1px solid #eee;">Remark</th>
+                </tr>
+              </thead>
+              <tbody id="boeViewBody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Toast -->
-    <div id="stockToast" class="toast" style="display:none;"></div>
-<!-- ✅ BOE VIEW MODAL -->
-<div id="boeViewModal" class="modal" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
-  <div class="modal-card" style="width:min(900px,95vw);background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.25);overflow:hidden;">
-    
-    <div class="modal-head" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #eee;">
-      <div>
-        <div id="boeViewTitle" style="font-weight:700;font-size:16px;">Bill of Entry</div>
-        <div id="boeViewMeta" style="font-size:12px;color:#666;margin-top:4px;"></div>
-      </div>
-
-      <button type="button" class="btn out" onclick="BOE.closeView()" style="padding:6px 10px;">Close</button>
-    </div>
-
-    <div class="modal-body" style="padding:12px 14px;">
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
-        <button type="button" class="btn secondary" onclick="BOE.printFromView()">Print</button>
-        <button type="button" class="btn secondary" onclick="BOE.editFromView()">Edit</button>
-      </div>
-
-      <div style="max-height:60vh;overflow:auto;border:1px solid #eee;border-radius:10px;">
-        <table style="width:100%;border-collapse:collapse;">
-          <thead>
-            <tr style="background:#f7f7f7;">
-              <th style="text-align:left;padding:10px;border-bottom:1px solid #eee;">RM Product</th>
-              <th style="text-align:right;padding:10px;border-bottom:1px solid #eee;width:120px;">Qty</th>
-              <th style="text-align:left;padding:10px;border-bottom:1px solid #eee;">Remark</th>
-            </tr>
-          </thead>
-          <tbody id="boeViewBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-  </div>
-</div>
+    <div id="stockToast"></div>
 
   </main>
 </div>
@@ -3967,12 +3650,7 @@ function printDN(id){
 
   const rows = (dn.items || []).map((it, idx)=>{
     const p = products.find(x=>x.id===it.productId);
-    return {
-      sr: idx+1,
-      product: p?.name || 'Unknown',
-      qty: Number(it.qty||0),
-      remark: it.remark || ''
-    };
+    return { sr: idx+1, product: p?.name || 'Unknown', qty: Number(it.qty||0), remark: it.remark || '' };
   });
 
   const totalQty = rows.reduce((s,r)=> s + Number(r.qty||0), 0);
@@ -3980,27 +3658,38 @@ function printDN(id){
   const w = window.open('', '_blank');
   if(!w){ showToast("Popup blocked by browser", true); return; }
 
+  // ✅ your saved logo file
+  const logoUrl = "pdflogo.png";
+
   w.document.write(`
-    <html>
-    <head>
-      <title>Delivery Note ${escapeHtml(dn.dnNo)}</title>
-      <style>
-        body{font-family:Arial;padding:22px;color:#111}
-        .head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
-        .box{border:1px solid #ccc;border-radius:10px;padding:12px}
-        h2{margin:0 0 6px}
-        .meta{font-size:13px;line-height:1.6;color:#333}
-        table{width:100%;border-collapse:collapse;margin-top:12px}
-        th,td{border:1px solid #ccc;padding:8px;text-align:left;font-size:13px}
-        th{background:#007bff;color:#fff}
-        .foot{display:flex;justify-content:space-between;margin-top:18px;gap:12px}
-        .sign{flex:1;border-top:1px dashed #999;padding-top:10px;font-size:13px}
-        .small{font-size:12px;color:#555;margin-top:6px}
-        .right{text-align:right}
-      </style>
-    </head>
-    <body>
-      <div class="head">
+  <html>
+  <head>
+    <title>Delivery Note ${escapeHtml(dn.dnNo)}</title>
+    <style>
+      body{font-family:Arial;padding:22px;color:#111}
+      .head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:14px}
+      .leftHead{display:flex;gap:12px;align-items:flex-start}
+      .logo{
+        width:70px;height:70px;object-fit:contain;
+        border:1px solid #ddd;border-radius:10px;padding:6px;background:#fff;
+      }
+      .box{border:1px solid #ccc;border-radius:10px;padding:12px}
+      h2{margin:0 0 6px}
+      .meta{font-size:13px;line-height:1.6;color:#333}
+      table{width:100%;border-collapse:collapse;margin-top:12px}
+      th,td{border:1px solid #ccc;padding:8px;text-align:left;font-size:13px}
+      th{background:#007bff;color:#fff}
+      .foot{display:flex;justify-content:space-between;margin-top:18px;gap:12px}
+      .sign{flex:1;border-top:1px dashed #999;padding-top:10px;font-size:13px}
+      .small{font-size:12px;color:#555;margin-top:6px}
+      .right{text-align:right}
+    </style>
+  </head>
+
+  <body>
+    <div class="head">
+      <div class="leftHead">
+        <img class="logo" src="${logoUrl}" alt="Logo">
         <div>
           <h2>RM DELIVERY NOTE</h2>
           <div class="meta">
@@ -4012,47 +3701,49 @@ function printDN(id){
             ${dn.generalRemark ? `<b>Remark:</b> ${escapeHtml(dn.generalRemark)}<br>` : ``}
           </div>
         </div>
-        <div class="box right">
-          <div style="font-weight:700">Stock Manager</div>
-          <div class="small">Printable Delivery Note</div>
-        </div>
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th style="width:60px">Sr</th>
-            <th>RM Product</th>
-            <th style="width:120px">Qty</th>
-            <th>Remark</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map(r=>`
-            <tr>
-              <td>${r.sr}</td>
-              <td>${escapeHtml(r.product)}</td>
-              <td>${r.qty}</td>
-              <td>${escapeHtml(r.remark)}</td>
-            </tr>
-          `).join('')}
-          <tr>
-            <td colspan="2" style="text-align:right"><b>Total</b></td>
-            <td><b>${totalQty}</b></td>
-            <td></td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div class="foot">
-        <div class="sign"><b>Prepared By</b><div class="small">Name / Sign</div></div>
-        <div class="sign"><b>Issued By (Store)</b><div class="small">Name / Sign</div></div>
-        <div class="sign"><b>Received By (Factory)</b><div class="small">Name / Sign</div></div>
+      <div class="box right">
+        <div style="font-weight:700">Stock Manager</div>
+        <div class="small">Printable Delivery Note</div>
       </div>
+    </div>
 
-      <script>window.onload=()=>window.print();<\/script>
-    </body>
-    </html>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:60px">Sr</th>
+          <th>RM Product</th>
+          <th style="width:120px">Qty</th>
+          <th>Remark</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r=>`
+          <tr>
+            <td>${r.sr}</td>
+            <td>${escapeHtml(r.product)}</td>
+            <td>${r.qty}</td>
+            <td>${escapeHtml(r.remark)}</td>
+          </tr>
+        `).join('')}
+        <tr>
+          <td colspan="2" style="text-align:right"><b>Total</b></td>
+          <td><b>${totalQty}</b></td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="foot">
+      <div class="sign"><b>Prepared By</b><div class="small">Name / Sign</div></div>
+      <div class="sign"><b>Issued By (Store)</b><div class="small">Name / Sign</div></div>
+      <div class="sign"><b>Received By (Factory)</b><div class="small">Name / Sign</div></div>
+    </div>
+
+    <script>window.onload=()=>window.print();<\/script>
+  </body>
+  </html>
   `);
 
   w.document.close();

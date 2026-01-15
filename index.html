@@ -1177,21 +1177,32 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
 
 
 <script>
+/* =========================================================
+   ✅ STOCK MANAGER — FULL SCRIPT (CLEAN + CONSOLIDATED)
+   - Removes duplicates (autoPullFromCloud / saveProductions / saveAllRM etc.)
+   - Fixes undefined vars (bills, KEY_BILLS scope, deleteProduct audit bug)
+   - Keeps modules: Auth + Roles, Audit, RM, FG, BOE, Production, DN, Suppliers,
+     Dashboard grouped, Cloud sync (single source of truth)
+========================================================= */
+
 /* =========================
-   ✅ GLOBALS
+   ✅ GLOBALS / STATE
 ========================= */
 let selectedFGVolumes = new Set();
 let currentUser = null;
 let fgChartInstance = null;
 
-const loginScreen = document.getElementById('loginScreen');
-const loginForm   = document.getElementById('loginForm');
-const signupForm  = document.getElementById('signupForm');
-const loginMsg    = document.getElementById('loginMsg');
-const signupMsg   = document.getElementById('signupMsg');
+const $ = (sel, root=document) => root.querySelector(sel);
+const $$ = (sel, root=document) => [...root.querySelectorAll(sel)];
+
+const loginScreen = $('#loginScreen');
+const loginForm   = $('#loginForm');
+const signupForm  = $('#signupForm');
+const loginMsg    = $('#loginMsg');
+const signupMsg   = $('#signupMsg');
 
 /* =========================
-   ✅ FIREBASE INIT
+   ✅ FIREBASE INIT (compat)
 ========================= */
 const firebaseConfig = {
   apiKey: "AIzaSyBTtsOeQTpPwTEn_T9EDqt5i_0eyQuzGOA",
@@ -1204,15 +1215,23 @@ const firebaseConfig = {
   measurementId: "G-G735N8XCQ2"
 };
 
-firebase.initializeApp(firebaseConfig);
+try{
+  firebase.initializeApp(firebaseConfig);
+}catch(e){
+  // ignore "already exists"
+}
 const cloudDB = firebase.database();
 window.cloudDB = cloudDB;
-const CLOUD_PATH_RM = "stockManager/v1";
+
+const CLOUD_PATH = "stockManager/v1"; // ✅ single path
+window.CLOUD_PATH = CLOUD_PATH;
+
 /* =========================
    ✅ UTILITIES
 ========================= */
 function genId(){ return 'id_' + Date.now().toString(36) + '_' + Math.floor(Math.random()*1000); }
 function todayISO(){ return new Date().toISOString().split('T')[0]; }
+function nowISO(){ return new Date().toISOString(); }
 function fmtDate(iso){
   if(!iso) return '-';
   const p = String(iso).split('-');
@@ -1229,7 +1248,7 @@ function normalizeGroup(g){
   return String(g || '').trim().toUpperCase().replace(/\s+/g,'');
 }
 function showToast(message, isError=false){
-  const toast = document.getElementById('stockToast');
+  const toast = $('#stockToast');
   if(!toast) return;
   toast.textContent = message;
   toast.classList.toggle('out', isError);
@@ -1240,40 +1259,23 @@ function showToast(message, isError=false){
     setTimeout(()=> toast.style.display='none', 300);
   }, 2000);
 }
-
-/* =========================
-   ✅ OPTIONAL: FIX bannerUrl template issue
-   (If you ever used src="${bannerUrl}" it won't work in HTML.)
-========================= */
 function setBanner(url){
-  const img = document.getElementById('brandBanner');
+  const img = $('#brandBanner');
   if(img) img.src = url || 'banner.png';
-  // set background watermark
   document.body.style.setProperty('--banner-url', url || 'banner.png');
 }
 setBanner('banner.png');
 
-
-function isUserTypingInForms(){
-  const el = document.activeElement;
-  if(!el) return false;
-
-  // If cursor is inside any of these forms, DO NOT re-render/reset them
-  const inForms = el.closest('#rmDeliveryNote, #billEntry, #productionAuto');
-  const isField = el.matches('input, textarea, select');
-
-  return !!(inForms && isField);
-}
+function who(){ return (currentUser?.username || currentUser?.user || "unknown"); }
 
 /* =========================
    ✅ PAGE NAV
 ========================= */
 function openPage(pageId){
-  document.querySelectorAll('.page').forEach(p=>p.style.display='none');
+  $$('.page').forEach(p=>p.style.display='none');
   const el = document.getElementById(pageId);
   if(el) el.style.display='block';
 
-  // page-specific renders
   if(pageId === 'dashboardPage'){
     renderMainDashboard();
     renderFGVolumeFilter();
@@ -1282,43 +1284,38 @@ function openPage(pageId){
   if(pageId === 'dashboard'){
     renderDashboardGrouped();
   }
-if(pageId === 'suppliers'){
-  renderSuppliers?.();
-}
-if(pageId === 'billEntry'){
-  renderBOESupplierDropdown();
-  if(!document.getElementById('boeDate').value) document.getElementById('boeDate').value = todayISO();
-  if(!document.getElementById('boeItemsBody').children.length) boeAddRow();
-  BOE.renderTable(); // ✅ correct
-}
-
-  if(pageId === 'productionAuto'){
+  if(pageId === 'suppliers'){
+    renderSuppliers();
+  }
+  if(pageId === 'billEntry'){
+    renderBOESupplierDropdown();
+    const dt = $('#boeDate');
+    if(dt && !dt.value) dt.value = todayISO();
+    const body = $('#boeItemsBody');
+    if(body && !body.children.length) boeAddRow();
+    BOE?.renderTable?.();
+  }
+  if(pageId === 'productionAuto' || pageId === 'productionEntry'){
     renderProdFGDropdown();
+    const dt = $('#prodDate');
+    if(dt && !dt.value) dt.value = todayISO();
     renderBOM();
+    renderProductionsTable();
   }
   if(pageId === 'pageProductionRecords'){
     renderProductionsTable();
   }
-
-if(pageId === 'productionEntry'){
-  renderProdFGDropdown();
-  if(!document.getElementById('prodDate').value) document.getElementById('prodDate').value = todayISO();
-
-  if(!document.getElementById('prodRMBody').children.length) prodAddRMRow();
-  if(!document.getElementById('prodRMReturnBody').children.length) prodAddRMReturnRow();
-
-  renderProductionsTable();
-}
-if(pageId === 'rmDeliveryNote'){
-  if(!document.getElementById('dnDate').value) document.getElementById('dnDate').value = todayISO();
-  if(!document.getElementById('dnItemsBody').children.length) dnAddRow();
-  renderDNTable();
-}
-
-
+  if(pageId === 'rmDeliveryNote'){
+    const dt = $('#dnDate');
+    if(dt && !dt.value) dt.value = todayISO();
+    const body = $('#dnItemsBody');
+    if(body && !body.children.length) dnAddRow();
+    renderDNTable();
+  }
 
   refreshAll();
 }
+window.openPage = openPage;
 
 /* =========================
    ✅ ADMIN DEFAULT USER
@@ -1328,7 +1325,7 @@ const DEFAULT_ADMIN = {
   password: "admin123",
   role: "admin",
   permissionLevel: "full",
-  createdAt: new Date().toISOString()
+  createdAt: nowISO()
 };
 
 async function ensureAdminExists(){
@@ -1346,11 +1343,11 @@ async function ensureAdminExists(){
 ensureAdminExists();
 
 /* =========================
-   ✅ ROLE PERMISSIONS (ADMIN ALWAYS FULL POWER)
+   ✅ ROLE PERMISSIONS
 ========================= */
 const ROLE_PERMISSIONS = {
-  full: { stockIn:true, stockOut:true,  add:true,  edit:true,  delete:true },
-  half: { stockIn:true, stockOut:true, add:true,  edit:true,  delete:false },
+  full: { stockIn:true, stockOut:true, add:true, edit:true, delete:true },
+  half: { stockIn:true, stockOut:true, add:true, edit:true, delete:false },
   view: { stockIn:true, stockOut:true, add:false, edit:false, delete:false }
 };
 
@@ -1365,45 +1362,48 @@ function canDelete(){ return !!getPerms().delete; }
 
 function showAdminUI(){
   const isAdmin = currentUser?.role === 'admin';
-  document.querySelectorAll('.admin-only').forEach(el=>{
-    el.style.display = isAdmin ? '' : 'none';
-  });
+  $$('.admin-only').forEach(el=>{ el.style.display = isAdmin ? '' : 'none'; });
 }
-
 function applyPermissions(){
   showAdminUI();
   const p = getPerms();
-
-  document.querySelectorAll('.btn-add').forEach(b => b.style.display = p.add ? 'inline-block' : 'none');
-  document.querySelectorAll('.btn-edit').forEach(b => b.style.display = p.edit ? 'inline-block' : 'none');
-  document.querySelectorAll('.btn-delete').forEach(b => b.style.display = p.delete ? 'inline-block' : 'none');
-  document.querySelectorAll('.btn-stock-out').forEach(b => b.style.display = p.stockOut ? 'inline-block' : 'none');
+  $$('.btn-add').forEach(b => b.style.display = p.add ? 'inline-block' : 'none');
+  $$('.btn-edit').forEach(b => b.style.display = p.edit ? 'inline-block' : 'none');
+  $$('.btn-delete').forEach(b => b.style.display = p.delete ? 'inline-block' : 'none');
+  $$('.btn-stock-out').forEach(b => b.style.display = p.stockOut ? 'inline-block' : 'none');
 }
+window.applyPermissions = applyPermissions;
 
 /* =========================
    ✅ AUTH UI
 ========================= */
 function showSignup(){
-  loginForm.style.display='none';
-  signupForm.style.display='block';
-  loginMsg.textContent='';
+  if(loginForm) loginForm.style.display='none';
+  if(signupForm) signupForm.style.display='block';
+  if(loginMsg) loginMsg.textContent='';
 }
 function showLogin(){
-  loginForm.style.display='block';
-  signupForm.style.display='none';
-  signupMsg.textContent='';
+  if(loginForm) loginForm.style.display='block';
+  if(signupForm) signupForm.style.display='none';
+  if(signupMsg) signupMsg.textContent='';
 }
+window.showSignup = showSignup;
+window.showLogin = showLogin;
 
 async function signup(){
-  const u = signupUser.value.trim();
-  const p = signupPass.value;
-  const role = signupRole.value;
+  const signupUser = $('#signupUser');
+  const signupPass = $('#signupPass');
+  const signupRole = $('#signupRole');
 
-  if(!u || !p){ signupMsg.textContent="Enter username & password"; return; }
+  const u = (signupUser?.value || '').trim();
+  const p = (signupPass?.value || '');
+  const role = (signupRole?.value || 'user');
+
+  if(!u || !p){ if(signupMsg) signupMsg.textContent="Enter username & password"; return; }
 
   try{
     const snap = await cloudDB.ref('users').orderByChild('username').equalTo(u).once('value');
-    if(snap.exists()){ signupMsg.textContent="Username already taken"; return; }
+    if(snap.exists()){ if(signupMsg) signupMsg.textContent="Username already taken"; return; }
 
     const userId = 'u_'+Date.now().toString(36)+'_'+Math.floor(Math.random()*1000);
     await cloudDB.ref('users/'+userId).set({
@@ -1411,57 +1411,64 @@ async function signup(){
       password:p,
       role,
       permissionLevel:'view',
-      createdAt:new Date().toISOString()
+      createdAt: nowISO()
     });
 
-    signupMsg.style.color="green";
-    signupMsg.textContent="Account created! Please login.";
+    if(signupMsg){
+      signupMsg.style.color="green";
+      signupMsg.textContent="Account created! Please login.";
+    }
     showLogin();
   }catch(err){
     console.error(err);
-    signupMsg.textContent="Signup failed";
+    if(signupMsg) signupMsg.textContent="Signup failed";
   }
 }
+window.signup = signup;
 
 async function login(){
-  const u = loginUser.value.trim();
-  const p = loginPass.value;
+  const loginUser = $('#loginUser');
+  const loginPass = $('#loginPass');
 
-  if(!u || !p){ loginMsg.textContent="Enter username & password"; return; }
+  const u = (loginUser?.value || '').trim();
+  const p = (loginPass?.value || '');
+
+  if(!u || !p){ if(loginMsg) loginMsg.textContent="Enter username & password"; return; }
 
   try{
     const snap = await cloudDB.ref('users').orderByChild('username').equalTo(u).once('value');
-    if(!snap.exists()){ loginMsg.textContent="Invalid login"; return; }
+    if(!snap.exists()){ if(loginMsg) loginMsg.textContent="Invalid login"; return; }
 
-    const userData = Object.values(snap.val())[0];
-    if(userData.password !== p){ loginMsg.textContent="Invalid login"; return; }
+    const userData = Object.values(snap.val() || {})[0];
+    if(userData?.password !== p){ if(loginMsg) loginMsg.textContent="Invalid login"; return; }
 
     currentUser = userData;
     localStorage.setItem('sms_currentUser', JSON.stringify(currentUser));
 
-    loginScreen.style.display='none';
-    document.querySelector('.app').style.display='flex';
+    if(loginScreen) loginScreen.style.display='none';
+    const app = $('.app');
+    if(app) app.style.display='flex';
 
     applyPermissions();
 
-    // ✅ open pages
     if(currentUser.role === 'admin'){
       openPage('userManagement');
       renderUsersTable();
     }else{
       openPage('dashboardPage');
     }
-
   }catch(err){
     console.error(err);
-    loginMsg.textContent="Login failed";
+    if(loginMsg) loginMsg.textContent="Login failed";
   }
 }
+window.login = login;
 
 function logout(){
   localStorage.removeItem('sms_currentUser');
   location.reload();
 }
+window.logout = logout;
 
 async function forgotPassword(){
   const username = prompt("Enter your username to reset password:");
@@ -1471,8 +1478,8 @@ async function forgotPassword(){
     const snap = await cloudDB.ref('users').orderByChild('username').equalTo(username.trim()).once('value');
     if(!snap.exists()){ alert("Username not found"); return; }
 
-    const userId = Object.keys(snap.val())[0];
-    const userData = snap.val()[userId];
+    const userId = Object.keys(snap.val() || {})[0];
+    const userData = (snap.val() || {})[userId];
 
     const newPass = prompt(`Enter new password for "${userData.username}":`);
     if(!newPass || !newPass.trim()) return alert("Password cannot be empty");
@@ -1484,40 +1491,33 @@ async function forgotPassword(){
     alert("Failed to reset password");
   }
 }
+window.forgotPassword = forgotPassword;
 
 /* =========================
    ✅ USER MANAGEMENT
 ========================= */
 function changeUserPermission(username, level){
-  if(currentUser?.role !== 'admin'){
-    showToast("Only admin can change roles", true);
-    return;
-  }
-  if(username === 'admin'){
-    showToast("Admin permission cannot be changed", true);
-    return;
-  }
+  if(currentUser?.role !== 'admin'){ showToast("Only admin can change roles", true); return; }
+  if(username === 'admin'){ showToast("Admin permission cannot be changed", true); return; }
 
   cloudDB.ref('users').orderByChild('username').equalTo(username).once('value')
     .then(snap=>{
       if(!snap.exists()) return;
-      const userId = Object.keys(snap.val())[0];
+      const userId = Object.keys(snap.val() || {})[0];
       cloudDB.ref('users/'+userId+'/permissionLevel').set(level);
       showToast("User permission updated ✅");
     });
 }
+window.changeUserPermission = changeUserPermission;
 
 async function deleteUser(username){
   if(!confirm(`Delete "${username}"?`)) return;
-
   try{
     const snap = await cloudDB.ref('users').orderByChild('username').equalTo(username).once('value');
     if(!snap.exists()) return alert("User not found");
-
-    const userId = Object.keys(snap.val())[0];
-    const userData = snap.val()[userId];
+    const userId = Object.keys(snap.val() || {})[0];
+    const userData = (snap.val() || {})[userId];
     if(userData.role === 'admin') return alert("Cannot delete admin");
-
     await cloudDB.ref('users/'+userId).remove();
     showToast("User deleted ✅");
     renderUsersTable();
@@ -1526,9 +1526,10 @@ async function deleteUser(username){
     alert("Failed to delete user");
   }
 }
+window.deleteUser = deleteUser;
 
 async function renderUsersTable(){
-  const tbody = document.querySelector('#usersTable tbody');
+  const tbody = $('#usersTable tbody');
   if(!tbody) return;
 
   tbody.innerHTML = '';
@@ -1538,7 +1539,6 @@ async function renderUsersTable(){
   users.forEach((u,i)=>{
     const perm = u.permissionLevel || 'view';
     const isAdminRow = (u.role === 'admin' || u.username === 'admin');
-
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${i+1}</td>
@@ -1548,15 +1548,15 @@ async function renderUsersTable(){
           isAdminRow
             ? `<b>Full (Admin)</b>`
             : (currentUser?.role === 'admin'
-                ? `
-                  <select onchange="changeUserPermission('${escapeHtml(u.username)}', this.value)">
-                    <option value="full" ${perm==='full'?'selected':''}>Full</option>
-                    <option value="half" ${perm==='half'?'selected':''}>Half</option>
-                    <option value="view" ${perm==='view'?'selected':''}>View</option>
-                  </select>
-                `
-                : escapeHtml(perm)
-              )
+              ? `
+                <select onchange="changeUserPermission('${escapeHtml(u.username)}', this.value)">
+                  <option value="full" ${perm==='full'?'selected':''}>Full</option>
+                  <option value="half" ${perm==='half'?'selected':''}>Half</option>
+                  <option value="view" ${perm==='view'?'selected':''}>View</option>
+                </select>
+              `
+              : escapeHtml(perm)
+            )
         }
       </td>
       <td>
@@ -1570,16 +1570,14 @@ async function renderUsersTable(){
     tbody.appendChild(tr);
   });
 }
+window.renderUsersTable = renderUsersTable;
 
 async function addUser(){
-  if(currentUser?.role !== 'admin'){
-    showToast("Only admin can add users", true);
-    return;
-  }
+  if(currentUser?.role !== 'admin'){ showToast("Only admin can add users", true); return; }
 
-  const u = (document.getElementById('newUsername')?.value || '').trim();
-  const p = (document.getElementById('newPassword')?.value || '');
-  const role = (document.getElementById('newRole')?.value || 'user');
+  const u = ($('#newUsername')?.value || '').trim();
+  const p = ($('#newPassword')?.value || '');
+  const role = ($('#newRole')?.value || 'user');
 
   if(!u || !p){ showToast("Username & password required", true); return; }
 
@@ -1592,109 +1590,107 @@ async function addUser(){
     password: p,
     role,
     permissionLevel: (role === 'admin' ? 'full' : 'view'),
-    createdAt: new Date().toISOString()
+    createdAt: nowISO()
   });
 
-  document.getElementById('newUsername').value = '';
-  document.getElementById('newPassword').value = '';
-  document.getElementById('newRole').value = 'user';
+  if($('#newUsername')) $('#newUsername').value = '';
+  if($('#newPassword')) $('#newPassword').value = '';
+  if($('#newRole')) $('#newRole').value = 'user';
 
   showToast("User added ✅");
   renderUsersTable();
 }
+window.addUser = addUser;
 
-// =========================
-// ✅ AUDIT LOG (time + username + changes)
-// =========================
+/* =========================
+   ✅ AUDIT LOG
+========================= */
 const KEY_AUDIT = "sm_audit_v1";
 let auditLog = JSON.parse(localStorage.getItem(KEY_AUDIT) || "[]");
 
-// ISO time in Dubai local display (still stores ISO)
-function nowISO(){ return new Date().toISOString(); }
-function who(){ return (currentUser?.username || currentUser?.user || "unknown"); }
+function saveAudit(){ localStorage.setItem(KEY_AUDIT, JSON.stringify(auditLog)); }
 
-function saveAudit(){
-  localStorage.setItem(KEY_AUDIT, JSON.stringify(auditLog));
-}
-
-// action examples: "BOE_CREATE", "BOE_EDIT", "BOE_DELETE", "PROD_CREATE", ...
 function logChange(action, entityId, details = {}){
-  auditLog.push({
-    id: "log_" + genId(),
-    at: nowISO(),
-    by: who(),
-    action,
-    entityId,
-    details
-  });
-
-  // optional: keep log size under control
+  auditLog.push({ id: "log_" + genId(), at: nowISO(), by: who(), action, entityId, details });
   if(auditLog.length > 5000) auditLog = auditLog.slice(auditLog.length - 5000);
-
   saveAudit();
 }
+window.logChange = logChange;
 
 /* =========================
-   ✅ LOCAL STORAGE DATA (RM)
+   ✅ LOCAL STORAGE KEYS
 ========================= */
 const KEY_PRODUCTS = 'sms_products_final_v1';
 const KEY_MOVES    = 'sms_movements_final_v1';
 
+const KEY_FG_PRODS = 'sms_fg_products';
+const KEY_FG_MOVES = 'sms_fg_movements';
+
+const KEY_SUPPLIERS = "sms_suppliers_v1";
+const KEY_BILLS     = "sms_bills_v1";
+const KEY_PROD      = "sms_productions_v1";
+const KEY_DN        = "sms_delivery_notes_v1";
+
+/* =========================
+   ✅ RM DATA
+========================= */
 let products = JSON.parse(localStorage.getItem(KEY_PRODUCTS) || '[]');
 let stockMovements = JSON.parse(localStorage.getItem(KEY_MOVES) || '[]');
 
-function saveAll(){
-  localStorage.setItem(KEY_PRODUCTS, JSON.stringify(products));
-  localStorage.setItem(KEY_MOVES, JSON.stringify(stockMovements));
+function saveRM(){
+  localStorage.setItem(KEY_PRODUCTS, JSON.stringify(products || []));
+  localStorage.setItem(KEY_MOVES, JSON.stringify(stockMovements || []));
 }
+window.saveRM = saveRM;
 
 function computeBalance(productId){
   let bal=0;
-  stockMovements.forEach(m=>{
+  (stockMovements||[]).forEach(m=>{
     if(m.productId===productId) bal += (m.type==='IN' ? Number(m.quantity||0) : -Number(m.quantity||0));
   });
   return bal>0 ? bal : 0;
 }
-
 function lastMovement(productId, type){
-  const moves = stockMovements.filter(m=>m.productId===productId && m.type===type);
+  const moves = (stockMovements||[]).filter(m=>m.productId===productId && m.type===type);
   if(!moves.length) return '-';
   return moves[moves.length-1].date || '-';
 }
+window.computeBalance = computeBalance;
 
 /* =========================
    ✅ FG DATA
 ========================= */
-let fgProducts  = JSON.parse(localStorage.getItem('sms_fg_products') || '[]');
-let fgMovements = JSON.parse(localStorage.getItem('sms_fg_movements') || '[]');
+let fgProducts  = JSON.parse(localStorage.getItem(KEY_FG_PRODS) || '[]');
+let fgMovements = JSON.parse(localStorage.getItem(KEY_FG_MOVES) || '[]');
 
 function saveFGLocal(){
-  localStorage.setItem('sms_fg_products', JSON.stringify(fgProducts));
-  localStorage.setItem('sms_fg_movements', JSON.stringify(fgMovements));
+  localStorage.setItem(KEY_FG_PRODS, JSON.stringify(fgProducts || []));
+  localStorage.setItem(KEY_FG_MOVES, JSON.stringify(fgMovements || []));
 }
+window.saveFGLocal = saveFGLocal;
 
 function computeFGBalance(fgId){
-  return fgMovements.reduce((sum,m)=>{
-    if(m.fgId===fgId){
-      return sum + (m.type==='IN'? Number(m.qty||0) : -Number(m.qty||0));
-    }
+  return (fgMovements||[]).reduce((sum,m)=>{
+    if(m.fgId===fgId) return sum + (m.type==='IN'? Number(m.qty||0) : -Number(m.qty||0));
     return sum;
   },0);
 }
+window.computeFGBalance = computeFGBalance;
 
 function initFGVolumeSelection(){
   if(selectedFGVolumes.size) return;
-  fgProducts.forEach(f=>{
+  (fgProducts||[]).forEach(f=>{
     const v = (f.volume||'').trim();
     if(v) selectedFGVolumes.add(v);
   });
 }
+window.initFGVolumeSelection = initFGVolumeSelection;
 
 /* =========================
    ✅ DASHBOARD (MAIN CARDS)
 ========================= */
 function getFGLowStockCount(){
-  return fgProducts.filter(f => computeFGBalance(f.id) <= (Number(f.threshold ?? 5))).length;
+  return (fgProducts||[]).filter(f => computeFGBalance(f.id) <= (Number(f.threshold ?? 5))).length;
 }
 
 function renderMainDashboard(){
@@ -1708,57 +1704,95 @@ function renderMainDashboard(){
   const fgMaxEl         = document.getElementById('dashFGMaxBalance');
   const fgMinEl         = document.getElementById('dashFGMinBalance');
 
+  // If the 4 main RM cards don't exist, just exit safely
   if(!totalProductsEl || !totalStockEl || !lowStockEl || !fgBalanceEl) return;
 
-  // RM
-  totalProductsEl.textContent = products.length;
+  // --------------------
+  // RM cards
+  // --------------------
+  const rmList = Array.isArray(products) ? products : [];
+  const rmMoves = Array.isArray(stockMovements) ? stockMovements : [];
+
+  totalProductsEl.textContent = rmList.length;
 
   let totalStock = 0;
   let lowStock = 0;
-  products.forEach(p=>{
-    const bal = computeBalance(p.id);
-    totalStock += Number(bal)||0;
-    if((Number(bal)||0) <= (Number(p.threshold ?? 5))) lowStock++;
+
+  rmList.forEach(p=>{
+    const bal = Number(computeBalance?.(p.id) || 0);
+    totalStock += bal;
+
+    const thr = Number(p.threshold ?? 5);
+    if(bal <= thr) lowStock++;
   });
 
   totalStockEl.textContent = totalStock;
   lowStockEl.textContent = lowStock;
 
-  // FG
-  const fgTotal = fgProducts.reduce((sum,f)=> sum + computeFGBalance(f.id), 0);
-  fgBalanceEl.textContent = fgTotal;
+  // --------------------
+  // FG cards
+  // --------------------
+  const fgList = Array.isArray(fgProducts) ? fgProducts : [];
 
-  if(fgTotalEl) fgTotalEl.textContent = fgProducts.length;
-  if(fgLowEl) fgLowEl.textContent = getFGLowStockCount();
+  const fgTotalBalance = fgList.reduce((sum,f)=> sum + Number(computeFGBalance?.(f.id) || 0), 0);
+  fgBalanceEl.textContent = fgTotalBalance;
 
-  if(fgMaxEl){
-    const maxFG = fgProducts.reduce((max, f)=>{
-      const bal = computeFGBalance(f.id);
-      return (bal > max.balance) ? {name:f.name, balance:bal} : max;
-    }, {name:'-', balance:-Infinity});
-    fgMaxEl.textContent = (maxFG.balance === -Infinity) ? '-' : `${maxFG.name} (${maxFG.balance})`;
+  if(fgTotalEl) fgTotalEl.textContent = fgList.length;
+
+  if(fgLowEl){
+    const lowCount = fgList.filter(f=>{
+      const bal = Number(computeFGBalance?.(f.id) || 0);
+      const thr = Number(f.threshold ?? 5);
+      return bal <= thr;
+    }).length;
+    fgLowEl.textContent = lowCount;
   }
 
+  // Max FG
+  if(fgMaxEl){
+    if(!fgList.length){
+      fgMaxEl.textContent = '-';
+    }else{
+      let maxFG = { name:'-', balance: -Infinity };
+      fgList.forEach(f=>{
+        const bal = Number(computeFGBalance?.(f.id) || 0);
+        if(bal > maxFG.balance){
+          maxFG = { name: (f.name || '-'), balance: bal };
+        }
+      });
+      fgMaxEl.textContent = (maxFG.balance === -Infinity) ? '-' : `${maxFG.name} (${maxFG.balance})`;
+    }
+  }
+
+  // Min FG  ✅ (NO "min" variable anywhere)
   if(fgMinEl){
-    const minFG = fgProducts.reduce((min, f)=>{
-      const bal = computeFGBalance(f.id);
-      return (bal < min.balance) ? {name:f.name, balance:bal} : min;
-    }, {name:'-', balance:Infinity});
-    fgMinEl.textContent = (minFG.balance === Infinity) ? '-' : `${minFG.name} (${minFG.balance})`;
+    if(!fgList.length){
+      fgMinEl.textContent = '-';
+    }else{
+      let minFG = { name:'-', balance: Infinity };
+      fgList.forEach(f=>{
+        const bal = Number(computeFGBalance?.(f.id) || 0);
+        if(bal < minFG.balance){
+          minFG = { name: (f.name || '-'), balance: bal };
+        }
+      });
+      fgMinEl.textContent = (minFG.balance === Infinity) ? '-' : `${minFG.name} (${minFG.balance})`;
+    }
   }
 }
+
+window.renderMainDashboard = renderMainDashboard;
 
 /* =========================
    ✅ FG FILTER + CHART
 ========================= */
 function renderFGVolumeFilter(){
-  const wrap = document.getElementById('fgVolumeFilter');
+  const wrap = $('#fgVolumeFilter');
   if(!wrap) return;
 
-  const volumes = [...new Set(fgProducts.map(f=>(f.volume||'').trim()).filter(v=>v))].sort();
+  const volumes = [...new Set((fgProducts||[]).map(f=>(f.volume||'').trim()).filter(Boolean))].sort();
   wrap.innerHTML = '';
 
-  // if nothing selected, select all
   if(!selectedFGVolumes.size){
     volumes.forEach(v=> selectedFGVolumes.add(v));
   }
@@ -1781,7 +1815,6 @@ function renderFGVolumeFilter(){
       if(e.target.checked) selectedFGVolumes.add(vol);
       else selectedFGVolumes.delete(vol);
 
-      // if user unchecks all -> auto select all again
       if(!selectedFGVolumes.size){
         volumes.forEach(v=> selectedFGVolumes.add(v));
         renderFGVolumeFilter();
@@ -1792,12 +1825,13 @@ function renderFGVolumeFilter(){
     wrap.appendChild(label);
   });
 }
+window.renderFGVolumeFilter = renderFGVolumeFilter;
 
 function renderFGChart(){
-  const canvas = document.getElementById('fgStockChart');
-  if(!canvas) return;
+  const canvas = $('#fgStockChart');
+  if(!canvas || !window.Chart) return;
 
-  const filteredFG = fgProducts.filter(f => selectedFGVolumes.has((f.volume||'').trim()));
+  const filteredFG = (fgProducts||[]).filter(f => selectedFGVolumes.has((f.volume||'').trim()));
   const labels = filteredFG.map(f => (f.name||'').length>12 ? f.name.slice(0,12)+'…' : f.name);
   const data   = filteredFG.map(f => computeFGBalance(f.id));
 
@@ -1823,22 +1857,24 @@ function renderFGChart(){
     }
   });
 }
+window.renderFGChart = renderFGChart;
 
 /* =========================
-   ✅ FG PAGES (with LOW filter from dashboard)
+   ✅ FG PAGES
 ========================= */
 let fgOnlyLow = false;
-
 function openFGFromDashboard(){ fgOnlyLow = false; openPage('fgStock'); }
 function openLowFGFromDashboard(){ fgOnlyLow = true; openPage('fgStock'); }
+window.openFGFromDashboard = openFGFromDashboard;
+window.openLowFGFromDashboard = openLowFGFromDashboard;
 
 function renderFGStock(){
-  const tbody = document.querySelector('#fgTable tbody');
+  const tbody = $('#fgTable tbody');
   if(!tbody) return;
   tbody.innerHTML='';
 
-  const search = (document.getElementById('fgSearch')?.value || '').toLowerCase().trim();
-  const sorted = [...fgProducts].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const search = ($('#fgSearch')?.value || '').toLowerCase().trim();
+  const sorted = [...(fgProducts||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
 
   let i=1;
   sorted.forEach(p=>{
@@ -1852,8 +1888,8 @@ function renderFGStock(){
     tbody.insertAdjacentHTML('beforeend',`
       <tr>
         <td>${i++}</td>
-	<td>${escapeHtml(p.productcode||'-')}</td>
-	<td>${escapeHtml(p.barcode||'-')}</td>
+        <td>${escapeHtml(p.productcode||'-')}</td>
+        <td>${escapeHtml(p.barcode||'-')}</td>
         <td class="${bal <= thr ? 'low-stock' : ''}">${escapeHtml(p.name)}</td>
         <td>${escapeHtml(p.volume||'-')}</td>
         <td class="${bal <= thr ? 'low-stock' : ''}">${bal}</td>
@@ -1870,14 +1906,15 @@ function renderFGStock(){
 
   applyPermissions();
 }
+window.renderFGStock = renderFGStock;
 
 function renderFGStockIn(){
-  const tbody = document.getElementById('fgStockInBody');
+  const tbody = $('#fgStockInBody');
   if(!tbody) return;
   tbody.innerHTML='';
 
-  const search = (document.getElementById('fgInSearch')?.value || '').toLowerCase().trim();
-  const sorted = [...fgProducts].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const search = ($('#fgInSearch')?.value || '').toLowerCase().trim();
+  const sorted = [...(fgProducts||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
 
   let i=1;
   sorted.forEach(p=>{
@@ -1886,7 +1923,7 @@ function renderFGStockIn(){
     tbody.insertAdjacentHTML('beforeend',`
       <tr>
         <td>${i++}</td>
-	<td>${escapeHtml(p.productcode||'-')}</td>
+        <td>${escapeHtml(p.productcode||'-')}</td>
         <td>${escapeHtml(p.name)}</td>
         <td>${bal}</td>
         <td><button class="btn" onclick="openFGModal('${p.id}','IN')">Stock In</button></td>
@@ -1894,14 +1931,15 @@ function renderFGStockIn(){
     `);
   });
 }
+window.renderFGStockIn = renderFGStockIn;
 
 function renderFGStockOut(){
-  const tbody = document.getElementById('fgStockOutBody');
+  const tbody = $('#fgStockOutBody');
   if(!tbody) return;
   tbody.innerHTML='';
 
-  const search = (document.getElementById('fgOutSearch')?.value || '').toLowerCase().trim();
-  const sorted = [...fgProducts].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const search = ($('#fgOutSearch')?.value || '').toLowerCase().trim();
+  const sorted = [...(fgProducts||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
 
   let i=1;
   sorted.forEach(p=>{
@@ -1910,7 +1948,7 @@ function renderFGStockOut(){
     tbody.insertAdjacentHTML('beforeend',`
       <tr>
         <td>${i++}</td>
-	<td>${escapeHtml(p.productcode||'-')}</td>
+        <td>${escapeHtml(p.productcode||'-')}</td>
         <td>${escapeHtml(p.name)}</td>
         <td>${bal}</td>
         <td><button class="btn out btn-stock-out" onclick="openFGModal('${p.id}','OUT')">Stock Out</button></td>
@@ -1920,19 +1958,23 @@ function renderFGStockOut(){
 
   applyPermissions();
 }
+window.renderFGStockOut = renderFGStockOut;
 
 function viewFGHistory(fgId){
-  const fg = fgProducts.find(f=>f.id===fgId);
+  const fg = (fgProducts||[]).find(f=>f.id===fgId);
   if(!fg) return;
 
-  const modal = document.getElementById('historyModal');
-  modal.style.display='flex';
-  document.getElementById('modalTitle').textContent = `FG History — ${fg.name}`;
+  const modal = $('#historyModal');
+  if(!modal) return;
 
-  const tbody = document.getElementById('modalHistoryBody');
+  modal.style.display='flex';
+  $('#modalTitle').textContent = `FG History — ${fg.name}`;
+
+  const tbody = $('#modalHistoryBody');
+  if(!tbody) return;
   tbody.innerHTML='';
 
-  fgMovements
+  (fgMovements||[])
     .filter(m=>m.fgId===fgId)
     .slice()
     .sort((a,b)=>new Date(b.date)-new Date(a.date))
@@ -1950,107 +1992,55 @@ function viewFGHistory(fgId){
       `);
     });
 }
+window.viewFGHistory = viewFGHistory;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* =========================
-   ✅ BOE / GRN MODULE (DROP-IN REWRITE) — FIXED
-   Fixes:
-   - BOE.saveBills() exists
-   - window.saveBills exists immediately (Auto pull won't fail)
-   - BOE is guaranteed global for onclick="BOE.view(...)"
-========================= */
-
+/* =========================================================
+   ✅ BOE MODULE (GLOBAL, NO DUPLICATES)
+========================================================= */
 window.BOE = (() => {
-  const KEY_BILLS = 'sms_bills_v1';
-
-  // ✅ keep backward compatibility with older code that uses `savedBills`
-  window.savedBills = JSON.parse(localStorage.getItem(KEY_BILLS) || '[]');
-  let bills = window.savedBills;
+  // bills live in localStorage KEY_BILLS
+  let bills = JSON.parse(localStorage.getItem(KEY_BILLS) || '[]');
+  window.savedBills = bills; // backward compatibility
 
   let editingId = null;
   let lastViewedId = null;
-
-  // ---------- tiny helpers ----------
-  const esc = (s) => (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  }[c]));
 
   const rmCode = (p) => String(p?.code || p?.productCode || p?.sku || p?.barcode || '').trim();
   const rmName = (p) => String(p?.name || 'Unnamed').trim();
   const rmLabel = (p) => (rmCode(p) ? `(${rmCode(p)}) ${rmName(p)}` : rmName(p)).trim();
 
-  // ✅ FIX: proper saveBills + exposed immediately
-  function saveBills() {
-    window.savedBills = bills; // keep both in sync
-    localStorage.setItem(KEY_BILLS, JSON.stringify(bills));
+  function saveBills(){
+    localStorage.setItem(KEY_BILLS, JSON.stringify(bills || []));
+    window.savedBills = bills;
   }
-  window.saveBills = saveBills; // ✅ Auto pull / old code can call saveBills()
+  window.saveBills = saveBills; // old code safety
 
   function canStockIn(){
-    if (currentUser?.role === 'admin') return true;
-    if (typeof getPerms === 'function') return !!getPerms().stockIn;
-    return true;
+    if(currentUser?.role === 'admin') return true;
+    return !!getPerms().stockIn;
   }
 
   function getSupplierNameFromUI(){
-    const sel = document.getElementById('boeSupplier');
-    const other = document.getElementById('boeSupplierOther');
+    const sel = $('#boeSupplier');
+    const other = $('#boeSupplierOther');
     if(!sel) return '';
-
     if(sel.value === '__OTHER__') return (other?.value || '').trim();
 
-    const list = (window.suppliers && Array.isArray(window.suppliers)) ? window.suppliers : [];
+    const list = Array.isArray(window.suppliers) ? window.suppliers : [];
     const s = list.find(x => x.id === sel.value);
     return (s?.name || sel.value || '').trim();
   }
 
-  // ---------- supplier dropdown ----------
   function renderSupplierDropdown(){
-    const sel = document.getElementById('boeSupplier');
-    const other = document.getElementById('boeSupplierOther');
+    const sel = $('#boeSupplier');
+    const other = $('#boeSupplierOther');
     if(!sel) return;
 
-    const list = (window.suppliers && Array.isArray(window.suppliers)) ? window.suppliers : [];
+    const list = Array.isArray(window.suppliers) ? window.suppliers : [];
     sel.innerHTML = `<option value="">Select Supplier</option>`;
 
     list.forEach(s=>{
-      sel.insertAdjacentHTML('beforeend', `<option value="${esc(s.id)}">${esc(s.name)}</option>`);
+      sel.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`);
     });
 
     sel.insertAdjacentHTML('beforeend', `<option value="__OTHER__">Other...</option>`);
@@ -2067,7 +2057,7 @@ window.BOE = (() => {
     };
   }
 
-  // ---------- RM Search dropdown per row (must pick) ----------
+  /* --- RM search per row --- */
   function initRowSearch(tr){
     const input = tr.querySelector('[data-boe="productSearch"]');
     const dd = tr.querySelector('.rm-search-dd');
@@ -2094,7 +2084,7 @@ window.BOE = (() => {
       }
       dd.innerHTML = list.map((p,i)=>`
         <div class="rm-search-item" data-i="${i}">
-          ${esc(rmLabel(p))}
+          ${escapeHtml(rmLabel(p))}
         </div>
       `).join('');
       open();
@@ -2102,7 +2092,7 @@ window.BOE = (() => {
 
     const search = () => {
       const q = (input.value||'').toLowerCase().trim();
-      const all = [...products].sort((a,b)=> rmLabel(a).localeCompare(rmLabel(b)));
+      const all = [...(products||[])].sort((a,b)=> rmLabel(a).localeCompare(rmLabel(b)));
 
       if(!q) return render(all.slice(0,25));
 
@@ -2125,8 +2115,7 @@ window.BOE = (() => {
     const highlight = () => {
       const items = [...dd.querySelectorAll('.rm-search-item')];
       items.forEach((el,i)=> el.classList.toggle('active', i===active));
-      const act = dd.querySelector(`.rm-search-item[data-i="${active}"]`);
-      act?.scrollIntoView({block:'nearest'});
+      dd.querySelector(`.rm-search-item[data-i="${active}"]`)?.scrollIntoView({block:'nearest'});
     };
 
     input.addEventListener('focus', search);
@@ -2158,9 +2147,8 @@ window.BOE = (() => {
     tr._cleanup = ()=> document.removeEventListener('mousedown', onDocDown);
   }
 
-  // ---------- rows ----------
   function addRow(prefill=null){
-    const body = document.getElementById('boeItemsBody');
+    const body = $('#boeItemsBody');
     if(!body) return;
 
     const rowId = 'boeRow_' + genId();
@@ -2171,7 +2159,7 @@ window.BOE = (() => {
 
     let prefillText = '';
     if(productId){
-      const p = products.find(x=>x?.id === productId);
+      const p = (products||[]).find(x=>x?.id === productId);
       if(p) prefillText = rmLabel(p);
     }
 
@@ -2183,14 +2171,14 @@ window.BOE = (() => {
               placeholder="Search RM..."
               autocomplete="off"
               data-boe="productSearch"
-              data-product-id="${esc(productId)}"
-              value="${esc(prefillText)}">
+              data-product-id="${escapeHtml(productId)}"
+              value="${escapeHtml(prefillText)}">
             <div class="rm-search-dd"></div>
           </div>
         </td>
 
-        <td><input class="small" type="number" min="0" step="1" style="width:100%" data-boe="qty" value="${esc(String(qty))}"></td>
-        <td><input class="small" style="width:100%" data-boe="remark" value="${esc(String(remark))}" placeholder="Remark (optional)"></td>
+        <td><input class="small" type="number" min="0" step="1" style="width:100%" data-boe="qty" value="${escapeHtml(String(qty))}"></td>
+        <td><input class="small" style="width:100%" data-boe="remark" value="${escapeHtml(String(remark))}" placeholder="Remark (optional)"></td>
 
         <td style="text-align:center">
           <button class="btn out" style="padding:6px 10px" type="button" data-boe="remove">X</button>
@@ -2206,20 +2194,20 @@ window.BOE = (() => {
     tr.querySelector('[data-boe="remove"]')?.addEventListener('click', ()=>{
       if(typeof tr._cleanup === 'function') tr._cleanup();
       tr.remove();
-      if(!document.getElementById('boeItemsBody')?.children.length) addRow();
+      if(!$('#boeItemsBody')?.children.length) addRow();
     });
   }
 
   function resetForm(){
     editingId = null;
-    const badge = document.getElementById('boeEditBadge');
+    const badge = $('#boeEditBadge');
     if(badge) badge.style.display = 'none';
 
-    const no = document.getElementById('boeNo');
-    const dt = document.getElementById('boeDate');
-    const sp = document.getElementById('boeSupplier');
-    const other = document.getElementById('boeSupplierOther');
-    const body = document.getElementById('boeItemsBody');
+    const no = $('#boeNo');
+    const dt = $('#boeDate');
+    const sp = $('#boeSupplier');
+    const other = $('#boeSupplierOther');
+    const body = $('#boeItemsBody');
 
     if(no) no.value = '';
     if(dt) dt.value = todayISO();
@@ -2231,7 +2219,7 @@ window.BOE = (() => {
   }
 
   function getItemsFromUI(){
-    const body = document.getElementById('boeItemsBody');
+    const body = $('#boeItemsBody');
     if(!body) return [];
 
     const out = [];
@@ -2252,38 +2240,32 @@ window.BOE = (() => {
     return out;
   }
 
-  // ---------- stock link ----------
   function revertLinkedStock(billId){
-    stockMovements = stockMovements.filter(m => m.billId !== billId);
+    stockMovements = (stockMovements||[]).filter(m => m.billId !== billId);
   }
 
-function postStock(bill){
-  (bill.items||[]).forEach(it=>{
-    stockMovements.push({
-      id: genId(),
-      productId: it.productId,
-      type: 'IN',
-      quantity: Number(it.qty || 0),
-      date: bill.date,
-      remark: `BOE ${bill.billNo}${it.remark ? ' - ' + it.remark : ''}`,
-      billId: bill.id,
-
-      // ✅ time + user
-      createdAt: nowISO(),
-      createdBy: who()
+  function postStock(bill){
+    (bill.items||[]).forEach(it=>{
+      stockMovements.push({
+        id: genId(),
+        productId: it.productId,
+        type: 'IN',
+        quantity: Number(it.qty || 0),
+        date: bill.date,
+        remark: `BOE ${bill.billNo}${it.remark ? ' - ' + it.remark : ''}`,
+        billId: bill.id,
+        createdAt: nowISO(),
+        createdBy: who()
+      });
     });
-  });
-}
+  }
 
-
-
-  // ---------- create/edit ----------
   function submit(){
     if(!canStockIn()){ showToast("Stock IN not allowed for your role", true); return; }
 
-    const billNo = (document.getElementById('boeNo')?.value || '').trim();
-    const billDate = (document.getElementById('boeDate')?.value || todayISO());
-    const supplierId = (document.getElementById('boeSupplier')?.value || '').trim();
+    const billNo = ($('#boeNo')?.value || '').trim();
+    const billDate = ($('#boeDate')?.value || todayISO());
+    const supplierId = ($('#boeSupplier')?.value || '').trim();
     const supplierName = getSupplierNameFromUI();
 
     if(!billNo) return showToast("Bill No is required", true);
@@ -2309,23 +2291,24 @@ function postStock(bill){
         supplierId,
         supplierName,
         items,
-        updatedAt: new Date().toISOString(),
-        updatedBy: currentUser?.username || ''
+        updatedAt: nowISO(),
+        updatedBy: who()
       };
 
       bills[idx] = updated;
-      saveBills();          // ✅ FIX
+      saveBills();
       postStock(updated);
-logChange("BOE_EDIT", updated.id, {
-  billNo: updated.billNo,
-  date: updated.date,
-  supplier: updated.supplierName,
-  lines: (updated.items || []).length
-});
 
-      saveAll?.();
-      autoPushToCloud?.();
-      refreshAll?.();
+      logChange("BOE_EDIT", updated.id, {
+        billNo: updated.billNo,
+        date: updated.date,
+        supplier: updated.supplierName,
+        lines: (updated.items || []).length
+      });
+
+      saveRM();
+      autoPushToCloud();
+      refreshAll();
 
       showToast("Bill updated & stock re-posted ✅");
       resetForm();
@@ -2341,37 +2324,37 @@ logChange("BOE_EDIT", updated.id, {
       supplierId,
       supplierName,
       items,
-      createdAt: new Date().toISOString(),
-      createdBy: currentUser?.username || ''
+      createdAt: nowISO(),
+      createdBy: who()
     };
 
     bills.push(bill);
-    saveBills();            // ✅ FIX
+    saveBills();
     postStock(bill);
-logChange("BOE_CREATE", bill.id, {
-  billNo: bill.billNo,
-  date: bill.date,
-  supplier: bill.supplierName,
-  lines: (bill.items || []).length
-});
 
-    saveAll?.();
-    autoPushToCloud?.();
-    refreshAll?.();
+    logChange("BOE_CREATE", bill.id, {
+      billNo: bill.billNo,
+      date: bill.date,
+      supplier: bill.supplierName,
+      lines: (bill.items || []).length
+    });
+
+    saveRM();
+    autoPushToCloud();
+    refreshAll();
 
     showToast("Bill saved & Stock IN created ✅");
     resetForm();
     renderTable();
   }
 
-  // ---------- list/table ----------
   const totalQty = (b)=> (b.items||[]).reduce((s,it)=> s + Number(it.qty||0), 0);
 
   function renderTable(){
-    const tbody = document.querySelector('#boeTable tbody');
+    const tbody = $('#boeTable tbody');
     if(!tbody) return;
 
-    const q = (document.getElementById('boeSearch')?.value || '').toLowerCase().trim();
+    const q = ($('#boeSearch')?.value || '').toLowerCase().trim();
     tbody.innerHTML = '';
 
     const list = [...bills].sort((a,b)=> new Date(b.date) - new Date(a.date));
@@ -2380,7 +2363,7 @@ logChange("BOE_CREATE", bill.id, {
     const codesSummary = (b)=>{
       const set = new Set();
       (b.items||[]).forEach(it=>{
-        const p = products.find(x=>x.id===it.productId);
+        const p = (products||[]).find(x=>x.id===it.productId);
         const c = rmCode(p);
         if(c) set.add(c);
       });
@@ -2390,7 +2373,7 @@ logChange("BOE_CREATE", bill.id, {
     const namesSummary = (b)=>{
       const set = new Set();
       (b.items||[]).forEach(it=>{
-        const p = products.find(x=>x.id===it.productId);
+        const p = (products||[]).find(x=>x.id===it.productId);
         const n = rmName(p);
         if(n) set.add(n);
       });
@@ -2407,84 +2390,82 @@ logChange("BOE_CREATE", bill.id, {
 
       if(!match) return;
 
-      const codesText = esc(codesSummary(b) || '-');
-      const namesText = esc(namesSummary(b) || '-');
+      const codesText = escapeHtml(codesSummary(b) || '-');
+      const namesText = escapeHtml(namesSummary(b) || '-');
 
       tbody.insertAdjacentHTML('beforeend', `
         <tr>
           <td>${fmtDate(b.date)}</td>
           <td title="${codesText}">${codesText}</td>
-          <td>${esc(b.billNo||'')}</td>
+          <td>${escapeHtml(b.billNo||'')}</td>
           <td title="${namesText}">${namesText}</td>
-          <td>${esc(b.supplierName||'')}</td>
+          <td>${escapeHtml(b.supplierName||'')}</td>
           <td>${totalQty(b)}</td>
           <td>${(b.items||[]).length}</td>
           <td>
-            <button class="btn info" type="button" onclick="BOE.view('${esc(b.id)}')">View</button>
-            <button class="btn secondary" type="button" onclick="BOE.print('${esc(b.id)}')">Print</button>
-            ${isAdmin ? `<button class="btn secondary" type="button" onclick="BOE.openEdit('${esc(b.id)}')">Edit</button>` : ``}
-            ${isAdmin ? `<button class="btn out" type="button" onclick="BOE.remove('${esc(b.id)}')">Delete</button>` : ``}
+            <button class="btn info" type="button" onclick="BOE.view('${escapeHtml(b.id)}')">View</button>
+            <button class="btn secondary" type="button" onclick="BOE.print('${escapeHtml(b.id)}')">Print</button>
+            ${isAdmin ? `<button class="btn secondary" type="button" onclick="BOE.openEdit('${escapeHtml(b.id)}')">Edit</button>` : ``}
+            ${isAdmin ? `<button class="btn out" type="button" onclick="BOE.remove('${escapeHtml(b.id)}')">Delete</button>` : ``}
           </td>
         </tr>
       `);
     });
 
-    applyPermissions?.();
+    applyPermissions();
   }
 
-  // ---------- view modal ----------
   function view(billId){
     const b = bills.find(x=>x.id===billId);
     if(!b) return;
 
     lastViewedId = billId;
 
-    document.getElementById('boeViewTitle').textContent = `Bill of Entry — ${b.billNo}`;
-    document.getElementById('boeViewMeta').innerHTML =
-      `<b>Date:</b> ${fmtDate(b.date)} &nbsp; | &nbsp; <b>Supplier:</b> ${esc(b.supplierName||'')}
-       ${b.createdBy ? ` &nbsp; | &nbsp; <b>By:</b> ${esc(b.createdBy)}` : ''}`;
+    $('#boeViewTitle').textContent = `Bill of Entry — ${b.billNo}`;
+    $('#boeViewMeta').innerHTML =
+      `<b>Date:</b> ${fmtDate(b.date)} &nbsp; | &nbsp; <b>Supplier:</b> ${escapeHtml(b.supplierName||'')}
+       ${b.createdBy ? ` &nbsp; | &nbsp; <b>By:</b> ${escapeHtml(b.createdBy)}` : ''}`;
 
-    const body = document.getElementById('boeViewBody');
-    body.innerHTML = '';
+    const body = $('#boeViewBody');
+    if(body) body.innerHTML = '';
 
     (b.items||[]).forEach(it=>{
-      const p = products.find(x=>x.id===it.productId);
-      body.insertAdjacentHTML('beforeend', `
+      const p = (products||[]).find(x=>x.id===it.productId);
+      body?.insertAdjacentHTML('beforeend', `
         <tr>
-          <td>${esc(p ? rmLabel(p) : 'Unknown')}</td>
+          <td>${escapeHtml(p ? rmLabel(p) : 'Unknown')}</td>
           <td>${Number(it.qty||0)}</td>
-          <td>${esc(it.remark||'')}</td>
+          <td>${escapeHtml(it.remark||'')}</td>
         </tr>
       `);
     });
 
-    document.getElementById('boeViewModal').style.display = 'flex';
+    const modal = $('#boeViewModal');
+    if(modal) modal.style.display = 'flex';
   }
 
-  function closeView(){ document.getElementById('boeViewModal').style.display = 'none'; }
+  function closeView(){ const m = $('#boeViewModal'); if(m) m.style.display='none'; }
   function printFromView(){ if(lastViewedId) print(lastViewedId); }
   function editFromView(){ if(lastViewedId){ openEdit(lastViewedId); closeView(); } }
 
-  // ---------- edit/delete ----------
   function openEdit(billId){
     if(currentUser?.role !== 'admin') return showToast("Only admin can edit bills", true);
-
     const b = bills.find(x=>x.id===billId);
     if(!b) return;
 
-    openPage?.('billEntry');
+    openPage('billEntry');
 
     editingId = billId;
-    const badge = document.getElementById('boeEditBadge');
+    const badge = $('#boeEditBadge');
     if(badge) badge.style.display = '';
 
-    document.getElementById('boeNo').value = b.billNo || '';
-    document.getElementById('boeDate').value = b.date || todayISO();
+    $('#boeNo').value = b.billNo || '';
+    $('#boeDate').value = b.date || todayISO();
 
     renderSupplierDropdown();
 
-    const supplierSel = document.getElementById('boeSupplier');
-    const other = document.getElementById('boeSupplierOther');
+    const supplierSel = $('#boeSupplier');
+    const other = $('#boeSupplierOther');
 
     if(supplierSel){
       const has = [...supplierSel.options].some(o => o.value === b.supplierId);
@@ -2498,41 +2479,36 @@ logChange("BOE_CREATE", bill.id, {
       supplierSel.dispatchEvent(new Event('change'));
     }
 
-    const body = document.getElementById('boeItemsBody');
-    body.innerHTML = '';
+    const body = $('#boeItemsBody');
+    if(body) body.innerHTML = '';
     (b.items||[]).forEach(it=> addRow({ productId: it.productId, qty: it.qty, remark: it.remark }));
-    if(!body.children.length) addRow();
+    if(body && !body.children.length) addRow();
 
     showToast("Editing BOE — update and Save ✅");
   }
 
   function remove(billId){
     if(currentUser?.role !== 'admin') return showToast("Only admin can delete bills", true);
-
     const b = bills.find(x=>x.id===billId);
     if(!b) return;
 
     if(!confirm(`Delete BOE "${b.billNo}"?\nThis will also remove linked RM Stock IN movements.`)) return;
 
     bills = bills.filter(x=>x.id !== billId);
-    window.savedBills = bills; // keep compatibility consistent
-    saveBills();               // ✅ FIX
+    window.savedBills = bills;
+    saveBills();
     revertLinkedStock(billId);
-logChange("BOE_DELETE", billId, {
-  billNo: b.billNo,
-  date: b.date,
-  supplier: b.supplierName
-});
 
-    saveAll?.();
-    autoPushToCloud?.();
-    refreshAll?.();
+    logChange("BOE_DELETE", billId, { billNo: b.billNo, date: b.date, supplier: b.supplierName });
+
+    saveRM();
+    autoPushToCloud();
+    refreshAll();
 
     showToast("Bill deleted & stock reverted ✅");
     renderTable();
   }
 
-  // ---------- print ----------
   function print(billId){
     const b = bills.find(x=>x.id===billId);
     if(!b) return;
@@ -2548,7 +2524,7 @@ logChange("BOE_DELETE", billId, {
       doc.text(`Date: ${fmtDate(b.date)}    Supplier: ${b.supplierName || ''}`, 14, 24);
 
       const rows = (b.items||[]).map((it, idx)=>{
-        const p = products.find(x=>x.id===it.productId);
+        const p = (products||[]).find(x=>x.id===it.productId);
         return [ String(idx+1), p ? rmLabel(p) : 'Unknown', String(Number(it.qty||0)), it.remark || '' ];
       });
 
@@ -2563,13 +2539,15 @@ logChange("BOE_DELETE", billId, {
     }
 
     const w = window.open('', '_blank');
+    if(!w) return showToast("Popup blocked by browser", true);
+
     const itemsHtml = (b.items||[]).map(it=>{
-      const p = products.find(x=>x.id===it.productId);
-      return `<tr><td>${esc(p ? rmLabel(p) : 'Unknown')}</td><td>${Number(it.qty||0)}</td><td>${esc(it.remark||'')}</td></tr>`;
+      const p = (products||[]).find(x=>x.id===it.productId);
+      return `<tr><td>${escapeHtml(p ? rmLabel(p) : 'Unknown')}</td><td>${Number(it.qty||0)}</td><td>${escapeHtml(it.remark||'')}</td></tr>`;
     }).join('');
 
     w.document.write(`
-      <html><head><title>BOE ${esc(b.billNo)}</title>
+      <html><head><title>BOE ${escapeHtml(b.billNo)}</title>
       <style>
         body{font-family:Arial;padding:16px}
         table{width:100%;border-collapse:collapse}
@@ -2577,8 +2555,8 @@ logChange("BOE_DELETE", billId, {
         th{background:#f3f3f3}
       </style>
       </head><body>
-        <h2>Goods Received Note (BOE) - ${esc(b.billNo)}</h2>
-        <div><b>Date:</b> ${fmtDate(b.date)} &nbsp; <b>Supplier:</b> ${esc(b.supplierName||'')}</div>
+        <h2>Goods Received Note (BOE) - ${escapeHtml(b.billNo)}</h2>
+        <div><b>Date:</b> ${fmtDate(b.date)} &nbsp; <b>Supplier:</b> ${escapeHtml(b.supplierName||'')}</div>
         <br/>
         <table>
           <thead><tr><th>RM Product</th><th>Qty</th><th>Remark</th></tr></thead>
@@ -2590,165 +2568,15 @@ logChange("BOE_DELETE", billId, {
     w.document.close();
   }
 
-  function printSummary(){
-    const list = [...bills].sort((a,b)=> new Date(b.date)-new Date(a.date));
-    const hasPDF = !!(window.jspdf?.jsPDF);
-    const hasAutoTable = !!(window.jspdf?.jsPDF && window.jspdf?.jsPDF.API?.autoTable);
-
-    if(!hasPDF){ alert("jsPDF not found for summary print."); return; }
-
-    const doc = new window.jspdf.jsPDF();
-    doc.setFontSize(14);
-    doc.text(`BOE Summary Report`, 14, 16);
-    doc.setFontSize(10);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 24);
-
-    const rows = list.map((b, i)=>[
-      String(i+1),
-      fmtDate(b.date),
-      b.billNo,
-      b.supplierName || '',
-      String((b.items||[]).reduce((s,it)=> s + Number(it.qty||0), 0)),
-      String((b.items||[]).length)
-    ]);
-
-    if(hasAutoTable){
-      doc.autoTable({ startY: 30, head: [['#','Date','Bill No','Supplier','Total Qty','Lines']], body: rows });
-    }
-    doc.save(`BOE_Summary.pdf`);
-  }
-
-  // ---------- Excel import (kept as-is; uses saveBills()) ----------
-  function parseExcelDateToISO(v){
-    if(v instanceof Date && !isNaN(v)) return v.toISOString().split('T')[0];
-    if(typeof v === 'number' && isFinite(v)){
-      const d = new Date(Date.UTC(1899, 11, 30) + v * 86400000);
-      return d.toISOString().split('T')[0];
-    }
-    const s = String(v || '').trim();
-    if(!s) return '';
-    const d2 = new Date(s);
-    if(!isNaN(d2)) return d2.toISOString().split('T')[0];
-
-    const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-    if(m){
-      const dd = String(m[1]).padStart(2,'0');
-      const mm = String(m[2]).padStart(2,'0');
-      const yy = m[3];
-      return `${yy}-${mm}-${dd}`;
-    }
-    return '';
-  }
-
-  function findProductIdByCodeOrName(val){
-    const s = String(val || '').trim().toLowerCase();
-    if(!s) return '';
-
-    let p = products.find(x => String(x.code||'').trim().toLowerCase() === s);
-    if(p) return p.id;
-
-    p = products.find(x => String(x.name||'').trim().toLowerCase() === s);
-    if(p) return p.id;
-
-    p = products.find(x => String(x.name||'').toLowerCase().includes(s));
-    return p ? p.id : '';
-  }
-
-  function importExcel(file){
-    if(!window.XLSX){ showToast("XLSX library not loaded", true); return; }
-    if(!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e)=>{
-      try{
-        const data = new Uint8Array(e.target.result);
-        const wb = XLSX.read(data, { type:'array' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json(ws, { defval:'', raw:true });
-
-        if(!json.length){ showToast("Excel is empty", true); return; }
-
-        const rows = json.map(r=>{
-          const obj = {};
-          Object.keys(r).forEach(k=> obj[String(k).trim().toLowerCase()] = r[k]);
-          return obj;
-        });
-
-        const groups = new Map();
-        let unmatched = 0;
-
-        rows.forEach(r=>{
-          const billNo = String(r.billno ?? r['bill no'] ?? r.entryno ?? r['entry no'] ?? '').trim();
-          const dateISO = parseExcelDateToISO(r.date ?? r.billdate ?? r['bill date'] ?? '') || todayISO();
-          const supplier = String(r.supplier ?? r.suppliername ?? r['supplier name'] ?? '').trim();
-
-          const prodVal = r.product ?? r.productname ?? r['product name'] ?? r.code ?? r.productcode ?? r['product code'] ?? '';
-          const qty = Number(r.qty ?? r.quantity ?? 0);
-          const remark = String(r.remark ?? r.notes ?? '').trim();
-
-          if(!billNo || !supplier || !prodVal || !(qty > 0)) return;
-
-          const productId = findProductIdByCodeOrName(prodVal);
-          if(!productId){ unmatched++; return; }
-
-          const key = `${billNo}__${dateISO}__${supplier}`;
-          if(!groups.has(key)){
-            groups.set(key, { billNo, date: dateISO, supplierName: supplier, supplierId: '__OTHER__', items: [] });
-          }
-          groups.get(key).items.push({ productId, qty, remark });
-        });
-
-        if(!groups.size){ showToast("No valid BOE rows found", true); return; }
-
-        let created = 0;
-        groups.forEach(g=>{
-          const bill = {
-            id: 'boe_' + genId(),
-            billNo: g.billNo,
-            date: g.date,
-            supplierId: g.supplierId,
-            supplierName: g.supplierName,
-            items: g.items,
-            createdAt: new Date().toISOString(),
-            createdBy: currentUser?.username || ''
-          };
-          bills.push(bill);
-          postStock(bill);
-          created++;
-        });
-
-        saveBills(); // ✅ FIX
-        saveAll?.();
-        autoPushToCloud?.();
-        refreshAll?.();
-        renderTable();
-
-        showToast(unmatched ? `Imported ${created} BOE ✅ (Unmatched: ${unmatched})` : `Imported ${created} BOE ✅`);
-      }catch(err){
-        console.error(err);
-        showToast("Import failed", true);
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  }
-
-  // ---------- init ----------
   function init(){
     renderSupplierDropdown();
-    const dt = document.getElementById('boeDate');
+    const dt = $('#boeDate');
     if(dt && !dt.value) dt.value = todayISO();
 
-    const body = document.getElementById('boeItemsBody');
+    const body = $('#boeItemsBody');
     if(body && !body.children.length) addRow();
 
-    document.getElementById('boeSearch')?.addEventListener('input', renderTable);
-
-    document.getElementById('boeFileInput')?.addEventListener('change', (e)=>{
-      const f = e.target.files?.[0];
-      if(f) importExcel(f);
-      e.target.value = '';
-    });
-
+    $('#boeSearch')?.addEventListener('input', renderTable);
     renderTable();
   }
 
@@ -2766,151 +2594,58 @@ logChange("BOE_DELETE", billId, {
     editFromView,
     openEdit,
     remove,
-    printSummary,
-    importExcel,
-    saveBills // ✅ FIX: BOE.saveBills() now exists
+    saveBills,
+    // expose bills safely (used by cloud)
+    getBills: ()=> bills,
+    setBills: (arr)=>{ bills = Array.isArray(arr)? arr : []; window.savedBills=bills; saveBills(); }
   };
 })();
 
-/* ✅ alias for convenience */
 const BOE = window.BOE;
+window.BOE = BOE;
 
-/* =========================
-   ✅ WRAPPERS (so your existing onclick still works)
-========================= */
+/* wrappers */
 function renderBOESupplierDropdown(){ BOE.renderSupplierDropdown(); }
-function boeAddRow(){
-  // Always use the BOE module row (search input + dropdown)
-  if (window.BOE && typeof BOE.addRow === "function") {
-    BOE.addRow();
-    return;
-  }
-  console.error("BOE.addRow not available");
-}
-
-
-
-
-function submitBillEntry(){
-  BOE.submit();                 // BOE.submit already calls BOE.saveBills()
-  autoPushToCloud();            // ✅ push bills + everything
-}
-
+function boeAddRow(){ BOE.addRow(); }
+function submitBillEntry(){ BOE.submit(); }
 function resetBillEntryForm(){ BOE.resetForm(); }
-function renderBillsTable(){
-  const tb = document.getElementById('boeTableBody');
-  if(!tb) return;
-
-  tb.innerHTML = (bills && bills.length) ? '' : `
-    <tr><td colspan="8" class="text-muted">No bills found</td></tr>
-  `;
-
-  (bills || []).forEach(b=>{
-    tb.insertAdjacentHTML('beforeend', `
-      <tr>
-        <td>${escapeHtml(b.date||'')}</td>
-        <td>${escapeHtml(b.productCode||'')}</td>
-        <td><b>${escapeHtml(b.boeNo||'')}</b></td>
-        <td>${escapeHtml(b.productName||'')}</td>
-        <td>${escapeHtml(b.supplier||'')}</td>
-        <td class="text-end">${Number(b.totalQty||0)}</td>
-        <td class="text-center">${(b.items||[]).length}</td>
-        <td>...</td>
-      </tr>
-    `);
-  });
-}
-
-
 function closeBOEView(){ BOE.closeView(); }
 function printBOEFromView(){ BOE.printFromView(); }
 function editBOEFromView(){ BOE.editFromView(); }
-function printBOESummaryReport(){ BOE.printSummary(); }
 
-function boeTriggerImport(){
-  const inp = document.getElementById('boeFileInput');
-  if(!inp) return;
-  inp.value = '';
-  inp.click();
-}
+window.renderBOESupplierDropdown = renderBOESupplierDropdown;
+window.boeAddRow = boeAddRow;
+window.submitBillEntry = submitBillEntry;
 
-/* ✅ Call once (safe even if pages hidden) */
-BOE.init();
-
-
-
-
-
-
-
-
-/* =========================================================
-   ✅ PRODUCTION MODULE (FULL REWRITE)
-   - FG IN + RM OUT saved properly (local + cloud)
-   - No dependency on broken saveBills()
-   - Works with your existing:
-     products, stockMovements, fgProducts, fgMovements,
-     computeBalance(), saveFGLocal(), autoPushFGToCloud(),
-     autoPushToCloud(), refreshAll(), showToast(), escapeHtml(),
-     genId(), todayISO(), nowISO(), who()
-========================================================= */
-
-/* ---------- STORAGE KEYS ---------- */
-const KEY_PROD = 'sms_productions_v1';
-window.KEY_PROD = KEY_PROD;
-
-/* ---------- STATE ---------- */
+/* =========================
+   ✅ PRODUCTION MODULE
+========================= */
 let productions = JSON.parse(localStorage.getItem(KEY_PROD) || '[]');
 window.productions = productions;
 
-/* ---------- SAFE SAVERS (NO bills here) ---------- */
 function saveProductions(){
   localStorage.setItem(KEY_PROD, JSON.stringify(productions || []));
   window.productions = productions;
 }
 window.saveProductions = saveProductions;
 
-function saveAllRM(){
-  // ✅ RM only (do NOT call saveBills here)
-  localStorage.setItem(KEY_PRODUCTS, JSON.stringify(products || []));
-  localStorage.setItem(KEY_MOVES, JSON.stringify(stockMovements || []));
-}
-window.saveAllRM = saveAllRM;
-
-function saveFG(){
-  saveFGLocal?.();
-  autoPushFGToCloud?.();
-}
-window.saveFG = saveFG;
-
-/* ---------- PERMISSION ---------- */
 function canProduction(){
-  // allow if no login
-  if(!window.currentUser) return true;
-
-  const role = String(window.currentUser.role || '').toLowerCase();
+  if(!currentUser) return true;
+  const role = String(currentUser.role || '').toLowerCase();
   return role === 'admin' || role === 'manager' || role === 'production';
 }
 window.canProduction = canProduction;
 
-/* ---------- BOM HELPERS ----------
-   Your rule: RM.groups matches FG.group (normalized)
----------------------------------- */
-function bomKey(v){
-  return normalizeGroup(v); // your normalizeGroup(): trim + uppercase + remove spaces
-}
+function bomKey(v){ return normalizeGroup(v); }
 
 function getBOMRMForFG(fgId){
-  const fg = (Array.isArray(fgProducts) ? fgProducts : []).find(x => String(x.id) === String(fgId));
+  const fg = (fgProducts||[]).find(x => String(x.id) === String(fgId));
   if(!fg) return { fg:null, key:'', list:[] };
+  const key = bomKey(fg.group); // ✅ fg.group only
 
-  const key = bomKey(fg.group); // ✅ ONLY fg.group
-
-  const list = (Array.isArray(products) ? products : []).filter(rm=>{
+  const list = (products||[]).filter(rm=>{
     const gs = Array.isArray(rm.groups) ? rm.groups : [];
     if(!gs.length) return false;
-
-    // exclusive => first group only
     const use = rm.exclusive ? [gs[0]] : gs;
     return use.some(g => bomKey(g) === key);
   });
@@ -2919,11 +2654,10 @@ function getBOMRMForFG(fgId){
 }
 window.getBOMRMForFG = getBOMRMForFG;
 
-/* ---------- UI: Render BOM Table ---------- */
 function renderBOM(){
-  const fgId  = String(document.getElementById('prodFG')?.value || '').trim();
-  const fgQty = Number(document.getElementById('prodFGQty')?.value || 0) || 0;
-  const body  = document.getElementById('prodBOMBody');
+  const fgId  = String($('#prodFG')?.value || '').trim();
+  const fgQty = Number($('#prodFGQty')?.value || 0) || 0;
+  const body  = $('#prodBOMBody');
   if(!body) return;
 
   body.innerHTML = '';
@@ -2935,14 +2669,8 @@ function renderBOM(){
 
   const { fg, key, list } = getBOMRMForFG(fgId);
 
-  if(!fg){
-    body.innerHTML = `<tr><td colspan="5" class="text-muted">FG not found</td></tr>`;
-    return;
-  }
-  if(!key){
-    body.innerHTML = `<tr><td colspan="5" class="text-muted">This FG has no group set</td></tr>`;
-    return;
-  }
+  if(!fg){ body.innerHTML = `<tr><td colspan="5" class="text-muted">FG not found</td></tr>`; return; }
+  if(!key){ body.innerHTML = `<tr><td colspan="5" class="text-muted">This FG has no group set</td></tr>`; return; }
   if(!list.length){
     body.innerHTML = `<tr><td colspan="5" class="text-muted">
       No RM found in group: <b>${escapeHtml(key)}</b><br>
@@ -2952,24 +2680,19 @@ function renderBOM(){
   }
 
   list.forEach(rm=>{
-    // qtyPerFG optional. If not present, default 1
     const per = Number(rm.qtyPerFG || 1);
     const req = per * fgQty;
 
     body.insertAdjacentHTML('beforeend', `
       <tr data-rm="${escapeHtml(String(rm.id))}">
         <td><b>${escapeHtml(rm.name || 'Unknown')}</b></td>
-
         <td class="text-end reqQty">${Number(req.toFixed(6))}</td>
-
         <td class="text-end">
           <input class="form-control form-control-sm damQty"
                  type="number" min="0" step="0.0001" value="0"
                  oninput="calcNetUsed(this)">
         </td>
-
         <td class="text-end netUsed">${Number(req.toFixed(6))}</td>
-
         <td class="text-muted small">
           Bal: <span class="rmBal">${Number(computeBalance(rm.id) || 0)}</span>
         </td>
@@ -2979,7 +2702,6 @@ function renderBOM(){
 }
 window.renderBOM = renderBOM;
 
-/* ---------- UI: Net used calc ---------- */
 function calcNetUsed(el){
   const tr = el.closest('tr');
   if(!tr) return;
@@ -2996,7 +2718,6 @@ function calcNetUsed(el){
 }
 window.calcNetUsed = calcNetUsed;
 
-/* ---------- Collect RM Lines from Table ---------- */
 function collectRMLines(){
   const rows = [...document.querySelectorAll('#prodBOMBody tr[data-rm]')];
   return rows.map(tr=>{
@@ -3008,7 +2729,6 @@ function collectRMLines(){
   }).filter(l => l.rmId);
 }
 
-/* ---------- Validation ---------- */
 function validateProductionInput(prodNo, fgId, fgQty, rmLines){
   if(!prodNo) return "Production No required";
   if(!fgId) return "Select FG product";
@@ -3018,12 +2738,10 @@ function validateProductionInput(prodNo, fgId, fgQty, rmLines){
   for(const l of rmLines){
     if(l.dmg < 0) return "Damage cannot be negative";
     if(l.dmg > l.req) return "Damage cannot exceed Required";
-
-    // Only validate balance for net used (req - dmg)
     if(l.net > 0){
       const bal = Number(computeBalance(l.rmId) || 0);
       if(l.net > bal){
-        const p = products.find(x => x.id === l.rmId);
+        const p = (products||[]).find(x => x.id === l.rmId);
         return `RM stock insufficient: ${p?.name || 'RM'} (Bal ${bal})`;
       }
     }
@@ -3031,31 +2749,22 @@ function validateProductionInput(prodNo, fgId, fgQty, rmLines){
   return "";
 }
 
-/* ---------- SUBMIT PRODUCTION (THE MAIN ONE) ---------- */
 function submitProduction(){
-  if(!canProduction()){
-    showToast("No permission to create production", true);
-    return;
-  }
+  if(!canProduction()){ showToast("No permission to create production", true); return; }
 
-  const prodNo   = String(document.getElementById('prodNo')?.value || '').trim();
-  const prodDate = String(document.getElementById('prodDate')?.value || todayISO());
-  const fgId     = String(document.getElementById('prodFG')?.value || '').trim();
-  const fgQty    = Number(document.getElementById('prodFGQty')?.value || 0);
-  const remark   = String(document.getElementById('prodRemark')?.value || '').trim();
+  const prodNo   = String($('#prodNo')?.value || '').trim();
+  const prodDate = String($('#prodDate')?.value || todayISO());
+  const fgId     = String($('#prodFG')?.value || '').trim();
+  const fgQty    = Number($('#prodFGQty')?.value || 0);
+  const remark   = String($('#prodRemark')?.value || '').trim();
 
   const rmLines = collectRMLines();
-
   const err = validateProductionInput(prodNo, fgId, fgQty, rmLines);
-  if(err){
-    showToast(err, true);
-    return;
-  }
+  if(err){ showToast(err, true); return; }
 
-  const fg = (fgProducts || []).find(x => x.id === fgId);
+  const fg = (fgProducts||[]).find(x => x.id === fgId);
   const productionId = 'prod_' + genId();
 
-  // 1) Save production record
   const record = {
     id: productionId,
     prodNo,
@@ -3064,14 +2773,13 @@ function submitProduction(){
     fgName: fg?.name || '',
     fgQty,
     remark,
-    rmLines: rmLines.map(({rmId, req, dmg}) => ({ rmId, req, dmg })), // store clean
-    createdAt: nowISO?.() || new Date().toISOString(),
-    createdBy: who?.() || (currentUser?.username || '')
+    rmLines: rmLines.map(({rmId, req, dmg}) => ({ rmId, req, dmg })),
+    createdAt: nowISO(),
+    createdBy: who()
   };
 
   productions.push(record);
 
-  // 2) FG IN movement
   fgMovements.push({
     id: genId(),
     fgId,
@@ -3080,13 +2788,11 @@ function submitProduction(){
     date: prodDate,
     remark: `PROD ${prodNo}${remark ? ' - ' + remark : ''}`,
     productionId,
-    createdAt: nowISO?.() || new Date().toISOString(),
-    createdBy: who?.() || (currentUser?.username || '')
+    createdAt: nowISO(),
+    createdBy: who()
   });
 
-  // 3) RM OUT movements
   rmLines.forEach(l=>{
-    // net used
     if(l.net > 0){
       stockMovements.push({
         id: genId(),
@@ -3096,12 +2802,10 @@ function submitProduction(){
         date: prodDate,
         remark: `PROD ${prodNo} RM Used`,
         productionId,
-        createdAt: nowISO?.() || new Date().toISOString(),
-        createdBy: who?.() || (currentUser?.username || '')
+        createdAt: nowISO(),
+        createdBy: who()
       });
     }
-
-    // damage out
     if(l.dmg > 0){
       stockMovements.push({
         id: genId(),
@@ -3111,49 +2815,41 @@ function submitProduction(){
         date: prodDate,
         remark: `PROD ${prodNo} RM Damage`,
         productionId,
-        createdAt: nowISO?.() || new Date().toISOString(),
-        createdBy: who?.() || (currentUser?.username || '')
+        createdAt: nowISO(),
+        createdBy: who()
       });
     }
   });
 
-  // 4) Persist (local)
+  logChange("PROD_CREATE", productionId, { prodNo, date: prodDate, fgName: fg?.name || '', fgQty });
+
   saveProductions();
-  saveAllRM();
-  saveFG();
+  saveRM();
+  saveFGLocal();
 
-  // 5) Persist (cloud) — VERY IMPORTANT so autoPull doesn't wipe your RM OUT
-  autoPushToCloud?.();
+  autoPushFGToCloud();
+  autoPushToCloud();
 
-  // 6) UI
-  refreshAll?.();
+  refreshAll();
   showToast("Production saved ✅");
 
-  // reset form
-  const prodNoEl = document.getElementById('prodNo');
-  const remEl    = document.getElementById('prodRemark');
-  const fgEl     = document.getElementById('prodFG');
-  const qtyEl    = document.getElementById('prodFGQty');
-  const bomBody  = document.getElementById('prodBOMBody');
-
-  if(prodNoEl) prodNoEl.value = '';
-  if(remEl) remEl.value = '';
-  if(fgEl) fgEl.value = '';
-  if(qtyEl) qtyEl.value = 1;
+  if($('#prodNo')) $('#prodNo').value = '';
+  if($('#prodRemark')) $('#prodRemark').value = '';
+  if($('#prodFG')) $('#prodFG').value = '';
+  if($('#prodFGQty')) $('#prodFGQty').value = 1;
+  const bomBody = $('#prodBOMBody');
   if(bomBody) bomBody.innerHTML = `<tr><td colspan="5" class="text-muted">Select FG product</td></tr>`;
 
-  // go to records page if you use it
-  openPage?.('pageProductionRecords');
-  renderProductionsTable?.();
+  openPage('pageProductionRecords');
+  renderProductionsTable();
 }
 window.submitProduction = submitProduction;
 
-/* ---------- TABLE: Production Records ---------- */
 function renderProductionsTable(){
-  const tb = document.getElementById('prodTableBody');
+  const tb = $('#prodTableBody');
   if(!tb) return;
 
-  const list = Array.isArray(window.productions) ? window.productions : [];
+  const list = Array.isArray(productions) ? productions : [];
   const rows = list.slice().sort((a,b)=> (b.date||'').localeCompare(a.date||''));
 
   tb.innerHTML = rows.length ? '' : `<tr><td colspan="7" class="muted">No production records</td></tr>`;
@@ -3168,9 +2864,7 @@ function renderProductionsTable(){
         <td class="right">${(p.rmLines||[]).length}</td>
         <td>${escapeHtml(p.createdBy||'')}</td>
         <td>
-          <button class="btn btn-sm btn-outline-secondary" onclick="viewProduction('${escapeHtml(p.id)}')">
-            View
-          </button>
+          <button class="btn btn-sm btn-outline-secondary" onclick="viewProduction('${escapeHtml(p.id)}')">View</button>
         </td>
       </tr>
     `);
@@ -3178,171 +2872,39 @@ function renderProductionsTable(){
 }
 window.renderProductionsTable = renderProductionsTable;
 
-/* ---------- DROPDOWN: FG list ---------- */
 function renderProdFGDropdown(){
-  const sel = document.getElementById('prodFG');
+  const sel = $('#prodFG');
   if(!sel) return;
 
-  const list = Array.isArray(window.fgProducts) ? window.fgProducts : [];
+  const list = Array.isArray(fgProducts) ? fgProducts : [];
   sel.innerHTML = `<option value="">Select FG Product</option>`;
-
-  list
-    .slice()
-    .sort((a,b)=> String(a.name||'').localeCompare(String(b.name||'')))
+  list.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')))
     .forEach(f=>{
-      sel.insertAdjacentHTML(
-        'beforeend',
-        `<option value="${escapeHtml(f.id)}">${escapeHtml(f.name || 'Unnamed')}</option>`
-      );
+      sel.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(f.id)}">${escapeHtml(f.name||'Unnamed')}</option>`);
     });
 }
 window.renderProdFGDropdown = renderProdFGDropdown;
 
-/* ---------- EVENTS (BOM refresh) ---------- */
-function wireProductionEvents(){
-  const fgSel = document.getElementById('prodFG');
-  const qtyEl = document.getElementById('prodFGQty');
-
-  if(fgSel) fgSel.onchange = renderBOM;
-  if(qtyEl) qtyEl.oninput  = renderBOM;
-}
-document.addEventListener('DOMContentLoaded', wireProductionEvents);
-window.wireProductionEvents = wireProductionEvents;
-
-
-function renderFGOptions(){
-  const sel = document.getElementById('prodFG');
-  if(!sel) return;
-
-  const list = Array.isArray(window.fgProducts) ? window.fgProducts : [];
-  sel.innerHTML = `<option value="">-- Select FG --</option>` + list.map(p =>
-    `<option value="${escapeHtml(String(p.id))}">${escapeHtml(p.name || 'Unnamed')}</option>`
-  ).join('');
-}
-window.renderFGOptions = renderFGOptions;
-
-function initFGSearchSelect(){
-  const input = document.getElementById('productionFGSearch');
-  const box   = document.getElementById('prodFGList');
-  const sel   = document.getElementById('prodFG');
-  if(!input || !box || !sel) return;
-
-  const getList = () => (Array.isArray(window.fgProducts) ? window.fgProducts : []);
-
-  function openBox(){ box.style.display = 'block'; }
-  function closeBox(){ box.style.display = 'none'; }
-
-  function draw(filterText){
-    const q = String(filterText || '').trim().toLowerCase();
-    const items = getList()
-      .filter(p => (p.name || '').toLowerCase().includes(q) || String(p.code||'').toLowerCase().includes(q))
-      .slice(0, 50);
-
-    if(!items.length){
-      box.innerHTML = `<div class="list-group-item text-muted small">No results</div>`;
-      openBox();
-      return;
-    }
-
-    box.innerHTML = items.map(p => `
-      <button type="button" class="list-group-item list-group-item-action"
-              data-id="${escapeHtml(String(p.id))}"
-              data-name="${escapeHtml(p.name || '')}">
-        <div class="fw-semibold">${escapeHtml(p.name || 'Unnamed')}</div>
-        ${p.code ? `<div class="small text-muted">${escapeHtml(String(p.code))}</div>` : ``}
-      </button>
-    `).join('');
-
-    openBox();
-  }
-
-  // typing search
-  input.addEventListener('input', () => draw(input.value));
-  input.addEventListener('focus', () => draw(input.value));
-
-  // choose item
-  box.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-id]');
-    if(!btn) return;
-    const id = btn.dataset.id;
-    const name = btn.dataset.name || '';
-
-    // set hidden select value so your existing renderBOM works
-    sel.value = id;
-
-    // show chosen name in input
-    input.value = name;
-
-    closeBox();
-    renderBOM?.(); // ✅ triggers your BOM render
-  });
-
-  // close when clicking outside
-  document.addEventListener('click', (e) => {
-    if(!e.target.closest('#prodFGWrap')) closeBox();
-  });
-
-  // if something else changes select programmatically
-  sel.addEventListener('change', () => {
-    const opt = sel.options[sel.selectedIndex];
-    input.value = opt?.textContent?.trim() || '';
-    renderBOM?.();
-  });
-}
-window.initFGSearchSelect = initFGSearchSelect;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* ---------- Simple App Modal Helpers (uses your existing #modal) ---------- */
-function openModal(title, html){
-  const modal = document.getElementById('modal');
-  if(!modal) return;
-
-  const t = document.getElementById('modalTitle2');
-  const b = document.getElementById('modalBody');
-
-  if(t) t.textContent = title || 'Modal';
-  if(b) b.innerHTML = html || '';
-
-  modal.style.display = 'block';
-}
+/* Simple modal for production view */
 function closeAppModal(){
-  const modal = document.getElementById('modal');
+  const modal = $('#modal');
   if(modal) modal.style.display = 'none';
 }
-// if your close button calls closeModal(), keep it:
 window.closeModal = window.closeModal || closeAppModal;
 
 function viewProduction(id){
-  const list = Array.isArray(window.productions) ? window.productions : [];
-  const p = list.find(x => String(x.id) === String(id));
-  if(!p){
-    showToast("Production not found", true);
-    return;
-  }
+  const p = (productions||[]).find(x => String(x.id) === String(id));
+  if(!p){ showToast("Production not found", true); return; }
+
+  const modal = $('#modal');
+  if(!modal){ alert("Modal element #modal not found"); return; }
+
+  const titleEl = $('#modalTitle2') || $('#modalTitle');
+  const bodyEl  = $('#modalBody');
 
   const lines = (p.rmLines || []).map(l=>{
-    const rm = products.find(x=>x.id===l.rmId);
-    const net = Number((Number(l.req||0) - Number(l.dmg||0)).toFixed(6)); // net used
+    const rm = (products||[]).find(x=>x.id===l.rmId);
+    const net = Number((Number(l.req||0) - Number(l.dmg||0)).toFixed(6));
     return `
       <tr>
         <td>${escapeHtml(rm?.name || 'Unknown')}</td>
@@ -3352,15 +2914,6 @@ function viewProduction(id){
     `;
   }).join('') || `<tr><td colspan="3" class="text-muted">No lines</td></tr>`;
 
-  // ✅ fallback modal ids (supports both your modalTitle2 or modalTitle)
-  const modal = document.getElementById('modal');
-  if(!modal){
-    alert("Modal element #modal not found");
-    return;
-  }
-  const titleEl = document.getElementById('modalTitle2') || document.getElementById('modalTitle');
-  const bodyEl  = document.getElementById('modalBody');
-
   if(titleEl) titleEl.textContent = `Production ${p.prodNo || ''}`;
   if(bodyEl){
     bodyEl.innerHTML = `
@@ -3369,16 +2922,11 @@ function viewProduction(id){
         <div class="col-12 col-md-6"><div class="text-muted small">FG</div><b>${escapeHtml(p.fgName||'')}</b></div>
         <div class="col-12 col-md-3"><div class="text-muted small">FG Qty</div><b>${Number(p.fgQty||0)}</b></div>
         <div class="col-12"><div class="text-muted small">Remark</div><div>${escapeHtml(p.remark||'')}</div></div>
-
         <div class="col-12 mt-2" style="overflow:auto">
           <b>RM Lines</b>
           <table class="table table-sm mt-2">
             <thead class="table-light">
-              <tr>
-                <th>RM</th>
-                <th class="text-end">Net Used</th>
-                <th class="text-end">Damage</th>
-              </tr>
+              <tr><th>RM</th><th class="text-end">Net Used</th><th class="text-end">Damage</th></tr>
             </thead>
             <tbody>${lines}</tbody>
           </table>
@@ -3391,61 +2939,30 @@ function viewProduction(id){
 }
 window.viewProduction = viewProduction;
 
-
-function saveProductions(){
-  localStorage.setItem(KEY_PROD, JSON.stringify(productions));
-  window.productions = productions; // ✅ keep synced
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// RM USED body
-
 /* =========================
-   ✅ RM DELIVERY NOTE (DN)
+   ✅ DELIVERY NOTE (DN)
 ========================= */
-const KEY_DN = 'sms_delivery_notes_v1';
 let deliveryNotes = JSON.parse(localStorage.getItem(KEY_DN) || '[]');
+window.deliveryNotes = deliveryNotes;
 
 function saveDeliveryNotes(){
-  localStorage.setItem(KEY_DN, JSON.stringify(deliveryNotes));
+  localStorage.setItem(KEY_DN, JSON.stringify(deliveryNotes || []));
+  window.deliveryNotes = deliveryNotes;
 }
+window.saveDeliveryNotes = saveDeliveryNotes;
 
 function resetDeliveryNoteForm(){
-  const no = document.getElementById('dnNo');
-  const dt = document.getElementById('dnDate');
-  const from = document.getElementById('dnFrom');
-  const to = document.getElementById('dnTo');
-  const pref = document.getElementById('dnProdRef');
-  const rem = document.getElementById('dnRemark');
-  const body = document.getElementById('dnItemsBody');
-
-  if(no) no.value = '';
-  if(dt) dt.value = todayISO();
-  if(from) from.value = from.value || 'Main Store';
-  if(to) to.value = to.value || 'Factory';
-  if(pref) pref.value = '';
-  if(rem) rem.value = '';
+  if($('#dnNo')) $('#dnNo').value = '';
+  if($('#dnDate')) $('#dnDate').value = todayISO();
+  if($('#dnFrom')) $('#dnFrom').value = $('#dnFrom').value || 'Main Store';
+  if($('#dnTo')) $('#dnTo').value = $('#dnTo').value || 'Factory';
+  if($('#dnProdRef')) $('#dnProdRef').value = '';
+  if($('#dnRemark')) $('#dnRemark').value = '';
+  const body = $('#dnItemsBody');
   if(body) body.innerHTML = '';
-
   dnAddRow();
 }
+window.resetDeliveryNoteForm = resetDeliveryNoteForm;
 
 function dnRowProductOptions(selectedId=''){
   if(!Array.isArray(products) || !products.length){
@@ -3460,7 +2977,7 @@ function dnRowProductOptions(selectedId=''){
 }
 
 function dnAddRow(prefill=null){
-  const body = document.getElementById('dnItemsBody');
+  const body = $('#dnItemsBody');
   if(!body) return;
 
   const rowId = 'dnRow_' + genId();
@@ -3482,21 +2999,22 @@ function dnAddRow(prefill=null){
         <input class="small" style="width:100%" data-dn="remark" value="${escapeHtml(remark)}" placeholder="Remark (optional)">
       </td>
       <td style="text-align:center">
-        <button class="btn out" style="padding:6px 10px" onclick="dnRemoveRow('${rowId}')">X</button>
+        <button class="btn out" style="padding:6px 10px" type="button" onclick="dnRemoveRow('${rowId}')">X</button>
       </td>
     </tr>
   `);
 }
+window.dnAddRow = dnAddRow;
 
 function dnRemoveRow(rowId){
-  const tr = document.getElementById(rowId);
-  if(tr) tr.remove();
-  const body = document.getElementById('dnItemsBody');
+  document.getElementById(rowId)?.remove();
+  const body = $('#dnItemsBody');
   if(body && body.children.length === 0) dnAddRow();
 }
+window.dnRemoveRow = dnRemoveRow;
 
 function getDNItemsFromUI(){
-  const body = document.getElementById('dnItemsBody');
+  const body = $('#dnItemsBody');
   if(!body) return [];
 
   const items = [];
@@ -3509,29 +3027,23 @@ function getDNItemsFromUI(){
     const qty = Number(qtyInp?.value || 0);
     const remark = (remInp?.value || '').trim();
 
-    if(productId && qty > 0){
-      items.push({ productId, qty, remark });
-    }
+    if(productId && qty > 0) items.push({ productId, qty, remark });
   });
 
   return items;
 }
 
-function dnTotalQty(dn){
-  return (dn.items || []).reduce((s,it)=> s + Number(it.qty||0), 0);
-}
+function dnTotalQty(dn){ return (dn.items || []).reduce((s,it)=> s + Number(it.qty||0), 0); }
 
 let lastDNViewedId = null;
 
 function submitDeliveryNote(){
-  // ✅ No stock movement here (Production Entry handles stock out)
-
-  const dnNo = (document.getElementById('dnNo')?.value || '').trim();
-  const dnDate = (document.getElementById('dnDate')?.value || todayISO());
-  const from = (document.getElementById('dnFrom')?.value || '').trim();
-  const to = (document.getElementById('dnTo')?.value || '').trim();
-  const prodRef = (document.getElementById('dnProdRef')?.value || '').trim();
-  const generalRemark = (document.getElementById('dnRemark')?.value || '').trim();
+  const dnNo = ($('#dnNo')?.value || '').trim();
+  const dnDate = ($('#dnDate')?.value || todayISO());
+  const from = ($('#dnFrom')?.value || '').trim();
+  const to = ($('#dnTo')?.value || '').trim();
+  const prodRef = ($('#dnProdRef')?.value || '').trim();
+  const generalRemark = ($('#dnRemark')?.value || '').trim();
 
   if(!dnNo){ showToast("DN No is required", true); return; }
   if(!dnDate){ showToast("DN Date is required", true); return; }
@@ -3541,7 +3053,6 @@ function submitDeliveryNote(){
   if(!items.length){ showToast("Add at least 1 RM item (qty > 0)", true); return; }
 
   const dnId = 'dn_' + genId();
-
   const dn = {
     id: dnId,
     dnNo,
@@ -3551,30 +3062,32 @@ function submitDeliveryNote(){
     prodRef,
     generalRemark,
     items,
-    createdAt: new Date().toISOString(),
-    createdBy: currentUser?.username || ''
+    createdAt: nowISO(),
+    createdBy: who()
   };
 
   deliveryNotes.push(dn);
+  window.deliveryNotes = deliveryNotes;
   saveDeliveryNotes();
 
-  // ✅ cloud sync (no stockMovements change)
-  autoPushToCloud?.();
+  logChange("DN_CREATE", dnId, { dnNo, date: dnDate, to, lines: items.length });
+
+  autoPushToCloud();
   refreshAll();
 
   showToast("Delivery Note saved ✅");
   resetDeliveryNoteForm();
 }
-
+window.submitDeliveryNote = submitDeliveryNote;
 
 function renderDNTable(){
-  const tbody = document.querySelector('#dnTable tbody');
+  const tbody = $('#dnTable tbody');
   if(!tbody) return;
 
-  const q = (document.getElementById('dnSearch')?.value || '').toLowerCase().trim();
+  const q = ($('#dnSearch')?.value || '').toLowerCase().trim();
   tbody.innerHTML = '';
 
-  const list = [...deliveryNotes].sort((a,b)=> new Date(b.date) - new Date(a.date));
+  const list = [...(deliveryNotes||[])].sort((a,b)=> new Date(b.date) - new Date(a.date));
 
   list.forEach(dn=>{
     const hay = `${dn.dnNo||''} ${dn.to||''} ${dn.prodRef||''} ${dn.generalRemark||''}`.toLowerCase();
@@ -3600,17 +3113,18 @@ function renderDNTable(){
     `);
   });
 
-  applyPermissions?.();
+  applyPermissions();
 }
+window.renderDNTable = renderDNTable;
 
 function viewDN(id){
-  const dn = deliveryNotes.find(x=>x.id===id);
+  const dn = (deliveryNotes||[]).find(x=>x.id===id);
   if(!dn) return;
 
   lastDNViewedId = id;
 
-  document.getElementById('dnViewTitle').textContent = `Delivery Note — ${dn.dnNo}`;
-  document.getElementById('dnViewMeta').innerHTML =
+  $('#dnViewTitle').textContent = `Delivery Note — ${dn.dnNo}`;
+  $('#dnViewMeta').innerHTML =
     `<b>Date:</b> ${fmtDate(dn.date)}
      &nbsp; | &nbsp; <b>From:</b> ${escapeHtml(dn.from || '-')}
      &nbsp; | &nbsp; <b>To:</b> ${escapeHtml(dn.to || '-')}
@@ -3618,12 +3132,12 @@ function viewDN(id){
      ${dn.createdBy ? ` &nbsp; | &nbsp; <b>By:</b> ${escapeHtml(dn.createdBy)}` : ''}
      ${dn.generalRemark ? `<br><b>Remark:</b> ${escapeHtml(dn.generalRemark)}` : ''}`;
 
-  const body = document.getElementById('dnViewBody');
-  body.innerHTML = '';
+  const body = $('#dnViewBody');
+  if(body) body.innerHTML = '';
 
   (dn.items || []).forEach(it=>{
-    const p = products.find(x=>x.id===it.productId);
-    body.insertAdjacentHTML('beforeend', `
+    const p = (products||[]).find(x=>x.id===it.productId);
+    body?.insertAdjacentHTML('beforeend', `
       <tr>
         <td>${escapeHtml(p?.name || 'Unknown')}</td>
         <td>${Number(it.qty||0)}</td>
@@ -3632,24 +3146,22 @@ function viewDN(id){
     `);
   });
 
-  document.getElementById('dnViewModal').style.display = 'flex';
+  $('#dnViewModal').style.display = 'flex';
 }
+window.viewDN = viewDN;
 
-function closeDNView(){
-  document.getElementById('dnViewModal').style.display = 'none';
-}
+function closeDNView(){ const m = $('#dnViewModal'); if(m) m.style.display='none'; }
+window.closeDNView = closeDNView;
 
-function printDNFromModal(){
-  if(!lastDNViewedId) return;
-  printDN(lastDNViewedId);
-}
+function printDNFromModal(){ if(lastDNViewedId) printDN(lastDNViewedId); }
+window.printDNFromModal = printDNFromModal;
 
 function printDN(id){
-  const dn = deliveryNotes.find(x=>x.id===id);
+  const dn = (deliveryNotes||[]).find(x=>x.id===id);
   if(!dn) return;
 
   const rows = (dn.items || []).map((it, idx)=>{
-    const p = products.find(x=>x.id===it.productId);
+    const p = (products||[]).find(x=>x.id===it.productId);
     return { sr: idx+1, product: p?.name || 'Unknown', qty: Number(it.qty||0), remark: it.remark || '' };
   });
 
@@ -3658,7 +3170,6 @@ function printDN(id){
   const w = window.open('', '_blank');
   if(!w){ showToast("Popup blocked by browser", true); return; }
 
-  // ✅ your saved logo file
   const logoUrl = "pdflogo.png";
 
   w.document.write(`
@@ -3669,10 +3180,7 @@ function printDN(id){
       body{font-family:Arial;padding:22px;color:#111}
       .head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:14px}
       .leftHead{display:flex;gap:12px;align-items:flex-start}
-      .logo{
-        width:70px;height:70px;object-fit:contain;
-        border:1px solid #ddd;border-radius:10px;padding:6px;background:#fff;
-      }
+      .logo{width:70px;height:70px;object-fit:contain;border:1px solid #ddd;border-radius:10px;padding:6px;background:#fff}
       .box{border:1px solid #ccc;border-radius:10px;padding:12px}
       h2{margin:0 0 6px}
       .meta{font-size:13px;line-height:1.6;color:#333}
@@ -3748,42 +3256,209 @@ function printDN(id){
 
   w.document.close();
 }
+window.printDN = printDN;
 
 function deleteDN(id){
-  if(currentUser?.role !== 'admin'){
-    showToast("Only admin can delete DN", true);
-    return;
-  }
-  const dn = deliveryNotes.find(x=>x.id===id);
+  if(currentUser?.role !== 'admin'){ showToast("Only admin can delete DN", true); return; }
+  const dn = (deliveryNotes||[]).find(x=>x.id===id);
   if(!dn) return;
-
   if(!confirm(`Delete DN "${dn.dnNo}"?`)) return;
 
-  deliveryNotes = deliveryNotes.filter(x=>x.id!==id);
+  deliveryNotes = (deliveryNotes||[]).filter(x=>x.id!==id);
+  window.deliveryNotes = deliveryNotes;
   saveDeliveryNotes();
 
-  autoPushToCloud?.();
-  refreshAll();
+  logChange("DN_DELETE", id, { dnNo: dn.dnNo, date: dn.date });
 
+  autoPushToCloud();
+  refreshAll();
   showToast("DN deleted ✅");
 }
+window.deleteDN = deleteDN;
 
+/* =========================
+   ✅ SUPPLIERS
+========================= */
+window.suppliers = JSON.parse(localStorage.getItem(KEY_SUPPLIERS) || "[]");
+
+function saveSuppliers(){
+  localStorage.setItem(KEY_SUPPLIERS, JSON.stringify(window.suppliers || []));
+}
+window.saveSuppliers = saveSuppliers;
+
+function renderSuppliers(){
+  const tbody = $("#suppliersTable tbody");
+  if(!tbody) return;
+
+  const q = ($("#supplierSearch")?.value || "").toLowerCase().trim();
+  const list = Array.isArray(window.suppliers) ? window.suppliers : [];
+
+  const filtered = list
+    .filter(s=>{
+      const hay = `${s.name||""} ${s.contact||""} ${s.phone||""} ${s.email||""}`.toLowerCase();
+      return !q || hay.includes(q);
+    })
+    .sort((a,b)=> String(a.name||"").localeCompare(String(b.name||"")));
+
+  tbody.innerHTML = filtered.length ? "" : `<tr><td colspan="7" class="text-muted">No suppliers found</td></tr>`;
+
+  filtered.forEach((s, idx)=>{
+    const canEditRow = (currentUser?.role === "admin") || canEdit();
+    const canDelRow  = (currentUser?.role === "admin") || canDelete();
+
+    tbody.insertAdjacentHTML("beforeend", `
+      <tr>
+        <td>${idx+1}</td>
+        <td><b>${escapeHtml(s.name||"")}</b></td>
+        <td>${escapeHtml(s.contact||"")}</td>
+        <td>${escapeHtml(s.phone||"")}</td>
+        <td>${escapeHtml(s.email||"")}</td>
+        <td>${canEditRow ? `<button class="btn secondary btn-sm" type="button" onclick="editSupplier('${escapeHtml(s.id)}')">Edit</button>` : ``}</td>
+        <td>${canDelRow ? `<button class="btn out btn-sm" type="button" onclick="deleteSupplier('${escapeHtml(s.id)}')">Delete</button>` : ``}</td>
+      </tr>
+    `);
+  });
+
+  renderBOESupplierDropdown();
+}
+window.renderSuppliers = renderSuppliers;
+
+function addSupplier(){
+  if(!canAdd()){ showToast("No permission to add supplier", true); return; }
+
+  const name = ($("#newSupplierName")?.value || "").trim();
+  const contact = ($("#newSupplierContact")?.value || "").trim();
+  const phone = ($("#newSupplierPhone")?.value || "").trim();
+  const email = ($("#newSupplierEmail")?.value || "").trim();
+
+  if(!name){ showToast("Supplier name required", true); return; }
+
+  const exists = (window.suppliers || []).some(s => (s.name||"").toLowerCase() === name.toLowerCase());
+  if(exists){ showToast("Supplier already exists", true); return; }
+
+  window.suppliers.push({
+    id: "sup_" + genId(),
+    name,
+    contact,
+    phone,
+    email,
+    createdAt: nowISO(),
+    createdBy: who()
+  });
+
+  saveSuppliers();
+  autoPushToCloud();
+  renderSuppliers();
+  showToast("Supplier added ✅");
+
+  if($("#newSupplierName")) $("#newSupplierName").value = "";
+  if($("#newSupplierContact")) $("#newSupplierContact").value = "";
+  if($("#newSupplierPhone")) $("#newSupplierPhone").value = "";
+  if($("#newSupplierEmail")) $("#newSupplierEmail").value = "";
+}
+window.addSupplier = addSupplier;
+
+function editSupplier(id){
+  if(!canEdit()){ showToast("No permission to edit supplier", true); return; }
+
+  const s = (window.suppliers || []).find(x => x.id === id);
+  if(!s) return;
+
+  const newName = prompt("Supplier Name:", s.name || "");
+  if(newName === null) return;
+  const newAddr = prompt("Address Info:", s.contact || "");
+  if(newAddr === null) return;
+  const newPhone = prompt("Phone:", s.phone || "");
+  if(newPhone === null) return;
+  const newEmail = prompt("Email:", s.email || "");
+  if(newEmail === null) return;
+
+  s.name = String(newName).trim();
+  s.contact = String(newAddr).trim();
+  s.phone = String(newPhone).trim();
+  s.email = String(newEmail).trim();
+  s.updatedAt = nowISO();
+  s.updatedBy = who();
+
+  saveSuppliers();
+  autoPushToCloud();
+  renderSuppliers();
+  showToast("Supplier updated ✅");
+}
+window.editSupplier = editSupplier;
+
+function deleteSupplier(id){
+  if(!canDelete()){ showToast("No permission to delete supplier", true); return; }
+
+  const s = (window.suppliers || []).find(x => x.id === id);
+  if(!s) return;
+  if(!confirm(`Delete supplier "${s.name}"?`)) return;
+
+  window.suppliers = (window.suppliers || []).filter(x => x.id !== id);
+  saveSuppliers();
+  autoPushToCloud();
+  renderSuppliers();
+  showToast("Supplier deleted ✅");
+}
+window.deleteSupplier = deleteSupplier;
+
+/* =========================
+   ✅ FG CRUD
+========================= */
+function autoPushFGToCloud(){
+  if(!cloudDB) return Promise.resolve();
+
+  const payload = {
+    products: Array.isArray(fgProducts) ? fgProducts : [],
+    movements: Array.isArray(fgMovements) ? fgMovements : [],
+    updatedAt: nowISO()
+  };
+
+  return cloudDB.ref("fgManager").set(payload).catch(err=>{
+    console.error("autoPushFGToCloud failed:", err);
+    showToast("FG sync failed (check Firebase rules)", true);
+  });
+}
+window.autoPushFGToCloud = autoPushFGToCloud;
+
+function autoPullFGFromCloud(){
+  if(!cloudDB) return Promise.resolve();
+
+  return cloudDB.ref("fgManager").once("value")
+    .then(snap=>{
+      if(!snap.exists()) return;
+      const data = snap.val() || {};
+      const normArr = (v) => Array.isArray(v) ? v : (v && typeof v === "object" ? Object.values(v) : []);
+      fgProducts  = normArr(data.products);
+      fgMovements = normArr(data.movements);
+
+      saveFGLocal();
+      initFGVolumeSelection();
+      refreshAll();
+      renderProdFGDropdown();
+      renderBOM();
+    })
+    .catch(err=>{
+      console.error("autoPullFGFromCloud failed:", err);
+      showToast("FG pull failed (check Firebase rules)", true);
+    });
+}
+window.autoPullFGFromCloud = autoPullFGFromCloud;
 
 function addFGProduct(){
   if(!canAdd()){ showToast("No permission to add", true); return; }
 
-  const elCode = document.getElementById('fgNewProductcode');
-  const elBar  = document.getElementById('fgNewBarcode');
-  const elName = document.getElementById('fgNewName');
-  const elVol  = document.getElementById('fgNewVolume');
-  const elGrp  = document.getElementById('fgNewGroup');
-  const elBat  = document.getElementById('fgNewBatch');
-  const elExp  = document.getElementById('fgNewExpiry');
-  const elThr  = document.getElementById('fgNewThreshold');
+  const elCode = $('#fgNewProductcode');
+  const elBar  = $('#fgNewBarcode');
+  const elName = $('#fgNewName');
+  const elVol  = $('#fgNewVolume');
+  const elGrp  = $('#fgNewGroup');
+  const elBat  = $('#fgNewBatch');
+  const elExp  = $('#fgNewExpiry');
+  const elThr  = $('#fgNewThreshold');
 
   const name = (elName?.value || "").trim();
   const rawGroup = (elGrp?.value || "").trim();
-
   if(!name || !rawGroup){ showToast("Name & Group required", true); return; }
 
   fgProducts.push({
@@ -3799,7 +3474,7 @@ function addFGProduct(){
   });
 
   saveFGLocal();
-  autoPushFGToCloud?.();
+  autoPushFGToCloud();
   refreshAll();
 
   if(elName) elName.value = '';
@@ -3813,90 +3488,78 @@ function addFGProduct(){
 
   showToast("FG product added ✅");
 }
-
-
+window.addFGProduct = addFGProduct;
 
 function editFGProduct(fgId){
   if(!canEdit()){ showToast("No permission to edit", true); return; }
-
-  const fg = fgProducts.find(f => f.id === fgId);
+  const fg = (fgProducts||[]).find(f => f.id === fgId);
   if(!fg) return;
 
   const newProductcode = prompt("Edit Product Code:", fg.productcode || "");
   if(newProductcode === null) return;
-  if(!newProductcode.trim()){ showToast("Product code required", true); return; }
-
   const newBarcode = prompt("Edit Product barcode:", fg.barcode || "");
   if(newBarcode === null) return;
-  if(!newBarcode.trim()){ showToast("Barcode required", true); return; } // ✅ fixed: no newName here
-
   const newName = prompt("Edit Product Name:", fg.name || "");
   if(newName === null) return;
   if(!newName.trim()){ showToast("Name required", true); return; }
-
   const newVolume = prompt("Edit Volume / Size:", fg.volume || "");
   if(newVolume === null) return;
-
   const newGroup = prompt("Edit Group Prefix:", fg.group || "");
   if(newGroup === null) return;
   if(!newGroup.trim()){ showToast("Group required", true); return; }
-
   const newBatch = prompt("Edit Batch / Lot No:", fg.batch || "");
   if(newBatch === null) return;
-
   const newExpiry = prompt("Edit Expiry Date (YYYY-MM-DD):", fg.expiry || "");
   if(newExpiry === null) return;
-
   const newThreshold = prompt("Edit Low Stock Threshold:", String(fg.threshold ?? 5));
   if(newThreshold === null) return;
   if(isNaN(Number(newThreshold))){ showToast("Threshold must be a number", true); return; }
 
   fg.name       = newName.trim();
-  fg.productcode= newProductcode.trim();
-  fg.barcode    = newBarcode.trim();
-  fg.volume     = (newVolume || '').trim();
+  fg.productcode= String(newProductcode||'').trim();
+  fg.barcode    = String(newBarcode||'').trim();
+  fg.volume     = String(newVolume||'').trim();
   fg.group      = normalizeGroup(newGroup);
-  fg.batch      = (newBatch || '').trim();
-  fg.expiry     = (newExpiry || '').trim();
+  fg.batch      = String(newBatch||'').trim();
+  fg.expiry     = String(newExpiry||'').trim();
   fg.threshold  = Number(newThreshold);
-
-  saveFGLocal();
-  autoPushFGToCloud?.();
-  refreshAll?.();
-  showToast("FG updated ✅");
-}
-
-
-function deleteFGProduct(fgId){
-  if(!canDelete()){ showToast("No permission to delete", true); return; }
-
-  const fg = fgProducts.find(f => f.id === fgId);
-  if(!fg) return;
-
-  if(!confirm(`Delete FG "${fg.name}"? (History also deleted)`)) return;
-
-  fgProducts = fgProducts.filter(f => f.id !== fgId);
-  fgMovements = fgMovements.filter(m => m.fgId !== fgId);
 
   saveFGLocal();
   autoPushFGToCloud();
   refreshAll();
+  showToast("FG updated ✅");
+}
+window.editFGProduct = editFGProduct;
 
+function deleteFGProduct(fgId){
+  if(!canDelete()){ showToast("No permission to delete", true); return; }
+
+  const fg = (fgProducts||[]).find(f => f.id === fgId);
+  if(!fg) return;
+  if(!confirm(`Delete FG "${fg.name}"? (History also deleted)`)) return;
+
+  fgProducts = (fgProducts||[]).filter(f => f.id !== fgId);
+  fgMovements = (fgMovements||[]).filter(m => m.fgId !== fgId);
+
+  saveFGLocal();
+  autoPushFGToCloud();
+  refreshAll();
   showToast("FG deleted ✅");
 }
+window.deleteFGProduct = deleteFGProduct;
 
 /* =========================
-   ✅ RM PAGES
+   ✅ RM PAGES + CRUD + MODALS
 ========================= */
 function renderProductsTable(){
-  const tbody = document.querySelector('#productsTable tbody');
+  const tbody = $('#productsTable tbody');
   if(!tbody) return;
   tbody.innerHTML='';
 
-  const localSearch = (document.getElementById('productSearch')?.value || '').trim().toLowerCase();
+  const localSearch = ($('#productSearch')?.value || '').trim().toLowerCase();
 
   let i=1;
-  products.forEach(p=>{
+  (products||[]).forEach(p=>{
     const name = (p.name||'').toLowerCase();
     const cat  = (p.category||'').toLowerCase();
     if(localSearch && !name.includes(localSearch) && !cat.includes(localSearch)) return;
@@ -3921,20 +3584,21 @@ function renderProductsTable(){
 
   applyPermissions();
 }
+window.renderProductsTable = renderProductsTable;
 
 function renderStockIn(){
-  const tbody = document.querySelector('#stockInBody tbody');
+  const tbody = $('#stockInBody tbody');
   if(!tbody) return;
   tbody.innerHTML='';
 
-  const search = (document.getElementById('inSearch')?.value || '').toLowerCase().trim();
+  const search = ($('#inSearch')?.value || '').toLowerCase().trim();
 
-  products.forEach(p=>{
+  (products||[]).forEach(p=>{
     if(search && !(p.name||'').toLowerCase().includes(search)) return;
     const bal = computeBalance(p.id);
     tbody.insertAdjacentHTML('beforeend',`
       <tr>
-	<td>${escapeHtml(p.code||'')}</td>
+        <td>${escapeHtml(p.code||'')}</td>
         <td>${escapeHtml(p.name||'')}</td>
         <td>${bal}</td>
         <td>${lastMovement(p.id,'IN')}</td>
@@ -3943,20 +3607,21 @@ function renderStockIn(){
     `);
   });
 }
+window.renderStockIn = renderStockIn;
 
 function renderStockOut(){
-  const tbody = document.querySelector('#stockOutBody tbody');
+  const tbody = $('#stockOutBody tbody');
   if(!tbody) return;
   tbody.innerHTML='';
 
-  const search = (document.getElementById('outSearch')?.value || '').toLowerCase().trim();
+  const search = ($('#outSearch')?.value || '').toLowerCase().trim();
 
-  products.forEach(p=>{
+  (products||[]).forEach(p=>{
     if(search && !(p.name||'').toLowerCase().includes(search)) return;
     const bal = computeBalance(p.id);
     tbody.insertAdjacentHTML('beforeend',`
       <tr>
-	<td>${escapeHtml(p.code||'')}</td>
+        <td>${escapeHtml(p.code||'')}</td>
         <td>${escapeHtml(p.name||'')}</td>
         <td>${bal}</td>
         <td>${lastMovement(p.id,'OUT')}</td>
@@ -3967,19 +3632,20 @@ function renderStockOut(){
 
   applyPermissions();
 }
+window.renderStockOut = renderStockOut;
 
 function renderCombinedHistory(){
-  const tbody = document.querySelector('#historyTable tbody');
+  const tbody = $('#historyTable tbody');
   if(!tbody) return;
   tbody.innerHTML='';
 
-  const search = (document.getElementById('historySearch')?.value || '').toLowerCase().trim();
+  const search = ($('#historySearch')?.value || '').toLowerCase().trim();
 
-  stockMovements
+  (stockMovements||[])
     .slice()
     .sort((a,b)=>new Date(b.date)-new Date(a.date))
     .forEach(m=>{
-      const prod = products.find(p=>p.id===m.productId);
+      const prod = (products||[]).find(p=>p.id===m.productId);
       if(!prod) return;
 
       const okSearch =
@@ -4000,137 +3666,123 @@ function renderCombinedHistory(){
       `);
     });
 }
+window.renderCombinedHistory = renderCombinedHistory;
 
-/* =========================
-   ✅ MODALS (RM + FG)
-========================= */
+/* Stock modal (RM + FG share) */
 let modalCurrent = null;
 
 function openStockModal(productId, type){
-  if(type === 'OUT' && !canStockOut()){
-    showToast("Stock OUT not allowed for your role", true);
-    return;
-  }
-
+  if(type === 'OUT' && !canStockOut()){ showToast("Stock OUT not allowed for your role", true); return; }
   modalCurrent = { productId, type };
-  const prod = products.find(p=>p.id===productId);
+
+  const prod = (products||[]).find(p=>p.id===productId);
   if(!prod) return;
 
-  document.getElementById('modalProductName').textContent = prod.name;
-  document.getElementById('modalProductBalance').textContent = computeBalance(productId);
-  document.getElementById('modalQty').value = '';
-  document.getElementById('modalRemark').value = '';
+  $('#modalProductName').textContent = prod.name;
+  $('#modalProductBalance').textContent = computeBalance(productId);
+  $('#modalQty').value = '';
+  $('#modalRemark').value = '';
 
-  document.getElementById('stockModal').style.display = 'flex';
+  $('#stockModal').style.display = 'flex';
 
-  document.getElementById('modalSave').onclick = ()=>{
-    const qty = Number(document.getElementById('modalQty').value);
-    const remark = document.getElementById('modalRemark').value.trim();
+  $('#modalSave').onclick = ()=>{
+    const qty = Number($('#modalQty')?.value || 0);
+    const remark = ($('#modalRemark')?.value || '').trim();
 
     if(qty <= 0){ showToast("Invalid quantity", true); return; }
     if(type==='OUT' && qty > computeBalance(productId)){ showToast("Quantity exceeds balance", true); return; }
 
-stockMovements.push({
-  id: genId(),
-  productId,
-  type,
-  quantity: qty,
-  date: todayISO(),
-  remark,
+    stockMovements.push({
+      id: genId(),
+      productId,
+      type,
+      quantity: qty,
+      date: todayISO(),
+      remark,
+      createdAt: nowISO(),
+      createdBy: who()
+    });
 
-  createdAt: nowISO(),
-  createdBy: who()
-});
+    logChange(type === 'IN' ? "RM_STOCK_IN" : "RM_STOCK_OUT", productId, { qty, remark });
 
-logChange(type === 'IN' ? "RM_STOCK_IN" : "RM_STOCK_OUT", productId, {
-  qty,
-  remark
-});
-
-    saveAll();
+    saveRM();
     autoPushToCloud();
     closeModal();
     refreshAll();
     showToast(`RM Stock ${type==='IN'?'added':'removed'} ✅`);
   };
 }
+window.openStockModal = openStockModal;
 
 function openFGModal(fgId, type){
-  if(type === 'OUT' && !canStockOut()){
-    showToast("Stock OUT not allowed for your role", true);
-    return;
-  }
+  if(type === 'OUT' && !canStockOut()){ showToast("Stock OUT not allowed for your role", true); return; }
 
-  const fg = fgProducts.find(f=>f.id===fgId);
+  const fg = (fgProducts||[]).find(f=>f.id===fgId);
   if(!fg) return;
 
-  document.getElementById('modalProductName').textContent = fg.name;
-  document.getElementById('modalProductBalance').textContent = computeFGBalance(fgId);
-  document.getElementById('modalQty').value = '';
-  document.getElementById('modalRemark').value = '';
-  document.getElementById('stockModal').style.display = 'flex';
+  $('#modalProductName').textContent = fg.name;
+  $('#modalProductBalance').textContent = computeFGBalance(fgId);
+  $('#modalQty').value = '';
+  $('#modalRemark').value = '';
+  $('#stockModal').style.display = 'flex';
 
-  document.getElementById('modalSave').onclick = ()=>{
-    const qty = Number(document.getElementById('modalQty').value);
-    const remark = document.getElementById('modalRemark').value.trim();
+  $('#modalSave').onclick = ()=>{
+    const qty = Number($('#modalQty')?.value || 0);
+    const remark = ($('#modalRemark')?.value || '').trim();
 
     if(qty <= 0){ showToast("Invalid quantity", true); return; }
     if(type==='OUT' && qty > computeFGBalance(fgId)){ showToast("Quantity exceeds FG balance", true); return; }
 
- fgMovements.push({
-  id: genId(),
-  fgId,
-  type,
-  qty,
-  batch: fg.batch || '',
-  expiry: fg.expiry || '',
-  date: todayISO(),
-  remark,
+    fgMovements.push({
+      id: genId(),
+      fgId,
+      type,
+      qty,
+      batch: fg.batch || '',
+      expiry: fg.expiry || '',
+      date: todayISO(),
+      remark,
+      createdAt: nowISO(),
+      createdBy: who()
+    });
 
-  createdAt: nowISO(),
-  createdBy: who()
-});
+    logChange(type === 'IN' ? "FG_STOCK_IN" : "FG_STOCK_OUT", fgId, { qty, remark });
 
-logChange(type === 'IN' ? "FG_STOCK_IN" : "FG_STOCK_OUT", fgId, {
-  qty,
-  remark
-});
-saveFGLocal();
-
+    saveFGLocal();
     autoPushFGToCloud();
     closeModal();
     refreshAll();
     showToast(`FG Stock ${type==='IN'?'added':'removed'} ✅`);
   };
 }
+window.openFGModal = openFGModal;
 
 function closeModal(){
-  // Close Stock IN/OUT modal (existing)
-  const stockModal = document.getElementById('stockModal');
+  const stockModal = $('#stockModal');
   if(stockModal) stockModal.style.display = 'none';
 
-  // Close Generic App Modal (production view)
-  const appModal = document.getElementById('modal');
+  const appModal = $('#modal');
   if(appModal) appModal.style.display = 'none';
 
   modalCurrent = null;
 }
 window.closeModal = closeModal;
 
-/* RM history modal */
 function openHistory(productId){
-  const prod = products.find(p=>p.id===productId);
+  const prod = (products||[]).find(p=>p.id===productId);
   if(!prod) return;
 
-  const modal = document.getElementById('historyModal');
+  const modal = $('#historyModal');
+  if(!modal) return;
+
   modal.style.display='flex';
+  $('#modalTitle').textContent = `RM History — ${prod.name}`;
 
-  document.getElementById('modalTitle').textContent = `RM History — ${prod.name}`;
-
-  const tbody = document.getElementById('modalHistoryBody');
+  const tbody = $('#modalHistoryBody');
+  if(!tbody) return;
   tbody.innerHTML='';
 
-  stockMovements
+  (stockMovements||[])
     .filter(m=>m.productId===productId)
     .slice()
     .sort((a,b)=>new Date(b.date)-new Date(a.date))
@@ -4148,140 +3800,25 @@ function openHistory(productId){
       `);
     });
 }
+window.openHistory = openHistory;
 
-function closeHistoryModal(){
-  document.getElementById('historyModal').style.display='none';
-}
+function closeHistoryModal(){ const m = $('#historyModal'); if(m) m.style.display='none'; }
+window.closeHistoryModal = closeHistoryModal;
 
-/* RM Stock IN/OUT History modals */
-function stockInHistoryModal(){
-  const modal=document.getElementById('stockInHistoryModal');
-  modal.style.display='flex';
-  const tbody=document.getElementById('stockInHistoryPopupBody');
-  tbody.innerHTML='';
-
-  stockMovements
-    .filter(m=>m.type==='IN')
-    .slice()
-    .sort((a,b)=>new Date(b.date)-new Date(a.date))
-    .forEach(m=>{
-      const prod = products.find(p=>p.id===m.productId);
-      if(!prod) return;
-      tbody.insertAdjacentHTML('beforeend',`
-        <tr>
-          <td>${fmtDate(m.date)}</td>
-          <td>${escapeHtml(prod.name)}</td>
-          <td>${Number(m.quantity||0)}</td>
-          <td>${escapeHtml(m.remark||'')}</td>
-        </tr>
-      `);
-    });
-}
-function closeStockInHistory(){ document.getElementById('stockInHistoryModal').style.display='none'; }
-
-function stockOutHistoryModal(){
-  const modal=document.getElementById('stockOutHistoryModal');
-  modal.style.display='flex';
-  const tbody=document.getElementById('stockOutHistoryPopupBody');
-  tbody.innerHTML='';
-
-  stockMovements
-    .filter(m=>m.type==='OUT')
-    .slice()
-    .sort((a,b)=>new Date(b.date)-new Date(a.date))
-    .forEach(m=>{
-      const prod = products.find(p=>p.id===m.productId);
-      if(!prod) return;
-      tbody.insertAdjacentHTML('beforeend',`
-        <tr>
-          <td>${fmtDate(m.date)}</td>
-          <td>${escapeHtml(prod.name)}</td>
-          <td>${Number(m.quantity||0)}</td>
-          <td>${escapeHtml(m.remark||'')}</td>
-        </tr>
-      `);
-    });
-}
-function closeStockOutHistory(){ document.getElementById('stockOutHistoryModal').style.display='none'; }
-
-/* FG IN/OUT History (use historyModal) */
-function fgStockInHistoryModal(){
-  const modal = document.getElementById("historyModal");
-  modal.style.display = "flex";
-  document.getElementById("modalTitle").textContent = "FG Stock IN History";
-
-  const tbody = document.getElementById("modalHistoryBody");
-  tbody.innerHTML = "";
-
-  fgMovements
-    .filter(m => m.type === "IN")
-    .slice()
-    .sort((a,b)=> new Date(b.date) - new Date(a.date))
-    .forEach(m=>{
-      const fg = fgProducts.find(f=>f.id === m.fgId);
-      if(!fg) return;
-      tbody.insertAdjacentHTML("beforeend", `
-        <tr>
-          <td>${fmtDate(m.date)}</td>
-          <td>${escapeHtml(fg.name)}</td>
-          <td>IN</td>
-          <td>${Number(m.qty || 0)}</td>
-          <td>${escapeHtml(m.batch || fg.batch || '-')}</td>
-          <td>${escapeHtml(m.expiry || fg.expiry || '-')}</td>
-          <td>${escapeHtml(m.remark || '')}</td>
-        </tr>
-      `);
-    });
-}
-
-function fgStockOutHistoryModal(){
-  const modal = document.getElementById("historyModal");
-  modal.style.display = "flex";
-  document.getElementById("modalTitle").textContent = "FG Stock OUT History";
-
-  const tbody = document.getElementById("modalHistoryBody");
-  tbody.innerHTML = "";
-
-  fgMovements
-    .filter(m => m.type === "OUT")
-    .slice()
-    .sort((a,b)=> new Date(b.date) - new Date(a.date))
-    .forEach(m=>{
-      const fg = fgProducts.find(f=>f.id === m.fgId);
-      if(!fg) return;
-      tbody.insertAdjacentHTML("beforeend", `
-        <tr>
-          <td>${fmtDate(m.date)}</td>
-          <td>${escapeHtml(fg.name)}</td>
-          <td>OUT</td>
-          <td>${Number(m.qty || 0)}</td>
-          <td>${escapeHtml(m.batch || fg.batch || '-')}</td>
-          <td>${escapeHtml(m.expiry || fg.expiry || '-')}</td>
-          <td>${escapeHtml(m.remark || '')}</td>
-        </tr>
-      `);
-    });
-}
-
-/* =========================
-   ✅ RM ADD / EDIT / DELETE
-========================= */
 function addRMProduct(){
   if(!canAdd()){ showToast("No permission to add", true); return; }
 
-  const code = (document.getElementById('newCode')?.value || '').trim();
-  const name = (document.getElementById('newName')?.value || '').trim();
-  const category = (document.getElementById('newCategory')?.value || '').trim();
-  const threshold = Number(document.getElementById('newThreshold')?.value || 5);
-  const barcode = (document.getElementById('newBarcode')?.value || '').trim();
-  const groupsStr = (document.getElementById('newGroups')?.value || '').trim();
-  const exclusive = !!document.getElementById('newExclusive')?.checked;
+  const code = ($('#newCode')?.value || '').trim();
+  const name = ($('#newName')?.value || '').trim();
+  const category = ($('#newCategory')?.value || '').trim();
+  const threshold = Number($('#newThreshold')?.value || 5);
+  const barcode = ($('#newBarcode')?.value || '').trim();
+  const groupsStr = ($('#newGroups')?.value || '').trim();
+  const exclusive = !!$('#newExclusive')?.checked;
 
   if(!name){ showToast("Product name required", true); return; }
 
-  const groups = groupsStr
-    ? groupsStr.split(',').map(g=>g.trim()).filter(Boolean)
-    : [];
+  const groups = groupsStr ? groupsStr.split(',').map(g=>g.trim()).filter(Boolean) : [];
 
   products.push({
     id: 'rm_' + genId(),
@@ -4292,103 +3829,92 @@ function addRMProduct(){
     exclusive
   });
 
-  saveAll();
+  logChange("RM_ADD", products[products.length-1].id, { name, code });
+
+  saveRM();
   autoPushToCloud();
   refreshAll();
 
-  newCode.value=''; newName.value=''; newCategory.value='';
-  newThreshold.value=''; newBarcode.value=''; newGroups.value='';
-  newExclusive.checked=false;
+  if($('#newCode')) $('#newCode').value='';
+  if($('#newName')) $('#newName').value='';
+  if($('#newCategory')) $('#newCategory').value='';
+  if($('#newThreshold')) $('#newThreshold').value='';
+  if($('#newBarcode')) $('#newBarcode').value='';
+  if($('#newGroups')) $('#newGroups').value='';
+  if($('#newExclusive')) $('#newExclusive').checked=false;
 
   showToast("RM product added ✅");
 }
+window.addRMProduct = addRMProduct;
 
 function editProduct(productId){
-  if(!canEdit()){
-    showToast("No permission to edit", true);
-    return;
-  }
+  if(!canEdit()){ showToast("No permission to edit", true); return; }
 
-  const prod = products.find(p => p.id === productId);
+  const prod = (products||[]).find(p => p.id === productId);
   if(!prod) return;
 
   const newCode = prompt("Edit product code:", prod.code || "");
   if(newCode === null) return;
 
   const newName = prompt("Edit product name:", prod.name || "");
-  if(newName === null || !newName.trim()){
-    showToast("Name required", true);
-    return;
-  }
+  if(newName === null || !newName.trim()){ showToast("Name required", true); return; }
 
   const newCategory = prompt("Edit category:", prod.category || "");
   if(newCategory === null) return;
 
   const newThreshold = prompt("Edit threshold:", prod.threshold ?? 5);
-  if(newThreshold === null || isNaN(Number(newThreshold))){
-    showToast("Invalid threshold", true);
-    return;
-  }
+  if(newThreshold === null || isNaN(Number(newThreshold))){ showToast("Invalid threshold", true); return; }
 
   const newBarcode = prompt("Edit barcode:", prod.barcode || "");
   if(newBarcode === null) return;
 
-  const newGroupsInput = prompt(
-    "Edit groups (comma separated):",
-    Array.isArray(prod.groups) ? prod.groups.join(', ') : ''
-  );
+  const newGroupsInput = prompt("Edit groups (comma separated):", Array.isArray(prod.groups) ? prod.groups.join(', ') : '');
   if(newGroupsInput === null) return;
 
   const newExclusive = confirm("Exclusive to first group?");
 
-  prod.code = newCode.trim();
+  prod.code = String(newCode||'').trim();
   prod.name = newName.trim();
-  prod.category = (newCategory || '').trim();
+  prod.category = String(newCategory||'').trim();
   prod.threshold = Number(newThreshold);
-  prod.barcode = (newBarcode || '').trim();
-  prod.groups = (newGroupsInput || '')
-    .split(',')
-    .map(g => g.trim())
-    .filter(Boolean);
-  prod.exclusive = newExclusive;
+  prod.barcode = String(newBarcode||'').trim();
+  prod.groups = String(newGroupsInput || '').split(',').map(g => g.trim()).filter(Boolean);
+  prod.exclusive = !!newExclusive;
 
-  saveAll();
+  logChange("RM_EDIT", productId, { name: prod.name, code: prod.code });
+
+  saveRM();
   autoPushToCloud();
   refreshAll();
 
   showToast("Product updated ✅");
 }
+window.editProduct = editProduct;
 
 function deleteProduct(productId){
-  if(!canDelete()){
-    showToast("No permission to delete", true);
-    return;
-  }
+  if(!canDelete()){ showToast("No permission to delete", true); return; }
 
-  const prod = products.find(p => p.id === productId);
+  const prod = (products||[]).find(p => p.id === productId);
   if(!prod) return;
 
   if(!confirm(`Delete "${prod.name}"?\nThis will remove all its stock history.`)) return;
 
-  products = products.filter(p => p.id !== productId);
-  stockMovements = stockMovements.filter(m => m.productId !== productId);
-logChange("PROD_DELETE", id, {
-  prodNo: p.prodNo,
-  date: p.date,
-  fgName: p.fgName,
-  fgQty: p.fgQty
-});
+  products = (products||[]).filter(p => p.id !== productId);
+  stockMovements = (stockMovements||[]).filter(m => m.productId !== productId);
 
-  saveAll();
+  logChange("RM_DELETE", productId, { name: prod.name });
+
+  saveRM();
   autoPushToCloud();
   refreshAll();
 
   showToast("Product deleted ✅");
 }
+window.deleteProduct = deleteProduct;
 
-/* =========================
-   ✅ BOM / DASHBOARD GROUPED TABLE
-========================= */
+/* =========================================================
+   ✅ DASHBOARD GROUPED (BOM)
+========================================================= */
 let dashboardSearchText = "";
 let selectedDashboardGroup = null;
 let renamedGroups = JSON.parse(localStorage.getItem('renamedGroups') || '{}');
@@ -4399,8 +3925,7 @@ function handleDashboardSearch(value){
   renderDashboardGrouped();
 }
 function clearDashboardSearch(){
-  const inp = document.getElementById('dashboardSearch');
-  if(inp) inp.value = '';
+  if($('#dashboardSearch')) $('#dashboardSearch').value = '';
   dashboardSearchText = '';
   selectedDashboardGroup = null;
   renderDashboardGrouped();
@@ -4412,18 +3937,13 @@ function selectDashboardGroup(groupName){
 function getFGStock(groupName){
   const key = normalizeGroup(groupName);
   let total = 0;
-  fgProducts.forEach(fg=>{
-    if(normalizeGroup(fg.group) === key){
-      total += computeFGBalance(fg.id);
-    }
+  (fgProducts||[]).forEach(fg=>{
+    if(normalizeGroup(fg.group) === key) total += computeFGBalance(fg.id);
   });
   return total;
 }
 function renameGroup(groupName){
-  if(currentUser?.role !== 'admin'){
-    showToast("Only admin can rename groups", true);
-    return;
-  }
+  if(currentUser?.role !== 'admin'){ showToast("Only admin can rename groups", true); return; }
   const newName = prompt(`Enter new display name for "${groupName}"`, renamedGroups[groupName] || groupName);
   if(!newName) return;
 
@@ -4432,9 +3952,7 @@ function renameGroup(groupName){
   saveRenamedGroupsToCloud();
   renderDashboardGrouped();
 }
-function saveRenamedGroupsToCloud(){
-  cloudDB.ref("dashboardRenamedGroups").set(renamedGroups);
-}
+function saveRenamedGroupsToCloud(){ cloudDB.ref("dashboardRenamedGroups").set(renamedGroups); }
 function loadRenamedGroupsFromCloud(){
   cloudDB.ref("dashboardRenamedGroups").once("value").then(snap=>{
     if(snap.exists()){
@@ -4445,23 +3963,19 @@ function loadRenamedGroupsFromCloud(){
   });
 }
 
-// Grouped BOM render (shows groups by default)
 function renderDashboardGrouped(){
-  const tbody = document.querySelector('#dashTable tbody');
+  const tbody = $('#dashTable tbody');
   if(!tbody) return;
   tbody.innerHTML = '';
 
   const groupsMap = {};
 
-  products.forEach(p=>{
+  (products||[]).forEach(p=>{
     if(!Array.isArray(p.groups) || !p.groups.length) return;
 
     p.groups.forEach(g=>{
       if(!groupsMap[g]) groupsMap[g] = [];
-
-      // exclusive products only show in first group
       if(p.exclusive && p.groups[0] !== g) return;
-
       groupsMap[g].push(p);
     });
   });
@@ -4469,7 +3983,6 @@ function renderDashboardGrouped(){
   const allGroups = Object.keys(groupsMap).sort((a,b)=>a.localeCompare(b));
   const search = dashboardSearchText;
 
-  // If no groups configured, show info row
   if(!allGroups.length){
     tbody.insertAdjacentHTML('beforeend', `
       <tr><td colspan="6"><b>No BOM groups found.</b> Add "Groups" to RM products (comma separated).</td></tr>
@@ -4493,7 +4006,7 @@ function renderDashboardGrouped(){
 
     const groupRow = document.createElement('tr');
     groupRow.innerHTML = `
-      <td colspan="6" style="padding:18px;cursor:pointer;background:rgba(0,0,0,0.03)"
+      <td colspan="7" style="padding:18px;cursor:pointer;background:rgba(0,0,0,0.03)"
           onclick="selectDashboardGroup('${escapeHtml(groupName)}')">
         <b>${escapeHtml(displayName).toUpperCase()}</b>
         <span style="margin-left:40px;color:green;font-weight:bold">
@@ -4511,13 +4024,12 @@ function renderDashboardGrouped(){
     `;
     tbody.appendChild(groupRow);
 
-    // show products only when group is selected
     if(selectedDashboardGroup === groupName){
       groupProducts.forEach(p=>{
         const bal = computeBalance(p.id);
         tbody.insertAdjacentHTML('beforeend', `
           <tr>
-		<td>${escapeHtml(p.code||'')}</td>
+            <td>${escapeHtml(p.code||'')}</td>
             <td style="padding-left:25px">${escapeHtml(p.name||'')}</td>
             <td class="${bal <= Number(p.threshold ?? 5) ? 'low-stock':''}">${bal}</td>
             <td>${Number(p.threshold ?? 5)}</td>
@@ -4533,141 +4045,47 @@ function renderDashboardGrouped(){
       });
     }
   });
-buildGroupIndexes();     // ✅ important (connects BOM to grouping)
-  hydrateProductionFG();   
 
   applyPermissions();
 }
-function groupKey(v){
-  return normalizeGroup(v); // UPPERCASE + remove spaces
-}
+window.renderDashboardGrouped = renderDashboardGrouped;
+window.handleDashboardSearch = handleDashboardSearch;
+window.clearDashboardSearch = clearDashboardSearch;
+window.selectDashboardGroup = selectDashboardGroup;
+window.renameGroup = renameGroup;
 
-function normGroup(g){
-  return String(g || '').trim().toLowerCase();
-}
-function groupFromName(name){
-  return String(name || '').trim().split(/\s+/)[0]?.toLowerCase() || '';
-}
-function buildGroupIndexes(){
-  if(!window._idx) window._idx = {};
-  window._idx.fgById = new Map();
-  window._idx.rmByGroup = new Map();
-
-  // FG list
-  const fgList = Array.isArray(fgProducts) ? fgProducts : [];
-  fgList.forEach(f => window._idx.fgById.set(String(f.id), f));
-
-  // RM list
-  const rmList = Array.isArray(products) ? products : [];
-  rmList.forEach(rm=>{
-    const arr = Array.isArray(rm.groups) ? rm.groups : [];
-    if(!arr.length) return;
-
-    // if exclusive: only first group
-    const groupsToUse = rm.exclusive ? [arr[0]] : arr;
-
-    groupsToUse.forEach(g=>{
-      const k = groupKey(g);
-      if(!k) return;
-      if(!window._idx.rmByGroup.has(k)) window._idx.rmByGroup.set(k, []);
-      window._idx.rmByGroup.get(k).push(rm);
-    });
-  });
-}
-
-function hydrateProductionFG(){
-  const sel = document.getElementById('prodFG');
-  if(!sel) return;
-
-  const fgList = Array.from(window._idx.fgById.values());
-
-  sel.innerHTML = `<option value="">-- Select FG --</option>` +
-    fgList
-      .slice()
-      .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')))
-      .map(f => `<option value="${escapeHtml(String(f.id))}">${escapeHtml(f.name||'')}</option>`)
-      .join('');
-}
-
-function loadBills(){
-  try { bills = JSON.parse(localStorage.getItem(KEY_BILLS) || "[]"); }
-  catch { bills = []; }
-}
-function saveBills(){
-  localStorage.setItem(KEY_BILLS, JSON.stringify(bills || []));
-}
-
-function loadProductions(){
-  try { productions = JSON.parse(localStorage.getItem(KEY_PROD) || "[]"); }
-  catch { productions = []; }
-}
-function saveProductions(){
-  localStorage.setItem(KEY_PROD, JSON.stringify(productions || []));
-}
-
-function saveAllRM(){
-  localStorage.setItem(KEY_PRODUCTS, JSON.stringify(products || []));
-  localStorage.setItem(KEY_MOVES, JSON.stringify(stockMovements || []));
-  saveBills();
-  saveProductions();
-}
-
-/* =========================
-   ✅ CLOUD SYNC (RM + FG) — SAFE GLOBAL VERSION
-   Works even if your main data lives inside an IIFE
-========================= */
-function getBillsForCloud(){
-  // ✅ BOE module stores bills here
-  try{
-    const ls = JSON.parse(localStorage.getItem("sms_bills_v1") || "[]");
-    if(Array.isArray(ls)) return ls;
-  }catch(e){}
-
-  // fallback
-  if(Array.isArray(window.savedBills)) return window.savedBills;
-  if(Array.isArray(window.BOE?.saveBills) && Array.isArray(window.BOE?.bills)) return window.BOE.bills;
-
-  return [];
-}
-
-function toArray(v){
-  if(Array.isArray(v)) return v;
-  if(v && typeof v === "object") return Object.values(v);
-  return [];
-}
-
-/* =========================
-   ✅ CLOUD SYNC (RM + FG + Suppliers + BOE + DN + Production)
-========================= */
+/* =========================================================
+   ✅ CLOUD SYNC (SINGLE VERSION)
+========================================================= */
 function autoPushToCloud(){
-  if(!window.cloudDB) return;
+  if(!cloudDB) return;
 
   const payload = {
     products: (products || []),
     stockMovements: (stockMovements || []),
     fgProducts: (fgProducts || []),
     fgMovements: (fgMovements || []),
-
     suppliers: (window.suppliers || []),
-
-    bills: (window.savedBills || []),          // from BOE module
-    productions: (window.productions || []),
-    deliveryNotes: (window.deliveryNotes || []) // if you make it global; else remove
+    bills: (JSON.parse(localStorage.getItem(KEY_BILLS) || '[]')),
+    productions: (productions || []),
+    deliveryNotes: (deliveryNotes || []),
+    auditLog: (auditLog || []),
+    updatedAt: nowISO()
   };
 
-  cloudDB.ref(CLOUD_PATH_RM).set(payload)
-    .then(()=> console.log("☁️ pushed:", CLOUD_PATH_RM))
+  cloudDB.ref(CLOUD_PATH).set(payload)
+    .then(()=> console.log("☁️ pushed:", CLOUD_PATH))
     .catch(err=> console.error("☁️ push failed:", err));
 }
 window.autoPushToCloud = autoPushToCloud;
 
 async function autoPullFromCloud(){
-  if(!window.cloudDB) return;
+  if(!cloudDB) return;
 
   try{
-    const snap = await cloudDB.ref(CLOUD_PATH_RM).once("value");
+    const snap = await cloudDB.ref(CLOUD_PATH).once("value");
     const data = snap.val();
-    if(!data){ console.warn("☁️ no data at:", CLOUD_PATH_RM); return; }
+    if(!data){ console.warn("☁️ no data at:", CLOUD_PATH); return; }
 
     if(Array.isArray(data.products)) products = data.products;
     if(Array.isArray(data.stockMovements)) stockMovements = data.stockMovements;
@@ -4677,607 +4095,53 @@ async function autoPullFromCloud(){
 
     if(Array.isArray(data.suppliers)) window.suppliers = data.suppliers;
 
-    if(Array.isArray(data.bills)) {
+    if(Array.isArray(data.bills)){
+      localStorage.setItem(KEY_BILLS, JSON.stringify(data.bills));
       window.savedBills = data.bills;
-      localStorage.setItem("sms_bills_v1", JSON.stringify(window.savedBills));
+      BOE?.setBills?.(data.bills);
     }
 
-    if(Array.isArray(data.productions)) {
-      window.productions = data.productions;
-      localStorage.setItem("sms_productions_v1", JSON.stringify(window.productions));
+    if(Array.isArray(data.productions)){
+      productions = data.productions;
+      window.productions = productions;
+      localStorage.setItem(KEY_PROD, JSON.stringify(productions));
+    }
+
+    if(Array.isArray(data.deliveryNotes)){
+      deliveryNotes = data.deliveryNotes;
+      window.deliveryNotes = deliveryNotes;
+      localStorage.setItem(KEY_DN, JSON.stringify(deliveryNotes));
+    }
+
+    if(Array.isArray(data.auditLog)){
+      auditLog = data.auditLog;
+      saveAudit();
     }
 
     // persist locals
-    localStorage.setItem(KEY_PRODUCTS, JSON.stringify(products || []));
-    localStorage.setItem(KEY_MOVES, JSON.stringify(stockMovements || []));
-    saveFGLocal?.();
-    saveSuppliers?.();
+    saveRM();
+    saveFGLocal();
+    saveSuppliers();
+    saveProductions();
+    saveDeliveryNotes();
 
-    // refresh UI
-    refreshAll?.();
-    renderSuppliers?.();
+    refreshAll();
     BOE?.renderTable?.();
-    renderBOESupplierDropdown?.();
+    renderBOESupplierDropdown();
 
-    console.log("☁️ pulled:", CLOUD_PATH_RM);
+    console.log("☁️ pulled:", CLOUD_PATH);
   }catch(err){
     console.error("☁️ pull failed:", err);
   }
 }
 window.autoPullFromCloud = autoPullFromCloud;
 
-
-function autoPullFromCloud(){
-  if (typeof cloudDB === "undefined" || !cloudDB) return Promise.resolve();
-
-  return cloudDB.ref("stockManager").once("value")
-    .then(snapshot=>{
-      const data = snapshot.val();
-      if(!data) return;
-
-      products = data.products || [];
-      stockMovements = data.stockMovements || [];
-      productions = data.productions || [];
-
-      // bills are owned by BOE module
-      if (Array.isArray(data.bills)) {
-        localStorage.setItem("sms_bills_v1", JSON.stringify(data.bills));
-        window.savedBills = data.bills;
-      }
-
-      // audit log
-      auditLog = Array.isArray(data.auditLog) ? data.auditLog : auditLog;
-      saveAudit();
-
-      saveAll?.();
-      saveProductions?.();
-      refreshAll?.();
-
-      // refresh BOE table if module exists
-      BOE?.renderTable?.();
-    })
-    .catch(err => console.error("Auto pull failed:", err));
-}
-
-
-function autoPullFGFromCloud(){
-  if (typeof cloudDB === "undefined" || !cloudDB) return Promise.resolve();
-
-  return cloudDB.ref("fgManager").once("value")
-    .then(snap=>{
-      if(!snap.exists()) return;
-
-      const data = snap.val() || {};
-      const normArr = (v) => Array.isArray(v) ? v : (v && typeof v === "object" ? Object.values(v) : []);
-
-window.fgProducts  = normArr(data.products);
-window.fgMovements = normArr(data.movements);
-
-// ✅ keep local variables in sync (very important)
-fgProducts  = window.fgProducts;
-fgMovements = window.fgMovements;
-
-
-      // ✅ call your existing save/render hooks
-      window.saveFG?.();
-      window.saveFGLocal?.();
-      window.initFGVolumeSelection?.();
-      window.refreshAll?.();
-    })
-    .catch(err=>{
-      console.error("autoPullFGFromCloud failed:", err);
-      window.showToast?.("FG pull failed (check Firebase rules)", true);
-    });
-renderProdFGDropdown?.();
-renderBOM?.(); // optional (if FG already selected)
-
-}
-
-function autoPushFGToCloud(){
-  if (typeof cloudDB === "undefined" || !cloudDB) return Promise.resolve();
-
-  const payload = {
-    products: Array.isArray(window.fgProducts) ? window.fgProducts : [],
-    movements: Array.isArray(window.fgMovements) ? window.fgMovements : [],
-    updatedAt: new Date().toISOString()
-  };
-
-  return cloudDB.ref("fgManager").set(payload).catch(err=>{
-    console.error("autoPushFGToCloud failed:", err);
-    window.showToast?.("FG sync failed (check Firebase rules)", true);
-  });
-}
-
-
-
 /* =========================
-   ✅ REPORTS + EXPORT/IMPORT
+   ✅ REFRESH ALL (SAFE)
 ========================= */
-function printStockReport(){
-  const rows = products
-    .slice()
-    .sort((a,b)=>(a.name||'').localeCompare(b.name||''))
-    .map(p=>({
-      Code: p.code || '',
-      Product: p.name || '',
-           Balance: computeBalance(p.id),
-      Threshold: Number(p.threshold ?? 5),
-      LastIN: lastMovement(p.id,'IN'),
-      LastOUT: lastMovement(p.id,'OUT')
-    }));
+let _wired = false;
 
-  const w = window.open('', '_blank');
-  if(!w) { showToast("Popup blocked by browser", true); return; }
-
-  w.document.write(`
-    <html><head><title>RM Stock Report</title>
-    <style>
-      body{font-family:Arial;padding:18px}
-      h2{margin:0 0 12px}
-      table{width:100%;border-collapse:collapse}
-      th,td{border:1px solid #ccc;padding:8px;text-align:left}
-      th{background:#007bff;color:#fff}
-    </style>
-    </head><body class="print-bg">
-    <h2>RM Stock Report</h2>
-    <p>Date: ${new Date().toLocaleString()}</p>
-    <table>
-      <thead><tr>
-        <th>Code</th><th>Product</th><th>Category</th><th>Balance</th><th>Threshold</th><th>Last IN</th><th>Last OUT</th>
-      </tr></thead>
-      <tbody>
-        ${rows.map(r=>`
-          <tr>
-            <td>${escapeHtml(r.Code)}</td>
-            <td>${escapeHtml(r.Product)}</td>
-            <td>${escapeHtml(r.Category)}</td>
-            <td>${r.Balance}</td>
-            <td>${r.Threshold}</td>
-            <td>${escapeHtml(r.LastIN)}</td>
-            <td>${escapeHtml(r.LastOUT)}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-    <script>window.onload=()=>window.print();<\/script>
-    </body></html>
-  `);
-  w.document.close();
-}
-
-function printFGStockReport(){
-  const rows = fgProducts
-    .slice()
-    .sort((a,b)=>(a.name||'').localeCompare(b.name||''))
-    .map(f=>({
-      Product: f.name || '',
-      Volume: f.volume || '',
-      Group: f.group || '',
-      Balance: computeFGBalance(f.id),
-      Threshold: Number(f.threshold ?? 5),
-      Batch: f.batch || '',
-      Expiry: f.expiry || ''
-    }));
-
-  const w = window.open('', '_blank');
-  if(!w) { showToast("Popup blocked by browser", true); return; }
-
-  w.document.write(`
-    <html><head><title>FG Stock Report</title>
-    <style>
-      body{font-family:Arial;padding:18px}
-      h2{margin:0 0 12px}
-      table{width:100%;border-collapse:collapse}
-      th,td{border:1px solid #ccc;padding:8px;text-align:left}
-      th{background:#16a34a;color:#fff}
-    </style>
-    </head><body>
-    <h2>FG Stock Report</h2>
-    <p>Date: ${new Date().toLocaleString()}</p>
-    <table>
-      <thead><tr>
-        <th>Product</th><th>Volume</th><th>Group</th><th>Balance</th><th>Threshold</th><th>Batch</th><th>Expiry</th>
-      </tr></thead>
-      <tbody>
-        ${rows.map(r=>`
-          <tr>
-            <td>${escapeHtml(r.Product)}</td>
-            <td>${escapeHtml(r.Volume)}</td>
-            <td>${escapeHtml(r.Group)}</td>
-            <td>${r.Balance}</td>
-            <td>${r.Threshold}</td>
-            <td>${escapeHtml(r.Batch)}</td>
-            <td>${escapeHtml(r.Expiry)}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-    <script>window.onload=()=>window.print();<\/script>
-    </body></html>
-  `);
-  w.document.close();
-}
-
-function exportExcel(){
-  try{
-    const wb = XLSX.utils.book_new();
-
-    const rmProducts = products.map(p=>({
-      id:p.id, code:p.code||'', name:p.name||'', category:p.category||'',
-      threshold:Number(p.threshold ?? 5), barcode:p.barcode||'',
-      groups: Array.isArray(p.groups)? p.groups.join(', ') : '',
-      exclusive: !!p.exclusive
-    }));
-    const rmMoves = stockMovements.map(m=>({
-      id:m.id, productId:m.productId, type:m.type, quantity:Number(m.quantity||0),
-      date:m.date||'', remark:m.remark||''
-    }));
-    const fgProds = fgProducts.map(f=>({
-      id:f.id, name:f.name||'', volume:f.volume||'', group:f.group||'',
-      threshold:Number(f.threshold ?? 5), batch:f.batch||'', expiry:f.expiry||''
-    }));
-    const fgMoves = fgMovements.map(m=>({
-      id:m.id, fgId:m.fgId, type:m.type, qty:Number(m.qty||0),
-      date:m.date||'', batch:m.batch||'', expiry:m.expiry||'', remark:m.remark||''
-    }));
-
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rmProducts), 'RM_Products');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rmMoves), 'RM_Movements');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fgProds), 'FG_Products');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fgMoves), 'FG_Movements');
-
-    XLSX.writeFile(wb, `StockManager_${todayISO()}.xlsx`);
-    showToast("Excel exported ✅");
-  }catch(e){
-    console.error(e);
-    showToast("Excel export failed", true);
-  }
-}
-
-function importExcel(){
-  const inp = document.createElement('input');
-  inp.type = 'file';
-  inp.accept = '.xlsx,.xls';
-  inp.onchange = (ev)=>{
-    const file = ev.target.files?.[0];
-    if(!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e)=>{
-      try{
-        const data = new Uint8Array(e.target.result);
-        const wb = XLSX.read(data, {type:'array'});
-        const firstSheetName = wb.SheetNames[0];
-        const ws = wb.Sheets[firstSheetName];
-        const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
-
-        let added = 0;
-        rows.forEach(r=>{
-          const name = String(r.name || r.Name || r.PRODUCT || r.Product || '').trim();
-          if(!name) return;
-
-          products.push({
-            id: 'rm_' + genId(),
-            code: String(r.code || r.Code || '').trim(),
-            name,
-            category: String(r.category || r.Category || '').trim(),
-            threshold: Number(r.threshold || r.Threshold || 5) || 5,
-            barcode: String(r.barcode || r.Barcode || '').trim(),
-            groups: String(r.groups || r.Groups || '').split(',').map(x=>x.trim()).filter(Boolean),
-            exclusive: String(r.exclusive || r.Exclusive || '').toLowerCase() === 'true'
-          });
-          added++;
-        });
-
-        saveAll();
-        autoPushToCloud();
-        refreshAll();
-        showToast(`Imported ${added} RM products ✅`);
-      }catch(err){
-        console.error(err);
-        showToast("Import failed", true);
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  };
-  inp.click();
-}
-
-function exportPDF(){
-  try{
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('p','pt','a4');
-
-    const rows = products
-      .slice()
-      .sort((a,b)=>(a.name||'').localeCompare(b.name||''))
-      .map(p=>[
-        p.code||'',
-        p.name||'',
-        p.category||'',
-        String(computeBalance(p.id)),
-        String(Number(p.threshold ?? 5)),
-        lastMovement(p.id,'IN'),
-        lastMovement(p.id,'OUT')
-      ]);
-
-    doc.text(`RM Stock Report - ${todayISO()}`, 40, 40);
-
-    doc.autoTable({
-      startY: 60,
-      head: [['Code','Product','Category','Balance','Threshold','Last IN','Last OUT']],
-      body: rows,
-      styles: { fontSize: 9 }
-    });
-
-    doc.save(`RM_Stock_Report_${todayISO()}.pdf`);
-    showToast("PDF exported ✅");
-  }catch(e){
-    console.error(e);
-    showToast("PDF export failed", true);
-  }
-}
-
-
-
-
-
-/* =========================
-   ✅ SUPPLIERS MODULE (FIXED)
-========================= */
-const KEY_SUPPLIERS = "sms_suppliers_v1";
-window.suppliers = JSON.parse(localStorage.getItem(KEY_SUPPLIERS) || "[]"); // ✅ global for BOE
-
-function saveSuppliers(){
-  localStorage.setItem(KEY_SUPPLIERS, JSON.stringify(window.suppliers || []));
-}
-
-function renderSuppliers(){
-  const tbody = document.querySelector("#suppliersTable tbody");
-  if(!tbody) return;
-
-  const q = (document.getElementById("supplierSearch")?.value || "").toLowerCase().trim();
-  const list = Array.isArray(window.suppliers) ? window.suppliers : [];
-
-  const filtered = list
-    .filter(s=>{
-      const hay = `${s.name||""} ${s.contact||""} ${s.phone||""} ${s.email||""}`.toLowerCase();
-      return !q || hay.includes(q);
-    })
-    .sort((a,b)=> String(a.name||"").localeCompare(String(b.name||"")));
-
-  tbody.innerHTML = filtered.length ? "" : `<tr><td colspan="7" class="text-muted">No suppliers found</td></tr>`;
-
-  filtered.forEach((s, idx)=>{
-    const canEditRow = (currentUser?.role === "admin") || canEdit?.();
-    const canDelRow  = (currentUser?.role === "admin") || canDelete?.();
-
-    tbody.insertAdjacentHTML("beforeend", `
-      <tr>
-        <td>${idx+1}</td>
-        <td><b>${escapeHtml(s.name||"")}</b></td>
-        <td>${escapeHtml(s.contact||"")}</td>
-        <td>${escapeHtml(s.phone||"")}</td>
-        <td>${escapeHtml(s.email||"")}</td>
-        <td>
-          ${canEditRow ? `<button class="btn secondary btn-sm" type="button" onclick="editSupplier('${escapeHtml(s.id)}')">Edit</button>` : ``}
-        </td>
-        <td>
-          ${canDelRow ? `<button class="btn out btn-sm" type="button" onclick="deleteSupplier('${escapeHtml(s.id)}')">Delete</button>` : ``}
-        </td>
-      </tr>
-    `);
-  });
-
-  // keep BOE dropdown fresh
-  renderBOESupplierDropdown?.();
-}
-
-function addSupplier(){
-  if(!canAdd?.()){ showToast("No permission to add supplier", true); return; }
-
-  const nameEl = document.getElementById("newSupplierName");
-  const contactEl = document.getElementById("newSupplierContact");
-  const phoneEl = document.getElementById("newSupplierPhone");
-  const emailEl = document.getElementById("newSupplierEmail");
-
-  const name = (nameEl?.value || "").trim();
-  const contact = (contactEl?.value || "").trim();
-  const phone = (phoneEl?.value || "").trim();
-  const email = (emailEl?.value || "").trim();
-
-  if(!name){ showToast("Supplier name required", true); return; }
-
-  // prevent duplicates by name
-  const exists = (window.suppliers || []).some(s => (s.name||"").toLowerCase() === name.toLowerCase());
-  if(exists){ showToast("Supplier already exists", true); return; }
-
-  window.suppliers.push({
-    id: "sup_" + genId(),
-    name,
-    contact,
-    phone,
-    email,
-    createdAt: new Date().toISOString(),
-    createdBy: currentUser?.username || ""
-  });
-
-  saveSuppliers();
-  autoPushToCloud?.();              // ✅ push to cloud if you have it
-  renderSuppliers();
-  renderBOESupplierDropdown?.();
-
-  if(nameEl) nameEl.value = "";
-  if(contactEl) contactEl.value = "";
-  if(phoneEl) phoneEl.value = "";
-  if(emailEl) emailEl.value = "";
-
-  showToast("Supplier added ✅");
-}
-
-function editSupplier(id){
-  if(!canEdit?.()){ showToast("No permission to edit supplier", true); return; }
-
-  const s = (window.suppliers || []).find(x => x.id === id);
-  if(!s) return;
-
-  const newName = prompt("Supplier Name:", s.name || "");
-  if(newName === null) return;
-
-  const newAddr = prompt("Address Info:", s.contact || "");
-  if(newAddr === null) return;
-
-  const newPhone = prompt("Phone:", s.phone || "");
-  if(newPhone === null) return;
-
-  const newEmail = prompt("Email:", s.email || "");
-  if(newEmail === null) return;
-
-  s.name = String(newName).trim();
-  s.contact = String(newAddr).trim();
-  s.phone = String(newPhone).trim();
-  s.email = String(newEmail).trim();
-  s.updatedAt = new Date().toISOString();
-  s.updatedBy = currentUser?.username || "";
-
-  saveSuppliers();
-  autoPushToCloud?.();
-  renderSuppliers();
-  renderBOESupplierDropdown?.();
-  showToast("Supplier updated ✅");
-}
-
-function deleteSupplier(id){
-  if(!canDelete?.()){ showToast("No permission to delete supplier", true); return; }
-
-  const s = (window.suppliers || []).find(x => x.id === id);
-  if(!s) return;
-
-  if(!confirm(`Delete supplier "${s.name}"?`)) return;
-
-  window.suppliers = (window.suppliers || []).filter(x => x.id !== id);
-
-  saveSuppliers();
-  autoPushToCloud?.();
-  renderSuppliers();
-  renderBOESupplierDropdown?.();
-  showToast("Supplier deleted ✅");
-}
-
-/* ✅ Wire suppliers UI */
-document.addEventListener("DOMContentLoaded", ()=>{
-  document.getElementById("addSupplierBtn")?.addEventListener("click", addSupplier);
-  document.getElementById("supplierSearch")?.addEventListener("input", renderSuppliers);
-});
-
-
-
-
-window.Dashboard = window.Dashboard || {
-  refresh(){
-    try{
-      refreshAll?.();
-      const el = document.getElementById("dashUpdatedAt");
-      if(el) el.textContent = new Date().toLocaleString();
-      showToast("Dashboard refreshed ✅");
-    }catch(e){
-      console.error(e);
-      showToast("Dashboard refresh error", true);
-    }
-  }
-};
-
-
-
-
-
-
-/* =========================
-   ✅ EVENTS / MENU / INIT
-========================= */
-// Sidebar collapsible
-document.querySelectorAll('.menu-title.collapsible').forEach(m=>{
-  m.addEventListener('click', ()=>{
-    m.classList.toggle('open');
-    m.nextElementSibling?.classList.toggle('open');
-  });
-});
-
-// submenu navigation
-document.querySelectorAll('.submenu').forEach(sm=>{
-  sm.addEventListener('click', ()=>{
-    const page = sm.dataset.page;
-    const action = sm.dataset.action;
-    if(page) openPage(page);
-    if(action && typeof window[action]==='function') window[action]();
-  });
-});
-document.querySelectorAll('[data-page]').forEach(el=>{
-  el.addEventListener('click', ()=>{
-    const page = el.dataset.page;
-    document.querySelectorAll('.page').forEach(p=>p.style.display='none');
-    document.getElementById(page).style.display='block';
-    refreshAll?.();
-  });
-});
-
-
-// Searches
-document.getElementById('productSearch')?.addEventListener('input', renderProductsTable);
-document.getElementById('inSearch')?.addEventListener('input', renderStockIn);
-document.getElementById('outSearch')?.addEventListener('input', renderStockOut);
-document.getElementById('historySearch')?.addEventListener('input', renderCombinedHistory);
-document.getElementById('fgSearch')?.addEventListener('input', renderFGStock);
-document.getElementById('fgInSearch')?.addEventListener('input', renderFGStockIn);
-document.getElementById('fgOutSearch')?.addEventListener('input', renderFGStockOut);
-document.getElementById('supplierSearch')?.addEventListener('input', renderSuppliers);
-document.getElementById('addSupplierBtn')?.addEventListener('click', addSupplier);
-document.getElementById('boeSearch')?.addEventListener('input', renderBillsTable);
-document.getElementById('prodSearch')?.addEventListener('input', renderProductionsTable);
-document.getElementById('dnSearch')?.addEventListener('input', renderDNTable);
-document.getElementById('prodFG')?.addEventListener('change', renderBOM);
-document.getElementById('prodFGQty')?.addEventListener('input', renderBOM);
-
-
-// Sidebar toggle
-const sidebarToggle = document.getElementById('sidebarToggle');
-const sidebar = document.getElementById('sidebar');
-const mainWrap = document.querySelector('.main');
-
-if(sidebarToggle && sidebar){
-  sidebarToggle.addEventListener('click', ()=>{
-    sidebar.classList.toggle('minimized');
-    if(mainWrap) mainWrap.classList.toggle('sidebar-minimized');
-    sidebarToggle.textContent = sidebar.classList.contains('minimized') ? '→' : '←';
-  });
-}
-
-// ✅ session restore
-const savedUser = localStorage.getItem('sms_currentUser');
-if(savedUser){
-  currentUser = JSON.parse(savedUser);
-  loginScreen.style.display='none';
-  document.querySelector('.app').style.display='flex';
-  applyPermissions();
-  openPage('dashboardPage');
-}
-
-/* initial pulls */
-window.addEventListener('load', ()=>{
-  initFGVolumeSelection();
-  loadRenamedGroupsFromCloud();
-  autoPullFGFromCloud();
-  autoPullFromCloud();
-  refreshAll();
-});
-
-/* =========================
-   ✅ REFRESH ALL
-========================= */
 function refreshAll(){
-  buildGroupIndexes();   // ✅ must come before BOM + dropdown
-  hydrateProductionFG(); // ✅ dropdown uses _idx
-
   renderProductsTable();
   renderStockIn();
   renderStockOut();
@@ -5292,30 +4156,109 @@ function refreshAll(){
 
   renderMainDashboard();
   renderDashboardGrouped();
-  renderBillsTable();
 
-renderFGOptions();
-initFGSearchSelect();
- renderSuppliers();
+  renderSuppliers();
+  BOE?.renderTable?.();
+
   applyPermissions();
 }
+window.refreshAll = refreshAll;
 
+/* =========================
+   ✅ INIT / EVENTS
+========================= */
+function wireEventsOnce(){
+  if(_wired) return;
+  _wired = true;
 
-/* Expose to window (safe) */
-window.handleDashboardSearch = handleDashboardSearch;
-window.clearDashboardSearch = clearDashboardSearch;
-window.fgStockInHistoryModal = fgStockInHistoryModal;
-window.fgStockOutHistoryModal = fgStockOutHistoryModal;
-window.printStockReport = printStockReport;
-window.printFGStockReport = printFGStockReport;
-window.exportExcel = exportExcel;
-window.importExcel = importExcel;
-window.exportPDF = exportPDF;
-window.openFGFromDashboard = openFGFromDashboard;
-window.openLowFGFromDashboard = openLowFGFromDashboard;
-window.renderProductionsTable = renderProductionsTable;
-window.viewProduction = viewProduction;
+  // Sidebar collapsible
+  $$('.menu-title.collapsible').forEach(m=>{
+    m.addEventListener('click', ()=>{
+      m.classList.toggle('open');
+      m.nextElementSibling?.classList.toggle('open');
+    });
+  });
 
+  // submenu navigation
+  $$('.submenu').forEach(sm=>{
+    sm.addEventListener('click', ()=>{
+      const page = sm.dataset.page;
+      const action = sm.dataset.action;
+      if(page) openPage(page);
+      if(action && typeof window[action]==='function') window[action]();
+    });
+  });
+
+  $$('[data-page]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const page = el.dataset.page;
+      openPage(page);
+    });
+  });
+
+  // Searches
+  $('#productSearch')?.addEventListener('input', renderProductsTable);
+  $('#inSearch')?.addEventListener('input', renderStockIn);
+  $('#outSearch')?.addEventListener('input', renderStockOut);
+  $('#historySearch')?.addEventListener('input', renderCombinedHistory);
+
+  $('#fgSearch')?.addEventListener('input', renderFGStock);
+  $('#fgInSearch')?.addEventListener('input', renderFGStockIn);
+  $('#fgOutSearch')?.addEventListener('input', renderFGStockOut);
+
+  $('#supplierSearch')?.addEventListener('input', renderSuppliers);
+  $('#addSupplierBtn')?.addEventListener('click', addSupplier);
+
+  $('#boeSearch')?.addEventListener('input', ()=> BOE?.renderTable?.());
+
+  $('#prodSearch')?.addEventListener('input', renderProductionsTable);
+  $('#dnSearch')?.addEventListener('input', renderDNTable);
+
+  $('#prodFG')?.addEventListener('change', renderBOM);
+  $('#prodFGQty')?.addEventListener('input', renderBOM);
+
+  // Sidebar toggle
+  const sidebarToggle = $('#sidebarToggle');
+  const sidebar = $('#sidebar');
+  const mainWrap = $('.main');
+
+  if(sidebarToggle && sidebar){
+    sidebarToggle.addEventListener('click', ()=>{
+      sidebar.classList.toggle('minimized');
+      if(mainWrap) mainWrap.classList.toggle('sidebar-minimized');
+      sidebarToggle.textContent = sidebar.classList.contains('minimized') ? '→' : '←';
+    });
+  }
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  wireEventsOnce();
+
+  // session restore
+  const savedUser = localStorage.getItem('sms_currentUser');
+  if(savedUser){
+    currentUser = JSON.parse(savedUser);
+    if(loginScreen) loginScreen.style.display='none';
+    const app = $('.app');
+    if(app) app.style.display='flex';
+    applyPermissions();
+    openPage('dashboardPage');
+  }else{
+    // show login if exists
+    if(loginScreen) loginScreen.style.display='flex';
+  }
+
+  initFGVolumeSelection();
+  loadRenamedGroupsFromCloud();
+
+  BOE?.init?.();
+
+  // Pull cloud (then refresh)
+  autoPullFGFromCloud();
+  autoPullFromCloud();
+
+  refreshAll();
+});
 </script>
 
 

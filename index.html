@@ -5299,6 +5299,182 @@ initFGSearchSelect();
  renderSuppliers();
   applyPermissions();
 }
+/* =========================
+   ✅ PATCH PACK (PASTE AT END)
+   Fixes:
+   - bills scope (renderBillsTable -> BOE.renderTable)
+   - autoPullFromCloud duplicate + wrong path
+   - deleteProduct logChange crash
+   - printStockReport Category bug
+   - deliveryNotes cloud sync (window.deliveryNotes)
+========================= */
+(() => {
+
+  /* ---------- 1) Ensure Delivery Notes are global ---------- */
+  try{
+    if (typeof window.deliveryNotes === "undefined" && typeof deliveryNotes !== "undefined") {
+      window.deliveryNotes = deliveryNotes;
+    }
+  }catch(e){}
+
+  // keep window.deliveryNotes synced whenever you save
+  if (typeof window.saveDeliveryNotes === "function") {
+    const _saveDN = window.saveDeliveryNotes;
+    window.saveDeliveryNotes = function(){
+      _saveDN();
+      try{ window.deliveryNotes = deliveryNotes; }catch(e){}
+    };
+  }
+
+  /* ---------- 2) Bills table must use BOE module ---------- */
+  window.renderBillsTable = function(){
+    window.BOE?.renderTable?.();
+  };
+
+  // make boe search drive the BOE table (NOT old renderBillsTable logic)
+  document.getElementById('boeSearch')?.addEventListener('input', ()=> window.BOE?.renderTable?.());
+
+  /* ---------- 3) Fix deleteProduct() crash ---------- */
+  window.deleteProduct = function(productId){
+    if(!window.canDelete?.()){
+      window.showToast?.("No permission to delete", true);
+      return;
+    }
+
+    const prod = (window.products || []).find(p => p.id === productId);
+    if(!prod) return;
+
+    if(!confirm(`Delete "${prod.name}"?\nThis will remove all its stock history.`)) return;
+
+    window.products = (window.products || []).filter(p => p.id !== productId);
+    window.stockMovements = (window.stockMovements || []).filter(m => m.productId !== productId);
+
+    // ✅ correct audit
+    window.logChange?.("RM_DELETE", productId, { code: prod.code || "", name: prod.name || "" });
+
+    window.saveAll?.();
+    window.autoPushToCloud?.();
+    window.refreshAll?.();
+    window.showToast?.("Product deleted ✅");
+  };
+
+  /* ---------- 4) Fix printStockReport Category bug ---------- */
+  window.printStockReport = function(){
+    const rows = (window.products || [])
+      .slice()
+      .sort((a,b)=>(a.name||'').localeCompare(b.name||''))
+      .map(p=>({
+        Code: p.code || '',
+        Product: p.name || '',
+        Category: p.category || '',
+        Balance: window.computeBalance?.(p.id) ?? 0,
+        Threshold: Number(p.threshold ?? 5),
+        LastIN: window.lastMovement?.(p.id,'IN') ?? '-',
+        LastOUT: window.lastMovement?.(p.id,'OUT') ?? '-'
+      }));
+
+    const w = window.open('', '_blank');
+    if(!w) { window.showToast?.("Popup blocked by browser", true); return; }
+
+    w.document.write(`
+      <html><head><title>RM Stock Report</title>
+      <style>
+        body{font-family:Arial;padding:18px}
+        h2{margin:0 0 12px}
+        table{width:100%;border-collapse:collapse}
+        th,td{border:1px solid #ccc;padding:8px;text-align:left}
+        th{background:#007bff;color:#fff}
+      </style>
+      </head><body>
+      <h2>RM Stock Report</h2>
+      <p>Date: ${new Date().toLocaleString()}</p>
+      <table>
+        <thead><tr>
+          <th>Code</th><th>Product</th><th>Category</th><th>Balance</th><th>Threshold</th><th>Last IN</th><th>Last OUT</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map(r=>`
+            <tr>
+              <td>${window.escapeHtml?.(r.Code) || r.Code}</td>
+              <td>${window.escapeHtml?.(r.Product) || r.Product}</td>
+              <td>${window.escapeHtml?.(r.Category) || r.Category}</td>
+              <td>${r.Balance}</td>
+              <td>${r.Threshold}</td>
+              <td>${window.escapeHtml?.(r.LastIN) || r.LastIN}</td>
+              <td>${window.escapeHtml?.(r.LastOUT) || r.LastOUT}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      <script>window.onload=()=>window.print();<\/script>
+      </body></html>
+    `);
+    w.document.close();
+  };
+
+  /* ---------- 5) KEEP ONLY ONE autoPullFromCloud (use CLOUD_PATH_RM) ---------- */
+  window.autoPullFromCloud = async function(){
+    if(!window.cloudDB) return;
+
+    const PATH = window.CLOUD_PATH_RM || "stockManager/v1"; // ✅ must match your autoPushToCloud()
+
+    try{
+      const snap = await window.cloudDB.ref(PATH).once("value");
+      const data = snap.val();
+      if(!data){
+        console.warn("☁️ no data at:", PATH);
+        return;
+      }
+
+      // assign globals
+      if(Array.isArray(data.products)) window.products = data.products;
+      if(Array.isArray(data.stockMovements)) window.stockMovements = data.stockMovements;
+
+      if(Array.isArray(data.fgProducts)) window.fgProducts = data.fgProducts;
+      if(Array.isArray(data.fgMovements)) window.fgMovements = data.fgMovements;
+
+      if(Array.isArray(data.suppliers)) window.suppliers = data.suppliers;
+      if(Array.isArray(data.bills)) window.savedBills = data.bills;
+      if(Array.isArray(data.productions)) window.productions = data.productions;
+      if(Array.isArray(data.deliveryNotes)) window.deliveryNotes = data.deliveryNotes;
+
+      // sync local vars (if they exist)
+      try{ products = window.products; }catch(e){}
+      try{ stockMovements = window.stockMovements; }catch(e){}
+      try{ fgProducts = window.fgProducts; }catch(e){}
+      try{ fgMovements = window.fgMovements; }catch(e){}
+      try{ productions = window.productions; }catch(e){}
+      try{ deliveryNotes = window.deliveryNotes; }catch(e){}
+
+      // persist
+      localStorage.setItem(KEY_PRODUCTS, JSON.stringify(window.products || []));
+      localStorage.setItem(KEY_MOVES, JSON.stringify(window.stockMovements || []));
+      localStorage.setItem("sms_fg_products", JSON.stringify(window.fgProducts || []));
+      localStorage.setItem("sms_fg_movements", JSON.stringify(window.fgMovements || []));
+      localStorage.setItem("sms_bills_v1", JSON.stringify(window.savedBills || []));
+      localStorage.setItem(KEY_PROD, JSON.stringify(window.productions || []));
+      localStorage.setItem(KEY_DN, JSON.stringify(window.deliveryNotes || []));
+      localStorage.setItem(KEY_SUPPLIERS, JSON.stringify(window.suppliers || []));
+
+      // refresh UI
+      window.refreshAll?.();
+      window.BOE?.renderTable?.();
+      window.renderBOESupplierDropdown?.();
+      window.renderSuppliers?.();
+
+      console.log("☁️ pulled OK:", PATH);
+    }catch(err){
+      console.error("☁️ pull failed:", err);
+    }
+  };
+
+  /* ---------- 6) BOE init should run after DOM ---------- */
+  document.addEventListener("DOMContentLoaded", () => {
+    window.BOE?.init?.();
+  });
+
+})();
+
 
 
 /* Expose to window (safe) */

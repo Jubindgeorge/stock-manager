@@ -3714,97 +3714,223 @@ function openStockModal(productId, type){
 }
 window.openStockModal = openStockModal;
 
+/* =========================
+   ✅ FG STOCK MODAL (CONTINUATION + FIX)
+========================= */
 function openFGModal(fgId, type){
-  if(type === 'OUT' && !canStockOut()){ showToast("Stock OUT not allowed for your role", true); return; }
+  if(type === 'OUT' && !canStockOut()){
+    showToast("Stock OUT not allowed for your role", true);
+    return;
+  }
 
   const fg = (fgProducts||[]).find(f=>f.id===fgId);
   if(!fg) return;
 
-  $('#modalProductName').textContent = fg.name;
-  $('#modalProductBalance').textContent = computeFGBalance(fgId);
-  $('#modalQty').value = '';
-  $('#modalRemark').value = '';
-  $('#stockModal').style.display = 'flex';
+  const stockModal = document.getElementById('stockModal');
+  if(!stockModal) return;
 
-  $('#modalSave').onclick = ()=>{
-    const qty = Number($('#modalQty')?.value || 0);
-    const remark = ($('#modalRemark')?.value || '').trim();
+  document.getElementById('modalProductName').textContent = fg.name || 'FG';
+  document.getElementById('modalProductBalance').textContent = computeFGBalance(fgId);
 
-    if(qty <= 0){ showToast("Invalid quantity", true); return; }
-    if(type==='OUT' && qty > computeFGBalance(fgId)){ showToast("Quantity exceeds FG balance", true); return; }
+  const qtyEl = document.getElementById('modalQty');
+  const remEl = document.getElementById('modalRemark');
+  if(qtyEl) qtyEl.value = '';
+  if(remEl) remEl.value = '';
 
-    fgMovements.push({
-      id: genId(),
-      fgId,
-      type,
-      qty,
-      batch: fg.batch || '',
-      expiry: fg.expiry || '',
-      date: todayISO(),
-      remark,
-      createdAt: nowISO(),
-      createdBy: who()
-    });
+  stockModal.style.display = 'flex';
 
-    logChange(type === 'IN' ? "FG_STOCK_IN" : "FG_STOCK_OUT", fgId, { qty, remark });
+  const saveBtn = document.getElementById('modalSave');
+  if(saveBtn){
+    saveBtn.onclick = ()=>{
+      const qty = Number(qtyEl?.value || 0);
+      const remark = (remEl?.value || '').trim();
 
-    saveFGLocal();
-    autoPushFGToCloud();
-    closeModal();
-    refreshAll();
-    showToast(`FG Stock ${type==='IN'?'added':'removed'} ✅`);
-  };
+      if(qty <= 0){ showToast("Invalid quantity", true); return; }
+
+      const bal = Number(computeFGBalance(fgId) || 0);
+      if(type === 'OUT' && qty > bal){
+        showToast("Quantity exceeds balance", true);
+        return;
+      }
+
+      fgMovements.push({
+        id: genId(),
+        fgId,
+        type,
+        qty,
+        date: todayISO(),
+        remark,
+        batch: fg.batch || '',
+        expiry: fg.expiry || '',
+        createdAt: nowISO(),
+        createdBy: who()
+      });
+
+      logChange(type === 'IN' ? "FG_STOCK_IN" : "FG_STOCK_OUT", fgId, { qty, remark });
+
+      saveFGLocal();
+      autoPushFGToCloud();
+      closeStockModal();
+      refreshAll();
+      showToast(`FG Stock ${type==='IN'?'added':'removed'} ✅`);
+    };
+  }
 }
 window.openFGModal = openFGModal;
 
+/* =========================
+   ✅ MODAL CLOSE HELPERS
+========================= */
+function closeStockModal(){
+  const m = document.getElementById('stockModal');
+  if(m) m.style.display = 'none';
+}
+window.closeStockModal = closeStockModal;
+
+function closeHistoryModal(){
+  const m = document.getElementById('historyModal');
+  if(m) m.style.display = 'none';
+}
+window.closeHistoryModal = closeHistoryModal;
+
 function closeModal(){
-  const stockModal = $('#stockModal');
-  if(stockModal) stockModal.style.display = 'none';
-
-  const appModal = $('#modal');
-  if(appModal) appModal.style.display = 'none';
-
-  modalCurrent = null;
+  // closes generic app modal (#modal)
+  const m = document.getElementById('modal');
+  if(m) m.style.display = 'none';
 }
 window.closeModal = closeModal;
 
+/* =========================
+   ✅ RM HISTORY MODAL
+========================= */
 function openHistory(productId){
   const prod = (products||[]).find(p=>p.id===productId);
   if(!prod) return;
 
-  const modal = $('#historyModal');
+  const modal = document.getElementById('historyModal');
   if(!modal) return;
 
-  modal.style.display='flex';
-  $('#modalTitle').textContent = `RM History — ${prod.name}`;
+  modal.style.display = 'flex';
+  const title = document.getElementById('modalTitle');
+  if(title) title.textContent = `RM History — ${prod.name || ''}`;
 
-  const tbody = $('#modalHistoryBody');
+  const tbody = document.getElementById('modalHistoryBody');
   if(!tbody) return;
-  tbody.innerHTML='';
 
-  (stockMovements||[])
+  const rows = (stockMovements||[])
     .filter(m=>m.productId===productId)
     .slice()
-    .sort((a,b)=>new Date(b.date)-new Date(a.date))
-    .forEach(m=>{
-      tbody.insertAdjacentHTML('beforeend',`
-        <tr>
-          <td>${fmtDate(m.date)}</td>
-          <td>${escapeHtml(prod.name)}</td>
-          <td>${escapeHtml(m.type)}</td>
-          <td>${Number(m.quantity||0)}</td>
-          <td>-</td>
-          <td>-</td>
-          <td>${escapeHtml(m.remark||'')}</td>
-        </tr>
-      `);
-    });
+    .sort((a,b)=> new Date(b.date||b.createdAt||0) - new Date(a.date||a.createdAt||0));
+
+  tbody.innerHTML = rows.length ? '' : `<tr><td colspan="7" class="text-muted">No history</td></tr>`;
+
+  rows.forEach(m=>{
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>${fmtDate(m.date)}</td>
+        <td>${escapeHtml(prod.name||'')}</td>
+        <td>${escapeHtml(m.type||'')}</td>
+        <td>${Number(m.quantity||0)}</td>
+        <td>${escapeHtml(m.batch||'-')}</td>
+        <td>${escapeHtml(m.expiry||'-')}</td>
+        <td>${escapeHtml(m.remark||'')}</td>
+      </tr>
+    `);
+  });
 }
 window.openHistory = openHistory;
 
-function closeHistoryModal(){ const m = $('#historyModal'); if(m) m.style.display='none'; }
-window.closeHistoryModal = closeHistoryModal;
+function stockInHistoryModal(){
+  openTypeHistoryModal('IN', 'RM Stock IN History');
+}
+window.stockInHistoryModal = stockInHistoryModal;
 
+function stockOutHistoryModal(){
+  openTypeHistoryModal('OUT', 'RM Stock OUT History');
+}
+window.stockOutHistoryModal = stockOutHistoryModal;
+
+function fgStockInHistoryModal(){
+  openFGTypeHistoryModal('IN', 'FG Stock IN History');
+}
+window.fgStockInHistoryModal = fgStockInHistoryModal;
+
+function fgStockOutHistoryModal(){
+  openFGTypeHistoryModal('OUT', 'FG Stock OUT History');
+}
+window.fgStockOutHistoryModal = fgStockOutHistoryModal;
+
+function openTypeHistoryModal(type, titleText){
+  const modal = document.getElementById('historyModal');
+  if(!modal) return;
+
+  modal.style.display = 'flex';
+  const title = document.getElementById('modalTitle');
+  if(title) title.textContent = titleText;
+
+  const tbody = document.getElementById('modalHistoryBody');
+  if(!tbody) return;
+
+  const rows = (stockMovements||[])
+    .filter(m=>m.type===type)
+    .slice()
+    .sort((a,b)=> new Date(b.date||b.createdAt||0) - new Date(a.date||a.createdAt||0));
+
+  tbody.innerHTML = rows.length ? '' : `<tr><td colspan="7" class="text-muted">No history</td></tr>`;
+
+  rows.forEach(m=>{
+    const prod = (products||[]).find(p=>p.id===m.productId);
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>${fmtDate(m.date)}</td>
+        <td>${escapeHtml(prod?.name || 'Unknown')}</td>
+        <td>${escapeHtml(m.type||'')}</td>
+        <td>${Number(m.quantity||0)}</td>
+        <td>${escapeHtml(m.batch||'-')}</td>
+        <td>${escapeHtml(m.expiry||'-')}</td>
+        <td>${escapeHtml(m.remark||'')}</td>
+      </tr>
+    `);
+  });
+}
+
+function openFGTypeHistoryModal(type, titleText){
+  const modal = document.getElementById('historyModal');
+  if(!modal) return;
+
+  modal.style.display = 'flex';
+  const title = document.getElementById('modalTitle');
+  if(title) title.textContent = titleText;
+
+  const tbody = document.getElementById('modalHistoryBody');
+  if(!tbody) return;
+
+  const rows = (fgMovements||[])
+    .filter(m=>m.type===type)
+    .slice()
+    .sort((a,b)=> new Date(b.date||b.createdAt||0) - new Date(a.date||a.createdAt||0));
+
+  tbody.innerHTML = rows.length ? '' : `<tr><td colspan="7" class="text-muted">No history</td></tr>`;
+
+  rows.forEach(m=>{
+    const fg = (fgProducts||[]).find(f=>f.id===m.fgId);
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>${fmtDate(m.date)}</td>
+        <td>${escapeHtml(fg?.name || 'Unknown')}</td>
+        <td>${escapeHtml(m.type||'')}</td>
+        <td>${Number(m.qty||0)}</td>
+        <td>${escapeHtml(m.batch||fg?.batch||'-')}</td>
+        <td>${escapeHtml(m.expiry||fg?.expiry||'-')}</td>
+        <td>${escapeHtml(m.remark||'')}</td>
+      </tr>
+    `);
+  });
+}
+
+/* =========================
+   ✅ RM CRUD (ADD / EDIT / DELETE)
+========================= */
 function addRMProduct(){
   if(!canAdd()){ showToast("No permission to add", true); return; }
 
@@ -3813,457 +3939,358 @@ function addRMProduct(){
   const category = ($('#newCategory')?.value || '').trim();
   const threshold = Number($('#newThreshold')?.value || 5);
   const barcode = ($('#newBarcode')?.value || '').trim();
-  const groupsStr = ($('#newGroups')?.value || '').trim();
+
+  const groupsRaw = ($('#newGroups')?.value || '').trim();
+  const qtyPerFG = Number($('#newQtyPerFG')?.value || 0) || 0;
   const exclusive = !!$('#newExclusive')?.checked;
 
   if(!name){ showToast("Product name required", true); return; }
 
-  const groups = groupsStr ? groupsStr.split(',').map(g=>g.trim()).filter(Boolean) : [];
+  const exists = (products||[]).some(p => (p.name||'').toLowerCase() === name.toLowerCase() && (p.code||'') === code);
+  if(exists){ showToast("Product already exists", true); return; }
+
+  const groups = groupsRaw
+    ? groupsRaw.split(',').map(s=>normalizeGroup(s)).filter(Boolean)
+    : [];
 
   products.push({
     id: 'rm_' + genId(),
-    code, name, category,
-    threshold: isNaN(threshold) ? 5 : threshold,
+    code,
+    name,
+    category,
+    threshold,
     barcode,
     groups,
+    qtyPerFG: qtyPerFG > 0 ? qtyPerFG : undefined,
     exclusive
   });
 
-  logChange("RM_ADD", products[products.length-1].id, { name, code });
+  logChange("RM_ADD_PRODUCT", name, { code, category });
 
   saveRM();
   autoPushToCloud();
   refreshAll();
-
-  if($('#newCode')) $('#newCode').value='';
-  if($('#newName')) $('#newName').value='';
-  if($('#newCategory')) $('#newCategory').value='';
-  if($('#newThreshold')) $('#newThreshold').value='';
-  if($('#newBarcode')) $('#newBarcode').value='';
-  if($('#newGroups')) $('#newGroups').value='';
-  if($('#newExclusive')) $('#newExclusive').checked=false;
-
   showToast("RM product added ✅");
+
+  ['newCode','newName','newCategory','newThreshold','newBarcode','newGroups','newQtyPerFG'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.value = '';
+  });
+  const ex = document.getElementById('newExclusive');
+  if(ex) ex.checked = false;
 }
 window.addRMProduct = addRMProduct;
 
 function editProduct(productId){
   if(!canEdit()){ showToast("No permission to edit", true); return; }
+  const p = (products||[]).find(x=>x.id===productId);
+  if(!p) return;
 
-  const prod = (products||[]).find(p => p.id === productId);
-  if(!prod) return;
-
-  const newCode = prompt("Edit product code:", prod.code || "");
+  const newCode = prompt("Product Code:", p.code || '');
   if(newCode === null) return;
-
-  const newName = prompt("Edit product name:", prod.name || "");
-  if(newName === null || !newName.trim()){ showToast("Name required", true); return; }
-
-  const newCategory = prompt("Edit category:", prod.category || "");
+  const newName = prompt("Product Name:", p.name || '');
+  if(newName === null) return;
+  if(!newName.trim()){ showToast("Name required", true); return; }
+  const newCategory = prompt("Category:", p.category || '');
   if(newCategory === null) return;
-
-  const newThreshold = prompt("Edit threshold:", prod.threshold ?? 5);
-  if(newThreshold === null || isNaN(Number(newThreshold))){ showToast("Invalid threshold", true); return; }
-
-  const newBarcode = prompt("Edit barcode:", prod.barcode || "");
+  const newThreshold = prompt("Low Stock Threshold:", String(p.threshold ?? 5));
+  if(newThreshold === null) return;
+  const newBarcode = prompt("Barcode:", p.barcode || '');
   if(newBarcode === null) return;
 
-  const newGroupsInput = prompt("Edit groups (comma separated):", Array.isArray(prod.groups) ? prod.groups.join(', ') : '');
-  if(newGroupsInput === null) return;
+  const newGroups = prompt("Groups (comma separated):", (Array.isArray(p.groups)? p.groups.join(',') : ''));
+  if(newGroups === null) return;
 
-  const newExclusive = confirm("Exclusive to first group?");
+  const newQtyPerFG = prompt("Qty per FG (BOM):", String(p.qtyPerFG ?? ''));
+  if(newQtyPerFG === null) return;
 
-  prod.code = String(newCode||'').trim();
-  prod.name = newName.trim();
-  prod.category = String(newCategory||'').trim();
-  prod.threshold = Number(newThreshold);
-  prod.barcode = String(newBarcode||'').trim();
-  prod.groups = String(newGroupsInput || '').split(',').map(g => g.trim()).filter(Boolean);
-  prod.exclusive = !!newExclusive;
+  const newExclusive = confirm("Exclusive to first group?\nOK = Yes, Cancel = No");
 
-  logChange("RM_EDIT", productId, { name: prod.name, code: prod.code });
+  p.code = String(newCode||'').trim();
+  p.name = String(newName||'').trim();
+  p.category = String(newCategory||'').trim();
+  p.threshold = Number(newThreshold||5) || 5;
+  p.barcode = String(newBarcode||'').trim();
+
+  p.groups = String(newGroups||'')
+    .split(',')
+    .map(s=>normalizeGroup(s))
+    .filter(Boolean);
+
+  const q = Number(newQtyPerFG||0);
+  if(q > 0) p.qtyPerFG = q; else delete p.qtyPerFG;
+
+  p.exclusive = !!newExclusive;
+  p.updatedAt = nowISO();
+  p.updatedBy = who();
+
+  logChange("RM_EDIT_PRODUCT", productId, { name: p.name, code: p.code });
 
   saveRM();
   autoPushToCloud();
   refreshAll();
-
-  showToast("Product updated ✅");
+  showToast("RM product updated ✅");
 }
 window.editProduct = editProduct;
 
 function deleteProduct(productId){
   if(!canDelete()){ showToast("No permission to delete", true); return; }
 
-  const prod = (products||[]).find(p => p.id === productId);
-  if(!prod) return;
+  const p = (products||[]).find(x=>x.id===productId);
+  if(!p) return;
 
-  if(!confirm(`Delete "${prod.name}"?\nThis will remove all its stock history.`)) return;
+  if(!confirm(`Delete RM "${p.name}"?\nThis will also remove its movement history.`)) return;
 
-  products = (products||[]).filter(p => p.id !== productId);
-  stockMovements = (stockMovements||[]).filter(m => m.productId !== productId);
+  products = (products||[]).filter(x=>x.id!==productId);
+  stockMovements = (stockMovements||[]).filter(m=>m.productId!==productId);
 
-  logChange("RM_DELETE", productId, { name: prod.name });
+  logChange("RM_DELETE_PRODUCT", productId, { name: p.name });
 
   saveRM();
   autoPushToCloud();
   refreshAll();
-
-  showToast("Product deleted ✅");
+  showToast("RM product deleted ✅");
 }
 window.deleteProduct = deleteProduct;
 
-/* =========================================================
-   ✅ DASHBOARD GROUPED (BOM)
-========================================================= */
-let dashboardSearchText = "";
-let selectedDashboardGroup = null;
-let renamedGroups = JSON.parse(localStorage.getItem('renamedGroups') || '{}');
+/* =========================
+   ✅ IMPORT / EXPORT / PRINT (STUBS)
+   (kept minimal so file runs without errors)
+========================= */
+function refreshAll(){
+  // RM
+  renderProductsTable?.();
+  renderStockIn?.();
+  renderStockOut?.();
+  renderCombinedHistory?.();
 
-function handleDashboardSearch(value){
-  dashboardSearchText = (value || "").toLowerCase().trim();
-  selectedDashboardGroup = null;
-  renderDashboardGrouped();
-}
-function clearDashboardSearch(){
-  if($('#dashboardSearch')) $('#dashboardSearch').value = '';
-  dashboardSearchText = '';
-  selectedDashboardGroup = null;
-  renderDashboardGrouped();
-}
-function selectDashboardGroup(groupName){
-  selectedDashboardGroup = groupName;
-  renderDashboardGrouped();
-}
-function getFGStock(groupName){
-  const key = normalizeGroup(groupName);
-  let total = 0;
-  (fgProducts||[]).forEach(fg=>{
-    if(normalizeGroup(fg.group) === key) total += computeFGBalance(fg.id);
-  });
-  return total;
-}
-function renameGroup(groupName){
-  if(currentUser?.role !== 'admin'){ showToast("Only admin can rename groups", true); return; }
-  const newName = prompt(`Enter new display name for "${groupName}"`, renamedGroups[groupName] || groupName);
-  if(!newName) return;
+  // FG
+  renderFGStock?.();
+  renderFGStockIn?.();
+  renderFGStockOut?.();
 
-  renamedGroups[groupName] = newName.trim();
-  localStorage.setItem('renamedGroups', JSON.stringify(renamedGroups));
-  saveRenamedGroupsToCloud();
-  renderDashboardGrouped();
-}
-function saveRenamedGroupsToCloud(){ cloudDB.ref("dashboardRenamedGroups").set(renamedGroups); }
-function loadRenamedGroupsFromCloud(){
-  cloudDB.ref("dashboardRenamedGroups").once("value").then(snap=>{
-    if(snap.exists()){
-      renamedGroups = snap.val() || {};
-      localStorage.setItem('renamedGroups', JSON.stringify(renamedGroups));
-      renderDashboardGrouped();
-    }
-  });
-}
+  // BOE / Suppliers / DN / Production
+  renderSuppliers?.();
+  BOE?.renderTable?.();
+  renderDNTable?.();
+  renderProductionsTable?.();
 
-function renderDashboardGrouped(){
-  const tbody = $('#dashTable tbody');
-  if(!tbody) return;
-  tbody.innerHTML = '';
-
-  const groupsMap = {};
-
-  (products||[]).forEach(p=>{
-    if(!Array.isArray(p.groups) || !p.groups.length) return;
-
-    p.groups.forEach(g=>{
-      if(!groupsMap[g]) groupsMap[g] = [];
-      if(p.exclusive && p.groups[0] !== g) return;
-      groupsMap[g].push(p);
-    });
-  });
-
-  const allGroups = Object.keys(groupsMap).sort((a,b)=>a.localeCompare(b));
-  const search = dashboardSearchText;
-
-  if(!allGroups.length){
-    tbody.insertAdjacentHTML('beforeend', `
-      <tr><td colspan="6"><b>No BOM groups found.</b> Add "Groups" to RM products (comma separated).</td></tr>
-    `);
-    return;
+  // Dashboard if visible
+  const dash = document.getElementById('dashboardPage');
+  if(dash && dash.style.display !== 'none'){
+    renderMainDashboard();
+    renderFGVolumeFilter();
+    renderFGChart();
+    const up = document.getElementById('dashUpdatedAt');
+    if(up) up.textContent = `Updated: ${new Date().toLocaleString()}`;
   }
-
-  allGroups.forEach(groupName=>{
-    const displayName = renamedGroups[groupName] || groupName;
-
-    const groupProducts = groupsMap[groupName].filter(p=>{
-      const nm = (p.name||'').toLowerCase();
-      const gp = displayName.toLowerCase();
-      return !search || nm.includes(search) || gp.includes(search);
-    });
-
-    if(!groupProducts.length) return;
-    if(selectedDashboardGroup && selectedDashboardGroup !== groupName) return;
-
-    const fgBalance = getFGStock(groupName);
-
-    const groupRow = document.createElement('tr');
-    groupRow.innerHTML = `
-      <td colspan="7" style="padding:18px;cursor:pointer;background:rgba(0,0,0,0.03)"
-          onclick="selectDashboardGroup('${escapeHtml(groupName)}')">
-        <b>${escapeHtml(displayName).toUpperCase()}</b>
-        <span style="margin-left:40px;color:green;font-weight:bold">
-          FG BALANCE: ${fgBalance}
-        </span>
-        ${
-          currentUser?.role === 'admin'
-            ? `<button class="btn secondary" style="margin-left:15px;padding:6px 10px"
-                 onclick="event.stopPropagation(); renameGroup('${escapeHtml(groupName)}')">
-                 Rename
-               </button>`
-            : ''
-        }
-      </td>
-    `;
-    tbody.appendChild(groupRow);
-
-    if(selectedDashboardGroup === groupName){
-      groupProducts.forEach(p=>{
-        const bal = computeBalance(p.id);
-        tbody.insertAdjacentHTML('beforeend', `
-          <tr>
-            <td>${escapeHtml(p.code||'')}</td>
-            <td style="padding-left:25px">${escapeHtml(p.name||'')}</td>
-            <td class="${bal <= Number(p.threshold ?? 5) ? 'low-stock':''}">${bal}</td>
-            <td>${Number(p.threshold ?? 5)}</td>
-            <td>${lastMovement(p.id,'IN')}</td>
-            <td>${lastMovement(p.id,'OUT')}</td>
-            <td>
-              <button class="btn secondary" onclick="openHistory('${p.id}')">View</button>
-              <button class="btn" onclick="openStockModal('${p.id}','IN')">Add IN</button>
-              <button class="btn out btn-stock-out" onclick="openStockModal('${p.id}','OUT')">Stock OUT</button>
-            </td>
-          </tr>
-        `);
-      });
-    }
-  });
-
-  applyPermissions();
 }
-window.renderDashboardGrouped = renderDashboardGrouped;
-window.handleDashboardSearch = handleDashboardSearch;
-window.clearDashboardSearch = clearDashboardSearch;
-window.selectDashboardGroup = selectDashboardGroup;
-window.renameGroup = renameGroup;
+window.refreshAll = refreshAll;
 
-/* =========================================================
-   ✅ CLOUD SYNC (SINGLE VERSION)
-========================================================= */
+function exportExcel(){ showToast("Export Excel: add your XLSX export logic"); }
+function importExcel(){ showToast("Import Excel: add your XLSX import logic"); }
+function exportPDF(){ showToast("Export PDF: add your jsPDF export logic"); }
+function printStockReport(){ window.print(); }
+function printFGStockReport(){ window.print(); }
+
+window.exportExcel = exportExcel;
+window.importExcel = importExcel;
+window.exportPDF = exportPDF;
+window.printStockReport = printStockReport;
+window.printFGStockReport = printFGStockReport;
+
+function boeTriggerImport(){
+  document.getElementById('boeFileInput')?.click();
+}
+window.boeTriggerImport = boeTriggerImport;
+
+function printBOESummaryReport(){
+  showToast("BOE Summary: add jsPDF report logic");
+}
+window.printBOESummaryReport = printBOESummaryReport;
+
+/* =========================
+   ✅ CLOUD SYNC (RM + All modules) — SINGLE SOURCE
+========================= */
+function normArr(v){
+  return Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : []);
+}
+
 function autoPushToCloud(){
-  if(!cloudDB) return;
+  if(!cloudDB) return Promise.resolve();
 
   const payload = {
-    products: (products || []),
-    stockMovements: (stockMovements || []),
-    fgProducts: (fgProducts || []),
-    fgMovements: (fgMovements || []),
-    suppliers: (window.suppliers || []),
-    bills: (JSON.parse(localStorage.getItem(KEY_BILLS) || '[]')),
-    productions: (productions || []),
-    deliveryNotes: (deliveryNotes || []),
-    auditLog: (auditLog || []),
-    updatedAt: nowISO()
+    products: Array.isArray(products) ? products : [],
+    movements: Array.isArray(stockMovements) ? stockMovements : [],
+    suppliers: Array.isArray(window.suppliers) ? window.suppliers : [],
+    bills: BOE?.getBills?.() || [],
+    productions: Array.isArray(productions) ? productions : [],
+    deliveryNotes: Array.isArray(deliveryNotes) ? deliveryNotes : [],
+    auditLog: Array.isArray(auditLog) ? auditLog : [],
+    updatedAt: nowISO(),
+    updatedBy: who()
   };
 
-  cloudDB.ref(CLOUD_PATH).set(payload)
-    .then(()=> console.log("☁️ pushed:", CLOUD_PATH))
-    .catch(err=> console.error("☁️ push failed:", err));
+  return cloudDB.ref(`${CLOUD_PATH}/data`).set(payload)
+    .catch(err=>{
+      console.error("autoPushToCloud failed:", err);
+      showToast("Cloud push failed (check Firebase rules)", true);
+    });
 }
 window.autoPushToCloud = autoPushToCloud;
 
-async function autoPullFromCloud(){
-  if(!cloudDB) return;
+function autoPullFromCloud(){
+  if(!cloudDB) return Promise.resolve();
 
-  try{
-    const snap = await cloudDB.ref(CLOUD_PATH).once("value");
-    const data = snap.val();
-    if(!data){ console.warn("☁️ no data at:", CLOUD_PATH); return; }
+  return cloudDB.ref(`${CLOUD_PATH}/data`).once('value')
+    .then(snap=>{
+      if(!snap.exists()){
+        console.warn("No cloud data at:", `${CLOUD_PATH}/data`);
+        return;
+      }
+      const data = snap.val() || {};
 
-    if(Array.isArray(data.products)) products = data.products;
-    if(Array.isArray(data.stockMovements)) stockMovements = data.stockMovements;
+      products = normArr(data.products);
+      stockMovements = normArr(data.movements);
+      window.suppliers = normArr(data.suppliers);
+      productions = normArr(data.productions);
+      deliveryNotes = normArr(data.deliveryNotes);
+      auditLog = normArr(data.auditLog);
 
-    if(Array.isArray(data.fgProducts)) fgProducts = data.fgProducts;
-    if(Array.isArray(data.fgMovements)) fgMovements = data.fgMovements;
+      // BOE module has its own state setter
+      if(BOE?.setBills) BOE.setBills(normArr(data.bills));
 
-    if(Array.isArray(data.suppliers)) window.suppliers = data.suppliers;
-
-    if(Array.isArray(data.bills)){
-      localStorage.setItem(KEY_BILLS, JSON.stringify(data.bills));
-      window.savedBills = data.bills;
-      BOE?.setBills?.(data.bills);
-    }
-
-    if(Array.isArray(data.productions)){
-      productions = data.productions;
-      window.productions = productions;
-      localStorage.setItem(KEY_PROD, JSON.stringify(productions));
-    }
-
-    if(Array.isArray(data.deliveryNotes)){
-      deliveryNotes = data.deliveryNotes;
-      window.deliveryNotes = deliveryNotes;
-      localStorage.setItem(KEY_DN, JSON.stringify(deliveryNotes));
-    }
-
-    if(Array.isArray(data.auditLog)){
-      auditLog = data.auditLog;
+      saveRM();
+      saveSuppliers();
+      saveProductions();
+      saveDeliveryNotes();
       saveAudit();
-    }
 
-    // persist locals
-    saveRM();
-    saveFGLocal();
-    saveSuppliers();
-    saveProductions();
-    saveDeliveryNotes();
-
-    refreshAll();
-    BOE?.renderTable?.();
-    renderBOESupplierDropdown();
-
-    console.log("☁️ pulled:", CLOUD_PATH);
-  }catch(err){
-    console.error("☁️ pull failed:", err);
-  }
+      refreshAll();
+    })
+    .catch(err=>{
+      console.error("autoPullFromCloud failed:", err);
+      showToast("Cloud pull failed (check Firebase rules)", true);
+    });
 }
 window.autoPullFromCloud = autoPullFromCloud;
 
 /* =========================
-   ✅ REFRESH ALL (SAFE)
+   ✅ MENU + SIDEBAR INIT
 ========================= */
-let _wired = false;
+function initMenu(){
+  // collapse sections
+  document.querySelectorAll('.menu-title.collapsible').forEach(title=>{
+    title.addEventListener('click', ()=>{
+      title.classList.toggle('open');
+      const next = title.nextElementSibling;
+      if(next && next.classList.contains('subgroup')){
+        next.classList.toggle('open');
+      }
+    });
+  });
 
-function refreshAll(){
-  renderProductsTable();
-  renderStockIn();
-  renderStockOut();
-  renderCombinedHistory();
+  // page navigation
+  document.querySelectorAll('[data-page]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const page = el.getAttribute('data-page');
+      if(page) openPage(page);
+    });
+  });
 
-  renderFGStock();
-  renderFGStockIn();
-  renderFGStockOut();
+  // actions
+  document.querySelectorAll('[data-action]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const act = el.getAttribute('data-action');
+      if(act && typeof window[act] === 'function') window[act]();
+    });
+  });
 
-  renderProductionsTable();
-  renderDNTable();
-
-  renderMainDashboard();
-  renderDashboardGrouped();
-
-  renderSuppliers();
-  BOE?.renderTable?.();
-
-  applyPermissions();
+  // sidebar toggle
+  const sidebar = document.getElementById('sidebar');
+  const btn = document.getElementById('sidebarToggle');
+  if(btn && sidebar){
+    btn.addEventListener('click', ()=>{
+      sidebar.classList.toggle('minimized');
+      document.body.classList.toggle('sm-sidebar-min', sidebar.classList.contains('minimized'));
+      btn.textContent = sidebar.classList.contains('minimized') ? '→' : '←';
+    });
+  }
 }
-window.refreshAll = refreshAll;
 
 /* =========================
-   ✅ INIT / EVENTS
+   ✅ BOOTSTRAP / FORM HOOKS
 ========================= */
-function wireEventsOnce(){
-  if(_wired) return;
-  _wired = true;
+function bindInputs(){
+  // RM live search
+  document.getElementById('productSearch')?.addEventListener('input', renderProductsTable);
+  document.getElementById('inSearch')?.addEventListener('input', renderStockIn);
+  document.getElementById('outSearch')?.addEventListener('input', renderStockOut);
+  document.getElementById('historySearch')?.addEventListener('input', renderCombinedHistory);
 
-  // Sidebar collapsible
-  $$('.menu-title.collapsible').forEach(m=>{
-    m.addEventListener('click', ()=>{
-      m.classList.toggle('open');
-      m.nextElementSibling?.classList.toggle('open');
-    });
+  // FG live search
+  document.getElementById('fgSearch')?.addEventListener('input', renderFGStock);
+  document.getElementById('fgInSearch')?.addEventListener('input', renderFGStockIn);
+  document.getElementById('fgOutSearch')?.addEventListener('input', renderFGStockOut);
+
+  // suppliers form submit
+  document.getElementById('supplierForm')?.addEventListener('submit', (e)=>{
+    e.preventDefault();
+    addSupplier();
   });
+  document.getElementById('supplierSearch')?.addEventListener('input', renderSuppliers);
 
-  // submenu navigation
-  $$('.submenu').forEach(sm=>{
-    sm.addEventListener('click', ()=>{
-      const page = sm.dataset.page;
-      const action = sm.dataset.action;
-      if(page) openPage(page);
-      if(action && typeof window[action]==='function') window[action]();
-    });
+  // DN search
+  document.getElementById('dnSearch')?.addEventListener('input', renderDNTable);
+
+  // Production
+  document.getElementById('prodFGQty')?.addEventListener('input', renderBOM);
+
+  // FG searchable list → keeps hidden select in sync if you want later
+  document.getElementById('productionFGSearch')?.addEventListener('input', ()=>{
+    // You already have list-group UI; keep your existing logic if added earlier.
   });
-
-  $$('[data-page]').forEach(el=>{
-    el.addEventListener('click', ()=>{
-      const page = el.dataset.page;
-      openPage(page);
-    });
-  });
-
-  // Searches
-  $('#productSearch')?.addEventListener('input', renderProductsTable);
-  $('#inSearch')?.addEventListener('input', renderStockIn);
-  $('#outSearch')?.addEventListener('input', renderStockOut);
-  $('#historySearch')?.addEventListener('input', renderCombinedHistory);
-
-  $('#fgSearch')?.addEventListener('input', renderFGStock);
-  $('#fgInSearch')?.addEventListener('input', renderFGStockIn);
-  $('#fgOutSearch')?.addEventListener('input', renderFGStockOut);
-
-  $('#supplierSearch')?.addEventListener('input', renderSuppliers);
-  $('#addSupplierBtn')?.addEventListener('click', addSupplier);
-
-  $('#boeSearch')?.addEventListener('input', ()=> BOE?.renderTable?.());
-
-  $('#prodSearch')?.addEventListener('input', renderProductionsTable);
-  $('#dnSearch')?.addEventListener('input', renderDNTable);
-
-  $('#prodFG')?.addEventListener('change', renderBOM);
-  $('#prodFGQty')?.addEventListener('input', renderBOM);
-
-  // Sidebar toggle
-  const sidebarToggle = $('#sidebarToggle');
-  const sidebar = $('#sidebar');
-  const mainWrap = $('.main');
-
-  if(sidebarToggle && sidebar){
-    sidebarToggle.addEventListener('click', ()=>{
-      sidebar.classList.toggle('minimized');
-      if(mainWrap) mainWrap.classList.toggle('sidebar-minimized');
-      sidebarToggle.textContent = sidebar.classList.contains('minimized') ? '→' : '←';
-    });
-  }
 }
 
-document.addEventListener('DOMContentLoaded', ()=>{
-  wireEventsOnce();
+/* =========================
+   ✅ STARTUP
+========================= */
+(function boot(){
+  initMenu();
+  bindInputs();
 
-  // session restore
-  const savedUser = localStorage.getItem('sms_currentUser');
-  if(savedUser){
-    currentUser = JSON.parse(savedUser);
-    if(loginScreen) loginScreen.style.display='none';
-    const app = $('.app');
-    if(app) app.style.display='flex';
-    applyPermissions();
-    openPage('dashboardPage');
-  }else{
-    // show login if exists
-    if(loginScreen) loginScreen.style.display='flex';
+  // restore session if exists
+  const saved = localStorage.getItem('sms_currentUser');
+  if(saved){
+    try{ currentUser = JSON.parse(saved); }catch(e){ currentUser = null; }
   }
 
-  initFGVolumeSelection();
-  loadRenamedGroupsFromCloud();
+  if(currentUser){
+    document.getElementById('loginScreen').style.display = 'none';
+    const app = document.querySelector('.app');
+    if(app) app.style.display = 'flex';
+    applyPermissions();
 
-  BOE?.init?.();
+    // init pages
+    BOE?.init?.();
 
-  // Pull cloud (then refresh)
-  autoPullFGFromCloud();
-  autoPullFromCloud();
+    // pull cloud (RM + modules) + FG cloud
+    autoPullFromCloud().then(()=> autoPullFGFromCloud());
 
-  refreshAll();
-});
+    // open default
+    openPage(currentUser.role === 'admin' ? 'userManagement' : 'dashboardPage');
+    if(currentUser.role === 'admin') renderUsersTable();
+  }else{
+    // show login
+    document.getElementById('loginScreen').style.display = 'flex';
+    const app = document.querySelector('.app');
+    if(app) app.style.display = 'none';
+  }
+})();
 </script>
 
-
+<!-- Bootstrap JS (optional but recommended for some components) -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
 
 </body>
 </html>

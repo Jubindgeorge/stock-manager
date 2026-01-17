@@ -1069,7 +1069,7 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
           <div class="table-responsive border rounded-3" style="max-height:520px">
             <table id="dnTable" class="table table-sm table-hover align-middle mb-0">
               <thead class="table-light">
-              <tr><th>Date</th><th>DN No</th><th>To</th><th>Total Qty</th><th>Items</th><th>Actions</th></tr>
+              <tr><th>Date</th><th>DN No</th><th>To</th><th>Items</th><th>Actions</th></tr>
               </thead>
               <tbody></tbody>
             </table>
@@ -3779,7 +3779,7 @@ function renderDNTable(){
     const hay = `${dn.dnNo||''} ${dn.to||''} ${dn.prodRef||''} ${dn.productionPlan||''} ${dn.generalRemark||''}`.toLowerCase();
     if(q && !hay.includes(q)) return;
 
-    const total = dnTotalQty(dn);
+    
     const itemsCount = (dn.items || []).length;
     const canDel = (currentUser?.role === 'admin');
 
@@ -3788,8 +3788,6 @@ function renderDNTable(){
         <td>${dnFmtDateSafe(dn.date)}</td>
         <td>${escapeHtml(dn.dnNo)}</td>
         <td>${escapeHtml(dn.to || '')}</td>
-        <td>${escapeHtml(dn.productionPlan || '')}</td>
-        <td>${total}</td>
         <td>${itemsCount}</td>
         <td>
           <button class="btn info" onclick="viewDN('${escapeHtml(dn.id)}')">View</button>
@@ -3887,6 +3885,7 @@ function printDN(id){
       .metaItem{ display:flex; gap:8px; }
       .metaKey{ width:120px; color:var(--muted); font-weight:700; }
       .metaVal{ flex:1; word-break:break-word; }
+      .metaVal1{ flex:1; word-break:break-word;font-weight:900; }
 
       /* ✅ Force production plan to ONE line */
       .oneLine{ white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; }
@@ -3915,9 +3914,7 @@ function printDN(id){
 
       .foot{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-top:18px; }
       .sign{
-        border:1px solid var(--border);
-        border-radius:14px;
-        padding:12px;
+                padding:12px;
         min-height:78px;
         display:flex;
         flex-direction:column;
@@ -3942,10 +3939,10 @@ function printDN(id){
         ${planLine ? `
         <div class="metaItem" style="grid-column:1/-1">
           <div class="metaKey">Production Plan</div>
-          <div class="metaVal oneLine" title="${escapeHtml(planLine)}">${escapeHtml(planLine)}</div>
+          <div class="metaVal1 oneLine" title="${escapeHtml(planLine)}">${escapeHtml(planLine)}</div>
         </div>` : ``}
 
-        ${dn.prodRef ? `<div class="metaItem"><div class="metaKey">Production Ref</div><div class="metaVal">${escapeHtml(dn.prodRef)}</div></div>` : ``}
+        ${dn.prodRef ? `<div class="metaItem"><div class="metaKey">Production Ref</div><div class="metaVal1">${escapeHtml(dn.prodRef)}</div></div>` : ``}
                ${dn.generalRemark ? `
         <div class="metaItem" style="grid-column:1/-1">
           <div class="metaKey">Remark</div>
@@ -3973,20 +3970,15 @@ function printDN(id){
           </tr>
         `).join('')}
 
-        <tr class="totalRow">
-          <td></td>
-          <td style="text-align:right"><b>TOTAL</b></td>
-          <td class="col-qty num">${totalQty}</td>
-          <td></td>
-        </tr>
+        
       </tbody>
     </table>
-
+<div style="margin-top:70px;">
     <div class="foot">
       <div class="sign"><b>Prepared By</b><div class="line"></div><div class="small">Name / Sign</div></div>
       <div class="sign"><b>Issued By (Store)</b><div class="line"></div><div class="small">Name / Sign</div></div>
       <div class="sign"><b>Received By (Factory)</b><div class="line"></div><div class="small">Name / Sign</div></div>
-    </div>
+    </div></div>
 
     <script>window.onload=()=>window.print();<\/script>
   </body>
@@ -5541,18 +5533,24 @@ window.Dashboard = window.Dashboard || {
 };
 
 /* =========================================================
-   ✅ AUTO DOCUMENT NUMBER GENERATOR (PROD / BOE / DN)
-   Format: PREFIX-YYYYMMDD-###   e.g. BOE-20260115-001
-   - Does NOT overwrite manual entries
-   - Uses existing saved data to find next sequence
-   - Stores last sequence per day in localStorage
+   ✅ AUTO DOCUMENT NUMBER GENERATOR - NO +1 ON REFRESH
+   - "peek" shows next number (draft) without consuming
+   - "consume" commits only when you SAVE
 ========================================================= */
 
 const AutoDocNo = (() => {
-  const storeKey = 'sms_auto_docno_v1';
-  const state = JSON.parse(localStorage.getItem(storeKey) || '{}');
+  const seqKey   = 'sms_auto_docno_v1';        // committed last seq per day
+  const draftKey = 'sms_auto_docno_draft_v1';  // draft number per day
 
-  const dateKey = (iso) => String(iso || todayISO()).trim().replace(/-/g, ''); // YYYYMMDD
+  const state  = JSON.parse(localStorage.getItem(seqKey) || '{}');
+  const drafts = JSON.parse(localStorage.getItem(draftKey) || '{}');
+
+  const save = () => {
+    localStorage.setItem(seqKey, JSON.stringify(state));
+    localStorage.setItem(draftKey, JSON.stringify(drafts));
+  };
+
+  const dateKey = (iso) => String(iso || todayISO()).trim().replace(/-/g, '');
 
   const looksAuto = (val, prefix) => {
     const re = new RegExp(`^${prefix}-\\d{8}-\\d{3,}$`, 'i');
@@ -5573,17 +5571,14 @@ const AutoDocNo = (() => {
   };
 
   const getExistingMax = (prefix, dkey) => {
-    // Collect from your saved modules (if they exist)
     const prodVals = (window.productions || []).map(p => p?.prodNo);
     const boeVals  = (window.savedBills || []).map(b => b?.billNo);
     const dnVals   = (window.deliveryNotes || []).map(d => d?.dnNo);
 
-    // choose which source to scan by prefix
     if (prefix === 'PROD') return maxSeqFromList(prodVals, prefix, dkey);
     if (prefix === 'BOE')  return maxSeqFromList(boeVals,  prefix, dkey);
     if (prefix === 'DN')   return maxSeqFromList(dnVals,   prefix, dkey);
 
-    // fallback (scan all)
     return Math.max(
       maxSeqFromList(prodVals, prefix, dkey),
       maxSeqFromList(boeVals,  prefix, dkey),
@@ -5591,29 +5586,46 @@ const AutoDocNo = (() => {
     );
   };
 
-  const nextSeq = (prefix, isoDate) => {
+  const format = (prefix, isoDate, seq, pad = 3) => {
+    const dkey = dateKey(isoDate);
+    return `${prefix}-${dkey}-${String(seq).padStart(pad, '0')}`;
+  };
+
+  // ✅ show number WITHOUT committing (+1 only stored as draft)
+  const peekSeq = (prefix, isoDate) => {
     const dkey = dateKey(isoDate);
 
-    // max from stored seq map
-    const mapMax = Number(state?.[prefix]?.[dkey] || 0);
+    const draft = Number(drafts?.[prefix]?.[dkey] || 0);
+    if (draft) return draft;
 
-    // max from existing saved records
+    const mapMax  = Number(state?.[prefix]?.[dkey] || 0);
     const dataMax = getExistingMax(prefix, dkey);
+    const next = Math.max(mapMax, dataMax) + 1;
 
-    const max = Math.max(mapMax, dataMax);
-    const next = max + 1;
-
-    // persist
-    state[prefix] = state[prefix] || {};
-    state[prefix][dkey] = next;
-    localStorage.setItem(storeKey, JSON.stringify(state));
+    drafts[prefix] = drafts[prefix] || {};
+    drafts[prefix][dkey] = next;
+    save();
 
     return next;
   };
 
-  const format = (prefix, isoDate, seq, pad = 3) => {
+  // ✅ commit ONLY when saved successfully
+  const consume = (prefix, isoDate) => {
     const dkey = dateKey(isoDate);
-    return `${prefix}-${dkey}-${String(seq).padStart(pad, '0')}`;
+    const draft = Number(drafts?.[prefix]?.[dkey] || 0);
+    if (!draft) return;
+
+    state[prefix] = state[prefix] || {};
+    state[prefix][dkey] = Math.max(Number(state[prefix][dkey] || 0), draft);
+
+    delete drafts[prefix][dkey];
+    save();
+  };
+
+  const clearDraft = (prefix, isoDate) => {
+    const dkey = dateKey(isoDate);
+    if (drafts[prefix]) delete drafts[prefix][dkey];
+    save();
   };
 
   const set = ({ inputId, dateId, prefix, pad = 3, force = false }) => {
@@ -5624,25 +5636,39 @@ const AutoDocNo = (() => {
     if (!dateEl.value) dateEl.value = todayISO();
 
     const cur = String(input.value || '').trim();
-    const canOverwrite = force || !cur || looksAuto(cur, prefix);
 
-    if (!canOverwrite) return;
+    // don't overwrite manual text unless force
+    if (!force && cur && !looksAuto(cur, prefix)) return;
 
-    const seq = nextSeq(prefix, dateEl.value);
+    // if already auto and not force => keep it (no refresh +1)
+    if (!force && cur && looksAuto(cur, prefix)) return;
+
+    const seq = peekSeq(prefix, dateEl.value);
     input.value = format(prefix, dateEl.value, seq, pad);
   };
 
+  // ✅ prevent duplicate listeners
+  const wired = new Set();
+
   const wire = ({ inputId, dateId, prefix, pad = 3 }) => {
     const dateEl = document.getElementById(dateId);
-    const input = document.getElementById(inputId);
+    const input  = document.getElementById(inputId);
     if (!dateEl || !input) return;
 
-    // When date changes: regenerate only if empty or auto-format
-    dateEl.addEventListener('change', () => set({ inputId, dateId, prefix, pad, force: false }));
+    const key = `${prefix}|${inputId}|${dateId}`;
+    if (wired.has(key)) return;
+    wired.add(key);
+
+    dateEl.addEventListener('change', () => {
+      // new date => new draft number
+      clearDraft(prefix, dateEl.value);
+      set({ inputId, dateId, prefix, pad, force: true });
+    });
   };
 
-  return { set, wire };
+  return { set, wire, consume, clearDraft };
 })();
+
 
 // ✅ helper wrappers (call these from openPage)
 function setAutoBOENo(force=false){

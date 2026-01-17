@@ -340,6 +340,25 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
 @media print{
   body{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
 }
+/* DN searchable product picker */
+.dn-pick{ position:relative; width:100%; }
+.dn-pick-input{
+  width:100%; padding:8px 10px; border:1px solid rgba(0,0,0,.12);
+  border-radius:10px; outline:none; font-size:13px;
+}
+.dn-pick-list{
+  position:absolute; left:0; right:0; top:calc(100% + 6px);
+  background:#fff; border:1px solid rgba(0,0,0,.12);
+  border-radius:10px; box-shadow:0 10px 24px rgba(0,0,0,.10);
+  max-height:260px; overflow:auto; z-index:9999; display:none;
+}
+.dn-pick-item{ padding:8px 10px; cursor:pointer; }
+.dn-pick-item:hover{ background:rgba(0,0,0,.06); }
+.dn-pick-muted{ font-size:12px; color:#6b6f76; margin-top:2px; }
+
+#rmDeliveryNote .sm-card,
+#rmDeliveryNote td{ overflow: visible !important; }
+
 </style>
 </head>
 
@@ -1002,27 +1021,35 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
     <section id="rmDeliveryNote" class="page" style="display:none">
       <h2>RM Delivery Note (Warehouse → Factory)</h2>
 
-      <div class="d-flex gap-3 flex-wrap align-items-start">
+<div class="d-flex flex-column gap-3 align-items-stretch">
 
         <div class="sm-card" style="flex:1;min-width:320px">
           <h3 class="mb-2">Create Delivery Note</h3>
 
-          <div class="d-flex gap-2 flex-wrap mb-2">
-            <input id="dnNo" class="sm-small" placeholder="Delivery Note No">
-            <input id="dnDate" class="sm-small" type="date">
-            <input id="dnFrom" class="sm-small" placeholder="From (Warehouse)" value="Main Store">
-            <input id="dnTo" class="sm-small" placeholder="To (Factory)" value="Factory">
-            <input id="dnProdRef" class="sm-small" placeholder="Production Ref (optional)">
-          </div>
+        <div class="d-flex gap-2 flex-wrap mb-2">
+  <input id="dnNo" class="sm-small" placeholder="Delivery Note No">
+  <input id="dnDate" class="sm-small" type="date">
+  <input id="dnFrom" class="sm-small" placeholder="From (Warehouse)" value="Main Store">
+  <input id="dnTo" class="sm-small" placeholder="To (Factory)" value="Factory">
+  <input id="dnPlan" class="sm-small" placeholder="Production Plan (optional)">
+  <input id="dnProdRef" class="sm-small" placeholder="Production Ref (optional)">
+</div>
+
 
           <div class="mb-2">
             <input id="dnRemark" class="sm-search" placeholder="General Remark (optional)">
           </div>
 
-          <div class="table-responsive border rounded-3">
+          <div >
             <table class="table table-sm align-middle mb-0">
               <thead class="table-light">
-              <tr><th style="min-width:240px">RM Product</th><th style="width:120px">Qty</th><th>Remark</th><th style="width:80px">Remove</th></tr>
+              <tr>
+  <th style="min-width:240px">RM Product</th>
+  <th style="width:120px">Qty</th>
+  <th>Remark</th>
+  <th style="width:80px">Remove</th>
+</tr>
+
               </thead>
               <tbody id="dnItemsBody"></tbody>
             </table>
@@ -3479,10 +3506,11 @@ function saveProductions(){
 
 
 
-// RM USED body
-
 /* =========================
-   ✅ RM DELIVERY NOTE (DN)
+   ✅ RM DELIVERY NOTE (DN) - CLEAN WORKING REWRITE
+   - Searchable RM picker per row
+   - ONE Production Plan field (header level)
+   - Save / View / Print / Delete
 ========================= */
 const KEY_DN = 'sms_delivery_notes_v1';
 let deliveryNotes = JSON.parse(localStorage.getItem(KEY_DN) || '[]');
@@ -3491,85 +3519,191 @@ function saveDeliveryNotes(){
   localStorage.setItem(KEY_DN, JSON.stringify(deliveryNotes));
 }
 
+/* ---------- helpers ---------- */
+function dnGenId(){
+  return (typeof genId === 'function')
+    ? genId()
+    : (Date.now().toString(16) + Math.random().toString(16).slice(2));
+}
+function dnTodayISO(){
+  return (typeof todayISO === 'function') ? todayISO() : new Date().toISOString().slice(0,10);
+}
+function dnFmtDateSafe(d){
+  return (typeof fmtDate === 'function') ? fmtDate(d) : (d || '');
+}
+function dnToast(msg, bad=false){
+  if(typeof showToast === 'function') showToast(msg, bad);
+  else alert(msg);
+}
+function dnOneLineText(s){
+  return String(s ?? '')
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/* =========================
+   ✅ RESET FORM
+========================= */
 function resetDeliveryNoteForm(){
-  const no = document.getElementById('dnNo');
-  const dt = document.getElementById('dnDate');
+  const no   = document.getElementById('dnNo');
+  const dt   = document.getElementById('dnDate');
   const from = document.getElementById('dnFrom');
-  const to = document.getElementById('dnTo');
+  const to   = document.getElementById('dnTo');
   const pref = document.getElementById('dnProdRef');
-  const rem = document.getElementById('dnRemark');
+  const plan = document.getElementById('dnPlan');     // ✅ single plan input
+  const rem  = document.getElementById('dnRemark');
   const body = document.getElementById('dnItemsBody');
 
   if(no) no.value = '';
-  if(dt) dt.value = todayISO();
+  if(dt) dt.value = dnTodayISO();
   if(from) from.value = from.value || 'Main Store';
   if(to) to.value = to.value || 'Factory';
   if(pref) pref.value = '';
+  if(plan) plan.value = '';
   if(rem) rem.value = '';
   if(body) body.innerHTML = '';
 
   dnAddRow();
 }
 
-function dnRowProductOptions(selectedId=''){
-  if(!Array.isArray(products) || !products.length){
-    return `<option value="">No RM products found</option>`;
+/* =========================
+   ✅ SEARCHABLE PRODUCT PICKER (per row)
+========================= */
+function dnSortedProducts(){
+  if(!Array.isArray(products)) return [];
+  return [...products].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+}
+function dnProductLabel(p){
+  const code = p?.code ? `(${p.code}) ` : '';
+  return code + (p?.name || '');
+}
+function dnBuildSearchPickerHTML(selectedId=''){
+  const p = Array.isArray(products) ? products.find(x => String(x.id) === String(selectedId)) : null;
+  const label = p ? dnProductLabel(p) : '';
+  return `
+    <div class="dn-pick">
+      <input class="dn-pick-input" type="text" placeholder="Search RM Product..."
+        value="${escapeHtml(label)}" autocomplete="off" data-dn="productSearch">
+      <input type="hidden" data-dn="product" value="${escapeHtml(selectedId)}">
+      <div class="dn-pick-list" data-dn="productList"></div>
+    </div>
+  `;
+}
+function dnRenderPickerList(listEl, query=''){
+  const q = (query || '').toLowerCase().trim();
+  const arr = dnSortedProducts();
+
+  const filtered = !q
+    ? arr.slice(0, 60)
+    : arr.filter(p=>{
+        const name = (p.name||'').toLowerCase();
+        const code = (p.code||'').toLowerCase();
+        const group= (p.group||'').toLowerCase();
+        return name.includes(q) || code.includes(q) || group.includes(q);
+      }).slice(0, 80);
+
+  if(!filtered.length){
+    listEl.innerHTML = `<div class="dn-pick-item">No results</div>`;
+    listEl.style.display = 'block';
+    return;
   }
-  const sorted = [...products].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-  return `<option value="">Select RM Product</option>` + sorted.map(p=>{
-    const sel = p.id === selectedId ? 'selected' : '';
-    const code = p.code ? `(${p.code}) ` : '';
-    return `<option ${sel} value="${escapeHtml(p.id)}">${escapeHtml(code + (p.name||''))}</option>`;
-  }).join('');
+
+  listEl.innerHTML = filtered.map(p=>`
+    <div class="dn-pick-item" data-id="${escapeHtml(p.id)}">
+      <div>${escapeHtml(dnProductLabel(p))}</div>
+      <div class="dn-pick-muted">${escapeHtml(p.group || '')}</div>
+    </div>
+  `).join('');
+  listEl.style.display = 'block';
+}
+function dnBindRowProductPicker(tr){
+  const searchInp = tr.querySelector('[data-dn="productSearch"]');
+  const hiddenInp = tr.querySelector('[data-dn="product"]');
+  const listEl    = tr.querySelector('[data-dn="productList"]');
+  if(!searchInp || !hiddenInp || !listEl) return;
+
+  const open = ()=> dnRenderPickerList(listEl, searchInp.value);
+
+  searchInp.addEventListener('focus', open);
+  searchInp.addEventListener('input', open);
+
+  listEl.addEventListener('click', (e)=>{
+    const item = e.target.closest('.dn-pick-item');
+    if(!item?.dataset?.id) return;
+
+    const id = item.dataset.id;
+    const p = Array.isArray(products) ? products.find(x=> String(x.id) === String(id)) : null;
+
+    hiddenInp.value = id;
+    searchInp.value = dnProductLabel(p);
+    listEl.style.display = 'none';
+  });
+
+  document.addEventListener('click', (e)=>{
+    if(!tr.contains(e.target)) listEl.style.display = 'none';
+  });
 }
 
+/* =========================
+   ✅ ADD / REMOVE ROWS
+========================= */
 function dnAddRow(prefill=null){
   const body = document.getElementById('dnItemsBody');
   if(!body) return;
 
-  const rowId = 'dnRow_' + genId();
+  const rowId = 'dnRow_' + dnGenId();
   const selectedProductId = prefill?.productId || '';
-  const qty = prefill?.qty ?? '';
+  const qty    = prefill?.qty ?? '';
   const remark = prefill?.remark ?? '';
 
   body.insertAdjacentHTML('beforeend', `
     <tr id="${rowId}">
-      <td>
-        <select class="small" style="width:100%" data-dn="product">
-          ${dnRowProductOptions(selectedProductId)}
-        </select>
+      <td style="min-width:240px">
+        ${dnBuildSearchPickerHTML(selectedProductId)}
       </td>
-      <td>
-        <input class="small" type="number" min="0" step="1" style="width:100%" data-dn="qty" value="${escapeHtml(qty)}">
+
+      <td style="width:120px">
+        <input class="small" type="number" min="0" step="1" style="width:100%" data-dn="qty"
+          value="${escapeHtml(qty)}">
       </td>
+
       <td>
-        <input class="small" style="width:100%" data-dn="remark" value="${escapeHtml(remark)}" placeholder="Remark (optional)">
+        <input class="small" style="width:100%" data-dn="remark"
+          value="${escapeHtml(remark)}" placeholder="Remark (optional)">
       </td>
-      <td style="text-align:center">
+
+      <td style="width:80px;text-align:center">
         <button class="btn out" style="padding:6px 10px" onclick="dnRemoveRow('${rowId}')">X</button>
       </td>
     </tr>
   `);
-}
 
+  const tr = document.getElementById(rowId);
+  dnBindRowProductPicker(tr);
+}
 function dnRemoveRow(rowId){
   const tr = document.getElementById(rowId);
   if(tr) tr.remove();
+
   const body = document.getElementById('dnItemsBody');
   if(body && body.children.length === 0) dnAddRow();
 }
 
+/* =========================
+   ✅ GET ITEMS FROM UI
+========================= */
 function getDNItemsFromUI(){
   const body = document.getElementById('dnItemsBody');
   if(!body) return [];
 
   const items = [];
   [...body.querySelectorAll('tr')].forEach(tr=>{
-    const prodSel = tr.querySelector('[data-dn="product"]');
-    const qtyInp  = tr.querySelector('[data-dn="qty"]');
-    const remInp  = tr.querySelector('[data-dn="remark"]');
+    const prodEl = tr.querySelector('[data-dn="product"]'); // hidden
+    const qtyInp = tr.querySelector('[data-dn="qty"]');
+    const remInp = tr.querySelector('[data-dn="remark"]');
 
-    const productId = (prodSel?.value || '').trim();
+    const productId = (prodEl?.value || '').trim();
     const qty = Number(qtyInp?.value || 0);
     const remark = (remInp?.value || '').trim();
 
@@ -3580,38 +3714,38 @@ function getDNItemsFromUI(){
 
   return items;
 }
-
 function dnTotalQty(dn){
   return (dn.items || []).reduce((s,it)=> s + Number(it.qty||0), 0);
 }
 
+/* =========================
+   ✅ SUBMIT / SAVE DN
+========================= */
 let lastDNViewedId = null;
 
 function submitDeliveryNote(){
-  // ✅ No stock movement here (Production Entry handles stock out)
-
   const dnNo = (document.getElementById('dnNo')?.value || '').trim();
-  const dnDate = (document.getElementById('dnDate')?.value || todayISO());
+  const dnDate = (document.getElementById('dnDate')?.value || dnTodayISO());
   const from = (document.getElementById('dnFrom')?.value || '').trim();
   const to = (document.getElementById('dnTo')?.value || '').trim();
   const prodRef = (document.getElementById('dnProdRef')?.value || '').trim();
+  const productionPlan = dnOneLineText(document.getElementById('dnPlan')?.value || '');
   const generalRemark = (document.getElementById('dnRemark')?.value || '').trim();
 
-  if(!dnNo){ showToast("DN No is required", true); return; }
-  if(!dnDate){ showToast("DN Date is required", true); return; }
-  if(!to){ showToast("To (Factory) is required", true); return; }
+  if(!dnNo){ dnToast("DN No is required", true); return; }
+  if(!dnDate){ dnToast("DN Date is required", true); return; }
+  if(!to){ dnToast("To (Factory) is required", true); return; }
 
   const items = getDNItemsFromUI();
-  if(!items.length){ showToast("Add at least 1 RM item (qty > 0)", true); return; }
-
-  const dnId = 'dn_' + genId();
+  if(!items.length){ dnToast("Add at least 1 RM item (qty > 0)", true); return; }
 
   const dn = {
-    id: dnId,
+    id: 'dn_' + dnGenId(),
     dnNo,
     date: dnDate,
     from,
     to,
+    productionPlan,   // ✅ single plan saved here
     prodRef,
     generalRemark,
     items,
@@ -3622,15 +3756,16 @@ function submitDeliveryNote(){
   deliveryNotes.push(dn);
   saveDeliveryNotes();
 
-  // ✅ cloud sync (no stockMovements change)
   autoPushToCloud?.();
-  refreshAll();
+  refreshAll?.();
 
-  showToast("Delivery Note saved ✅");
+  dnToast("Delivery Note saved ✅");
   resetDeliveryNoteForm();
 }
 
-
+/* =========================
+   ✅ RENDER DN LIST
+========================= */
 function renderDNTable(){
   const tbody = document.querySelector('#dnTable tbody');
   if(!tbody) return;
@@ -3641,7 +3776,7 @@ function renderDNTable(){
   const list = [...deliveryNotes].sort((a,b)=> new Date(b.date) - new Date(a.date));
 
   list.forEach(dn=>{
-    const hay = `${dn.dnNo||''} ${dn.to||''} ${dn.prodRef||''} ${dn.generalRemark||''}`.toLowerCase();
+    const hay = `${dn.dnNo||''} ${dn.to||''} ${dn.prodRef||''} ${dn.productionPlan||''} ${dn.generalRemark||''}`.toLowerCase();
     if(q && !hay.includes(q)) return;
 
     const total = dnTotalQty(dn);
@@ -3650,9 +3785,10 @@ function renderDNTable(){
 
     tbody.insertAdjacentHTML('beforeend', `
       <tr>
-        <td>${fmtDate(dn.date)}</td>
+        <td>${dnFmtDateSafe(dn.date)}</td>
         <td>${escapeHtml(dn.dnNo)}</td>
         <td>${escapeHtml(dn.to || '')}</td>
+        <td>${escapeHtml(dn.productionPlan || '')}</td>
         <td>${total}</td>
         <td>${itemsCount}</td>
         <td>
@@ -3667,6 +3803,9 @@ function renderDNTable(){
   applyPermissions?.();
 }
 
+/* =========================
+   ✅ VIEW DN MODAL
+========================= */
 function viewDN(id){
   const dn = deliveryNotes.find(x=>x.id===id);
   if(!dn) return;
@@ -3674,10 +3813,13 @@ function viewDN(id){
   lastDNViewedId = id;
 
   document.getElementById('dnViewTitle').textContent = `Delivery Note — ${dn.dnNo}`;
+
+  // ✅ meta includes Production Plan (correctly inside template)
   document.getElementById('dnViewMeta').innerHTML =
-    `<b>Date:</b> ${fmtDate(dn.date)}
+    `<b>Date:</b> ${dnFmtDateSafe(dn.date)}
      &nbsp; | &nbsp; <b>From:</b> ${escapeHtml(dn.from || '-')}
      &nbsp; | &nbsp; <b>To:</b> ${escapeHtml(dn.to || '-')}
+     ${dn.productionPlan ? ` &nbsp; | &nbsp; <b>Plan:</b> ${escapeHtml(dn.productionPlan)}` : ''}
      ${dn.prodRef ? ` &nbsp; | &nbsp; <b>Production Ref:</b> ${escapeHtml(dn.prodRef)}` : ''}
      ${dn.createdBy ? ` &nbsp; | &nbsp; <b>By:</b> ${escapeHtml(dn.createdBy)}` : ''}
      ${dn.generalRemark ? `<br><b>Remark:</b> ${escapeHtml(dn.generalRemark)}` : ''}`;
@@ -3686,7 +3828,7 @@ function viewDN(id){
   body.innerHTML = '';
 
   (dn.items || []).forEach(it=>{
-    const p = products.find(x=>x.id===it.productId);
+    const p = Array.isArray(products) ? products.find(x=>x.id===it.productId) : null;
     body.insertAdjacentHTML('beforeend', `
       <tr>
         <td>${escapeHtml(p?.name || 'Unknown')}</td>
@@ -3698,111 +3840,152 @@ function viewDN(id){
 
   document.getElementById('dnViewModal').style.display = 'flex';
 }
-
 function closeDNView(){
   document.getElementById('dnViewModal').style.display = 'none';
 }
-
 function printDNFromModal(){
-  if(!lastDNViewedId) return;
-  printDN(lastDNViewedId);
+  if(lastDNViewedId) printDN(lastDNViewedId);
 }
 
+/* =========================
+   ✅ PRINT DN (PLAN SINGLE LINE)
+========================= */
 function printDN(id){
   const dn = deliveryNotes.find(x=>x.id===id);
   if(!dn) return;
 
   const rows = (dn.items || []).map((it, idx)=>{
-    const p = products.find(x=>x.id===it.productId);
+    const p = Array.isArray(products) ? products.find(x=>x.id===it.productId) : null;
     return { sr: idx+1, product: p?.name || 'Unknown', qty: Number(it.qty||0), remark: it.remark || '' };
   });
 
   const totalQty = rows.reduce((s,r)=> s + Number(r.qty||0), 0);
 
   const w = window.open('', '_blank');
-  if(!w){ showToast("Popup blocked by browser", true); return; }
+  if(!w){ dnToast("Popup blocked by browser", true); return; }
 
-  // ✅ your saved logo file
   const logoUrl = "pdflogo.png";
+  const planLine = dnOneLineText(dn.productionPlan || '');
 
   w.document.write(`
   <html>
   <head>
     <title>Delivery Note ${escapeHtml(dn.dnNo)}</title>
     <style>
-      body{font-family:Arial;padding:22px;color:#111}
-      .head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:14px}
-      .leftHead{display:flex;gap:12px;align-items:flex-start}
-      .logo{
-        width:70px;height:70px;object-fit:contain;
-        border:1px solid #ddd;border-radius:10px;padding:6px;background:#fff;
+      :root{ --border:#d9d9df; --muted:#555; --head:#0d6efd; }
+      *{ box-sizing:border-box; }
+      body{ font-family:Arial,sans-serif; padding:20px; color:#111; }
+
+      .banner{ border:1px solid var(--border); border-radius:14px; padding:10px 14px; margin-bottom:14px; }
+      .banner img{ width:100%; max-height:110px; object-fit:contain; display:block; }
+
+      .titleRow{ text-align:center; margin:6px 0 12px; }
+      .titleRow h1{ margin:0; font-size:22px; letter-spacing:1px; }
+
+      .metaBox{ border:1px solid var(--border); border-radius:14px; padding:12px 14px; margin-bottom:12px; }
+      .metaGrid{ display:grid; grid-template-columns:1fr 1fr; gap:8px 18px; font-size:13px; }
+      .metaItem{ display:flex; gap:8px; }
+      .metaKey{ width:120px; color:var(--muted); font-weight:700; }
+      .metaVal{ flex:1; word-break:break-word; }
+
+      /* ✅ Force production plan to ONE line */
+      .oneLine{ white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; }
+
+      table{
+        width:100%;
+        table-layout:fixed;
+        border-collapse:separate;
+        border-spacing:0;
+        border:1px solid var(--border);
+        border-radius:14px;
+        overflow:hidden;
+        font-size:13px;
       }
-      .box{border:1px solid #ccc;border-radius:10px;padding:12px}
-      h2{margin:0 0 6px}
-      .meta{font-size:13px;line-height:1.6;color:#333}
-      table{width:100%;border-collapse:collapse;margin-top:12px}
-      th,td{border:1px solid #ccc;padding:8px;text-align:left;font-size:13px}
-      th{background:#007bff;color:#fff}
-      .foot{display:flex;justify-content:space-between;margin-top:18px;gap:12px}
-      .sign{flex:1;border-top:1px dashed #999;padding-top:10px;font-size:13px}
-      .small{font-size:12px;color:#555;margin-top:6px}
-      .right{text-align:right}
+      thead th{ background:var(--head); color:#fff; padding:10px; text-align:left; }
+      tbody td{ border-top:1px solid var(--border); padding:9px 10px; vertical-align:top; }
+      tbody tr:nth-child(even) td{ background:#fafafb; }
+
+      .col-sr{ width:60px; text-align:center; }
+      .col-qty{ width:120px; text-align:right; font-weight:700; }
+      .col-rem{ width:240px; }
+
+      .num{ text-align:right; }
+      .center{ text-align:center; }
+      .totalRow td{ background:#f2f6ff !important; font-weight:700; }
+
+      .foot{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-top:18px; }
+      .sign{
+        border:1px solid var(--border);
+        border-radius:14px;
+        padding:12px;
+        min-height:78px;
+        display:flex;
+        flex-direction:column;
+        justify-content:flex-end;
+      }
+      .line{ margin-top:10px; border-top:1px dashed #999; }
+      .small{ font-size:12px; color:var(--muted); margin-top:6px; }
     </style>
   </head>
-
   <body>
-    <div class="head">
-      <div class="leftHead">
-        <img class="logo" src="${logoUrl}" alt="Logo">
-        <div>
-          <h2>RM DELIVERY NOTE</h2>
-          <div class="meta">
-            <b>DN No:</b> ${escapeHtml(dn.dnNo)}<br>
-            <b>Date:</b> ${escapeHtml(fmtDate(dn.date))}<br>
-            <b>From:</b> ${escapeHtml(dn.from || '-')}<br>
-            <b>To:</b> ${escapeHtml(dn.to || '-')}<br>
-            ${dn.prodRef ? `<b>Production Ref:</b> ${escapeHtml(dn.prodRef)}<br>` : ``}
-            ${dn.generalRemark ? `<b>Remark:</b> ${escapeHtml(dn.generalRemark)}<br>` : ``}
-          </div>
-        </div>
-      </div>
 
-      <div class="box right">
-        <div style="font-weight:700">Stock Manager</div>
-        <div class="small">Printable Delivery Note</div>
+    <div class="banner"><img src="${logoUrl}" alt="Logo"></div>
+    <div class="titleRow"><h1>DELIVERY NOTE</h1></div>
+
+    <div class="metaBox">
+      <div class="metaGrid">
+        <div class="metaItem"><div class="metaKey">DN No</div><div class="metaVal">${escapeHtml(dn.dnNo)}</div></div>
+        <div class="metaItem"><div class="metaKey">Date</div><div class="metaVal">${escapeHtml(dnFmtDateSafe(dn.date))}</div></div>
+        <div class="metaItem"><div class="metaKey">From</div><div class="metaVal">${escapeHtml(dn.from || '-')}</div></div>
+        <div class="metaItem"><div class="metaKey">To</div><div class="metaVal">${escapeHtml(dn.to || '-')}</div></div>
+
+        ${planLine ? `
+        <div class="metaItem" style="grid-column:1/-1">
+          <div class="metaKey">Production Plan</div>
+          <div class="metaVal oneLine" title="${escapeHtml(planLine)}">${escapeHtml(planLine)}</div>
+        </div>` : ``}
+
+        ${dn.prodRef ? `<div class="metaItem"><div class="metaKey">Production Ref</div><div class="metaVal">${escapeHtml(dn.prodRef)}</div></div>` : ``}
+               ${dn.generalRemark ? `
+        <div class="metaItem" style="grid-column:1/-1">
+          <div class="metaKey">Remark</div>
+          <div class="metaVal">${escapeHtml(dn.generalRemark)}</div>
+        </div>` : ``}
       </div>
     </div>
 
     <table>
       <thead>
         <tr>
-          <th style="width:60px">Sr</th>
-          <th>RM Product</th>
-          <th style="width:120px">Qty</th>
-          <th>Remark</th>
+          <th class="col-sr">Sr</th>
+          <th>Product Name</th>
+          <th class="col-qty">Quantity</th>
+          <th class="col-rem">Remark</th>
         </tr>
       </thead>
       <tbody>
         ${rows.map(r=>`
           <tr>
-            <td>${r.sr}</td>
+            <td class="col-sr center">${r.sr}</td>
             <td>${escapeHtml(r.product)}</td>
-            <td>${r.qty}</td>
-            <td>${escapeHtml(r.remark)}</td>
+            <td class="col-qty num">${Number(r.qty||0)}</td>
+            <td class="col-rem">${escapeHtml(r.remark || '')}</td>
           </tr>
         `).join('')}
-        <tr>
-          <td colspan="2" style="text-align:right"><b>Total</b></td>
-          <td><b>${totalQty}</b></td>
+
+        <tr class="totalRow">
+          <td></td>
+          <td style="text-align:right"><b>TOTAL</b></td>
+          <td class="col-qty num">${totalQty}</td>
           <td></td>
         </tr>
       </tbody>
     </table>
 
     <div class="foot">
-      <div class="sign"><b>Prepared By</b><div class="small">Name / Sign</div></div>
-      <div class="sign"><b>Issued By (Store)</b><div class="small">Name / Sign</div></div>
-      <div class="sign"><b>Received By (Factory)</b><div class="small">Name / Sign</div></div>
+      <div class="sign"><b>Prepared By</b><div class="line"></div><div class="small">Name / Sign</div></div>
+      <div class="sign"><b>Issued By (Store)</b><div class="line"></div><div class="small">Name / Sign</div></div>
+      <div class="sign"><b>Received By (Factory)</b><div class="line"></div><div class="small">Name / Sign</div></div>
     </div>
 
     <script>window.onload=()=>window.print();<\/script>
@@ -3813,9 +3996,12 @@ function printDN(id){
   w.document.close();
 }
 
+/* =========================
+   ✅ DELETE DN
+========================= */
 function deleteDN(id){
   if(currentUser?.role !== 'admin'){
-    showToast("Only admin can delete DN", true);
+    dnToast("Only admin can delete DN", true);
     return;
   }
   const dn = deliveryNotes.find(x=>x.id===id);
@@ -3823,14 +4009,17 @@ function deleteDN(id){
 
   if(!confirm(`Delete DN "${dn.dnNo}"?`)) return;
 
+
   deliveryNotes = deliveryNotes.filter(x=>x.id!==id);
   saveDeliveryNotes();
 
   autoPushToCloud?.();
-  refreshAll();
+  refreshAll?.();
 
-  showToast("DN deleted ✅");
+  dnToast("DN deleted ✅");
 }
+
+
 function dnProductDatalistHTML(){
   if(!Array.isArray(products) || !products.length){
     return `<datalist id="dnRmList"></datalist>`;
@@ -3845,6 +4034,91 @@ function dnProductDatalistHTML(){
       }).join('')}
     </datalist>
   `;
+}
+
+
+
+
+function dnSortedProducts(){
+  if(!Array.isArray(products)) return [];
+  return [...products].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+}
+
+function dnProductLabel(p){
+  const code = p?.code ? `(${p.code}) ` : '';
+  return code + (p?.name || '');
+}
+
+function dnBuildSearchPickerHTML(selectedId=''){
+  const p = products?.find(x => x.id === selectedId);
+  const label = p ? dnProductLabel(p) : '';
+
+  return `
+    <div class="dn-pick">
+      <input class="dn-pick-input" type="text" placeholder="Search RM Product..." value="${escapeHtml(label)}" autocomplete="off" data-dn="productSearch">
+      <input type="hidden" data-dn="product" value="${escapeHtml(selectedId)}">
+      <div class="dn-pick-list" data-dn="productList"></div>
+    </div>
+  `;
+}
+
+function dnRenderPickerList(listEl, query=''){
+  const q = (query || '').toLowerCase().trim();
+  const arr = dnSortedProducts();
+
+  const filtered = !q ? arr.slice(0, 60) : arr.filter(p=>{
+    const name = (p.name||'').toLowerCase();
+    const code = (p.code||'').toLowerCase();
+    const group= (p.group||'').toLowerCase();
+    return name.includes(q) || code.includes(q) || group.includes(q);
+  }).slice(0, 80);
+
+  if(!filtered.length){
+    listEl.innerHTML = `<div class="dn-pick-item">No results</div>`;
+    listEl.style.display = 'block';
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(p=>{
+    return `
+      <div class="dn-pick-item" data-id="${escapeHtml(p.id)}">
+        <div>${escapeHtml(dnProductLabel(p))}</div>
+        <div class="dn-pick-muted">${escapeHtml((p.group||'') + (p.group ? '' : ''))}</div>
+      </div>
+    `;
+  }).join('');
+  listEl.style.display = 'block';
+}
+
+function dnBindRowProductPicker(tr){
+  const searchInp = tr.querySelector('[data-dn="productSearch"]');
+  const hiddenInp = tr.querySelector('[data-dn="product"]');
+  const listEl    = tr.querySelector('[data-dn="productList"]');
+  if(!searchInp || !hiddenInp || !listEl) return;
+
+  // open list on focus
+  searchInp.addEventListener('focus', ()=> dnRenderPickerList(listEl, searchInp.value));
+
+  // filter while typing
+  searchInp.addEventListener('input', ()=> dnRenderPickerList(listEl, searchInp.value));
+
+  // choose item
+  listEl.addEventListener('click', (e)=>{
+    const item = e.target.closest('.dn-pick-item');
+    if(!item || !item.dataset.id) return;
+
+    const id = item.dataset.id;
+    const p = products.find(x=> String(x.id) === String(id));
+    hiddenInp.value = id;
+    searchInp.value = dnProductLabel(p);
+
+    listEl.style.display = 'none';
+  });
+
+  // close on outside click
+  document.addEventListener('click', (e)=>{
+    if(!tr.contains(e.target)) listEl.style.display = 'none';
+  });
 }
 
 

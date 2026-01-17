@@ -1285,17 +1285,6 @@ function openPage(pageId){
 if(pageId === 'suppliers'){
   renderSuppliers?.();
 }
-if(pageId === 'billEntry'){
-  renderBOESupplierDropdown();
-  if(!document.getElementById('boeDate').value) document.getElementById('boeDate').value = todayISO();
-  if(!document.getElementById('boeItemsBody').children.length) boeAddRow();
-  BOE.renderTable(); // ✅ correct
-}
-
-  if(pageId === 'productionAuto'){
-    renderProdFGDropdown();
-    renderBOM();
-  }
   if(pageId === 'pageProductionRecords'){
     renderProductionsTable();
   }
@@ -1308,12 +1297,38 @@ if(pageId === 'productionEntry'){
   if(!document.getElementById('prodRMReturnBody').children.length) prodAddRMReturnRow();
 
   renderProductionsTable();
+  setAutoProductionNo();      
 }
+if(pageId === 'billEntry'){
+  renderBOESupplierDropdown();
+  if(!document.getElementById('boeDate').value) document.getElementById('boeDate').value = todayISO();
+
+  // ✅ AUTO BOE NUMBER
+  setAutoBOENo(false);
+
+  if(!document.getElementById('boeItemsBody').children.length) boeAddRow();
+  BOE.renderTable();
+}
+
+if(pageId === 'productionAuto'){
+  renderProdFGDropdown();
+  renderBOM();
+
+  // ✅ AUTO PRODUCTION NUMBER
+  if(!document.getElementById('prodDate').value) document.getElementById('prodDate').value = todayISO();
+  setAutoPRODNo(false);
+}
+
 if(pageId === 'rmDeliveryNote'){
   if(!document.getElementById('dnDate').value) document.getElementById('dnDate').value = todayISO();
+
+  // ✅ AUTO DN NUMBER
+  setAutoDNNo(false);
+
   if(!document.getElementById('dnItemsBody').children.length) dnAddRow();
   renderDNTable();
 }
+
 
 
 
@@ -3292,6 +3307,55 @@ function initFGSearchSelect(){
 window.initFGSearchSelect = initFGSearchSelect;
 
 
+/* =========================
+   ✅ AUTO PRODUCTION NUMBER (LOCAL)
+   Format: PROD-YYYYMMDD-###  e.g. PROD-20260115-001
+========================= */
+
+function prodDateKey(iso){
+  const d = String(iso || todayISO()).trim();      // YYYY-MM-DD
+  return d.replaceAll('-', '');                    // YYYYMMDD
+}
+
+function nextProdSeqForDate(dateISO){
+  const key = prodDateKey(dateISO);
+
+  // find max seq used today in productions[]
+  let max = 0;
+  (window.productions || []).forEach(p=>{
+    const no = String(p.prodNo || '');
+    const m = no.match(/^PROD-(\d{8})-(\d{3,})$/);
+    if(m && m[1] === key){
+      const n = parseInt(m[2], 10);
+      if(n > max) max = n;
+    }
+  });
+
+  return max + 1;
+}
+
+function formatProdNo(dateISO, seq){
+  const key = prodDateKey(dateISO);
+  return `PROD-${key}-${String(seq).padStart(3,'0')}`;
+}
+
+function setAutoProductionNo(force=false){
+  const noEl = document.getElementById('prodNo');
+  const dtEl = document.getElementById('prodDate');
+  if(!noEl || !dtEl) return;
+
+  if(!dtEl.value) dtEl.value = todayISO();
+
+  const current = (noEl.value || '').trim();
+
+  // only overwrite if empty OR force=true OR it looks like old auto format
+  const looksAuto = /^PROD-\d{8}-\d{3,}$/.test(current);
+
+  if(force || !current || looksAuto){
+    const seq = nextProdSeqForDate(dtEl.value);
+    noEl.value = formatProdNo(dtEl.value, seq);
+  }
+}
 
 
 
@@ -3766,6 +3830,21 @@ function deleteDN(id){
   refreshAll();
 
   showToast("DN deleted ✅");
+}
+function dnProductDatalistHTML(){
+  if(!Array.isArray(products) || !products.length){
+    return `<datalist id="dnRmList"></datalist>`;
+  }
+  const sorted = [...products].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  return `
+    <datalist id="dnRmList">
+      ${sorted.map(p=>{
+        const code = p.code ? `(${p.code}) ` : '';
+        // value shows in search box; keep id in data attr later
+        return `<option value="${escapeHtml(code + (p.name||''))}" data-id="${escapeHtml(p.id)}"></option>`;
+      }).join('')}
+    </datalist>
+  `;
 }
 
 
@@ -5187,6 +5266,125 @@ window.Dashboard = window.Dashboard || {
   }
 };
 
+/* =========================================================
+   ✅ AUTO DOCUMENT NUMBER GENERATOR (PROD / BOE / DN)
+   Format: PREFIX-YYYYMMDD-###   e.g. BOE-20260115-001
+   - Does NOT overwrite manual entries
+   - Uses existing saved data to find next sequence
+   - Stores last sequence per day in localStorage
+========================================================= */
+
+const AutoDocNo = (() => {
+  const storeKey = 'sms_auto_docno_v1';
+  const state = JSON.parse(localStorage.getItem(storeKey) || '{}');
+
+  const dateKey = (iso) => String(iso || todayISO()).trim().replace(/-/g, ''); // YYYYMMDD
+
+  const looksAuto = (val, prefix) => {
+    const re = new RegExp(`^${prefix}-\\d{8}-\\d{3,}$`, 'i');
+    return re.test(String(val || '').trim());
+  };
+
+  const maxSeqFromList = (values, prefix, dkey) => {
+    const re = new RegExp(`^${prefix}-${dkey}-(\\d+)$`, 'i');
+    let max = 0;
+    (values || []).forEach(v => {
+      const m = String(v || '').trim().match(re);
+      if (m) {
+        const n = parseInt(m[1], 10);
+        if (n > max) max = n;
+      }
+    });
+    return max;
+  };
+
+  const getExistingMax = (prefix, dkey) => {
+    // Collect from your saved modules (if they exist)
+    const prodVals = (window.productions || []).map(p => p?.prodNo);
+    const boeVals  = (window.savedBills || []).map(b => b?.billNo);
+    const dnVals   = (window.deliveryNotes || []).map(d => d?.dnNo);
+
+    // choose which source to scan by prefix
+    if (prefix === 'PROD') return maxSeqFromList(prodVals, prefix, dkey);
+    if (prefix === 'BOE')  return maxSeqFromList(boeVals,  prefix, dkey);
+    if (prefix === 'DN')   return maxSeqFromList(dnVals,   prefix, dkey);
+
+    // fallback (scan all)
+    return Math.max(
+      maxSeqFromList(prodVals, prefix, dkey),
+      maxSeqFromList(boeVals,  prefix, dkey),
+      maxSeqFromList(dnVals,   prefix, dkey)
+    );
+  };
+
+  const nextSeq = (prefix, isoDate) => {
+    const dkey = dateKey(isoDate);
+
+    // max from stored seq map
+    const mapMax = Number(state?.[prefix]?.[dkey] || 0);
+
+    // max from existing saved records
+    const dataMax = getExistingMax(prefix, dkey);
+
+    const max = Math.max(mapMax, dataMax);
+    const next = max + 1;
+
+    // persist
+    state[prefix] = state[prefix] || {};
+    state[prefix][dkey] = next;
+    localStorage.setItem(storeKey, JSON.stringify(state));
+
+    return next;
+  };
+
+  const format = (prefix, isoDate, seq, pad = 3) => {
+    const dkey = dateKey(isoDate);
+    return `${prefix}-${dkey}-${String(seq).padStart(pad, '0')}`;
+  };
+
+  const set = ({ inputId, dateId, prefix, pad = 3, force = false }) => {
+    const input = document.getElementById(inputId);
+    const dateEl = document.getElementById(dateId);
+    if (!input || !dateEl) return;
+
+    if (!dateEl.value) dateEl.value = todayISO();
+
+    const cur = String(input.value || '').trim();
+    const canOverwrite = force || !cur || looksAuto(cur, prefix);
+
+    if (!canOverwrite) return;
+
+    const seq = nextSeq(prefix, dateEl.value);
+    input.value = format(prefix, dateEl.value, seq, pad);
+  };
+
+  const wire = ({ inputId, dateId, prefix, pad = 3 }) => {
+    const dateEl = document.getElementById(dateId);
+    const input = document.getElementById(inputId);
+    if (!dateEl || !input) return;
+
+    // When date changes: regenerate only if empty or auto-format
+    dateEl.addEventListener('change', () => set({ inputId, dateId, prefix, pad, force: false }));
+  };
+
+  return { set, wire };
+})();
+
+// ✅ helper wrappers (call these from openPage)
+function setAutoBOENo(force=false){
+  AutoDocNo.set({ inputId:'boeNo', dateId:'boeDate', prefix:'BOE', pad:3, force });
+  AutoDocNo.wire({ inputId:'boeNo', dateId:'boeDate', prefix:'BOE', pad:3 });
+}
+
+function setAutoDNNo(force=false){
+  AutoDocNo.set({ inputId:'dnNo', dateId:'dnDate', prefix:'DN', pad:3, force });
+  AutoDocNo.wire({ inputId:'dnNo', dateId:'dnDate', prefix:'DN', pad:3 });
+}
+
+function setAutoPRODNo(force=false){
+  AutoDocNo.set({ inputId:'prodNo', dateId:'prodDate', prefix:'PROD', pad:3, force });
+  AutoDocNo.wire({ inputId:'prodNo', dateId:'prodDate', prefix:'PROD', pad:3 });
+}
 
 
 
@@ -5237,6 +5435,7 @@ document.getElementById('prodSearch')?.addEventListener('input', renderProductio
 document.getElementById('dnSearch')?.addEventListener('input', renderDNTable);
 document.getElementById('prodFG')?.addEventListener('change', renderBOM);
 document.getElementById('prodFGQty')?.addEventListener('input', renderBOM);
+document.getElementById('prodDate')?.addEventListener('change', ()=> setAutoProductionNo(true));
 
 
 // Sidebar toggle

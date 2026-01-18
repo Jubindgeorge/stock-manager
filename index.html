@@ -5672,8 +5672,8 @@ const AutoDocNo = (() => {
 
 // ✅ helper wrappers (call these from openPage)
 function setAutoBOENo(force=false){
-  AutoDocNo.set({ inputId:'boeNo', dateId:'boeDate', prefix:'BOE', pad:3, force });
-  AutoDocNo.wire({ inputId:'boeNo', dateId:'boeDate', prefix:'BOE', pad:3 });
+  AutoDocNo.set({ inputId:'boeNo', dateId:'boeDate', prefix:'GRN', pad:3, force });
+  AutoDocNo.wire({ inputId:'boeNo', dateId:'boeDate', prefix:'GRN', pad:3 });
 }
 
 function setAutoDNNo(force=false){
@@ -5682,8 +5682,8 @@ function setAutoDNNo(force=false){
 }
 
 function setAutoPRODNo(force=false){
-  AutoDocNo.set({ inputId:'prodNo', dateId:'prodDate', prefix:'PROD', pad:3, force });
-  AutoDocNo.wire({ inputId:'prodNo', dateId:'prodDate', prefix:'PROD', pad:3 });
+  AutoDocNo.set({ inputId:'prodNo', dateId:'prodDate', prefix:'PR', pad:3, force });
+  AutoDocNo.wire({ inputId:'prodNo', dateId:'prodDate', prefix:'PR', pad:3 });
 }
 
 
@@ -5999,3 +5999,4 @@ window.viewProduction = viewProduction;
 
 </body>
 </html>
+

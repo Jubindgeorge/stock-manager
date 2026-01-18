@@ -22,25 +22,27 @@
 <style>
 /* =========================================
    Stock Manager CSS (Bootstrap SAFE)
-   - Does NOT override: .row, .col-*, .card, .modal, .table, .btn
-   - Custom UI uses sm-* prefixes
+   - Avoids overriding Bootstrap core classes
+   - Responsive + Full-screen Dashboard
 ========================================= */
 
 :root{
   --sidebar-w: 260px;
-
-  --bg:#f6f7fb;
   --card:#ffffff;
   --text:#111827;
   --muted:#6b6f76;
-
   --accent:#2c3e50;
   --accent-2:#2980b9;
   --danger:#c0392b;
-
   --line:#e7e9ee;
   --shadow:0 10px 30px rgba(0,0,0,.08);
   --radius:14px;
+
+  /* Viewport fix (mobile address bar) */
+  --vh: 100vh;
+}
+@supports (height: 100dvh){
+  :root{ --vh: 100dvh; }
 }
 
 *{ box-sizing:border-box; }
@@ -48,22 +50,21 @@ html,body{ height:100%; }
 body{
   margin:0;
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background: var(--bg);
-  color: var(--text);
+  background:#ffffff;
+  color:#111;
 }
 
-/* Generic helpers */
 .muted{ color: var(--muted) !important; }
 .right{ text-align:right !important; }
 .sm-link{ color:#2563eb; cursor:pointer; font-weight:700; }
 .low-stock{ color:#dc2626; font-weight:800; }
 
 /* App wrapper */
-.app{ display:none; min-height:100vh; }
+.app{ display:none; min-height:var(--vh); }
 
-/* =========================================
+/* =========================================================
    LOGIN
-========================================= */
+========================================================= */
 .sm-login-screen{
   position:fixed; inset:0;
   background:#f3f4f6;
@@ -87,13 +88,13 @@ body{
 .sm-msg{ margin-top:10px; text-align:center; font-size:13px; }
 .sm-msg-error{ color:#dc2626; }
 
-/* =========================================
+/* =========================================================
    SIDEBAR
-========================================= */
+========================================================= */
 .sidebar{
   width: var(--sidebar-w);
-  position:fixed; left:0; top:0; height:100%;
-  background: rgba(255,255,255,.85);
+  position:fixed; left:0; top:0; height:var(--vh);
+  background: rgba(205 255 225 / 85%);
   backdrop-filter: blur(6px);
   padding: 10px;
   overflow:auto;
@@ -101,8 +102,10 @@ body{
   border-right:1px solid rgba(0,0,0,.06);
   box-shadow: 4px 0 20px rgba(0,0,0,.08);
   border-radius: 0 10px 10px 0;
-  transition: width .25s ease, padding .25s ease;
+  transition: width .25s ease, padding .25s ease, transform .25s ease;
 }
+
+/* minimized sidebar (desktop) */
 .sidebar.minimized{
   width:60px;
   padding:10px 6px;
@@ -126,7 +129,7 @@ body{
   border-radius:8px;
 }
 .brand-title{ font-size:18px; font-weight:800; margin:0; }
-.brand-sub{ font-size:12px; color:var(--muted); margin-top:2px; }
+.brand-sub{ font-size:12px; color:#111; margin-top:2px; }
 .sm-btn-compact{ padding:4px 8px !important; }
 
 .sidebar-menu{ list-style:none; padding:0; margin:10px 0 0; }
@@ -162,14 +165,14 @@ body{
 .sidebar-footer{ margin-top:16px; font-size:13px; color:var(--muted); }
 .admin-only{ display:none; }
 
-/* =========================================
-   MAIN
-========================================= */
+/* =========================================================
+   MAIN LAYOUT
+========================================================= */
 .main{
   margin-left: calc(var(--sidebar-w) + 18px);
   padding:18px;
-  min-height:100vh;
-  transition: margin-left .25s ease;
+  min-height:var(--vh);
+  transition: margin-left .25s ease, padding .25s ease;
 }
 .sidebar.minimized + .main{ margin-left: 60px; }
 body.sm-sidebar-min .main{ margin-left: 60px; }
@@ -180,23 +183,22 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
   z-index:999;
 }
 
-/* =========================================
-   PAGE CONTAINER
-========================================= */
+/* =========================================================
+   PAGE CONTAINER (normal pages)
+========================================================= */
 .page{
-  background: rgba(255,255,255,.75);
-  backdrop-filter: blur(6px);
+  background: var(--card);
   border-radius: 12px;
   width:100%;
-  min-height: calc(100vh - 40px);
+  min-height: calc(var(--vh) - 40px);
   padding: 20px;
   border: 1px solid rgba(0,0,0,.06);
   box-shadow: 0 6px 25px rgba(0,0,0,.10);
 }
 
-/* =========================================
-   CUSTOM inputs
-========================================= */
+/* =========================================================
+   FORMS / CARDS (Bootstrap-safe custom)
+========================================================= */
 .sm-search{
   padding:8px 10px;
   border-radius:10px;
@@ -211,12 +213,6 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
   width:220px;
   background: rgba(255,255,255,.95);
 }
-.sm-lbl{ display:block; font-size:12px; color:var(--muted); margin:6px 0; }
-.sm-inp{ width:100%; padding:10px; border:1px solid #d7dbe2; border-radius:10px; background:#fff; }
-
-/* =========================================
-   CUSTOM CARD + GRID (NO Bootstrap conflicts)
-========================================= */
 .sm-card{
   background: var(--card);
   border-radius: 12px;
@@ -226,15 +222,12 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
   margin-bottom: 12px;
 }
 
-/* =========================================
+/* =========================================================
    TOAST
-========================================= */
+========================================================= */
 #stockToast{
-  position:fixed;
-  top:20px;
-  right:20px;
-  background:#16a34a;
-  color:#fff;
+  position:fixed; top:20px; right:20px;
+  background:#16a34a; color:#fff;
   padding:10px 20px;
   border-radius:10px;
   box-shadow:0 4px 12px rgba(0,0,0,.20);
@@ -246,9 +239,9 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
 }
 #stockToast.out{ background:#dc2626; }
 
-/* =========================================
-   BOE SEARCH DROP DOWN (RM searchable)
-========================================= */
+/* =========================================================
+   RM SEARCH DROPDOWN
+========================================================= */
 .rm-search-wrap{ position:relative; }
 .rm-search-input{
   width:100%;
@@ -281,22 +274,14 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
 .rm-search-item.active{ background:rgba(41,128,185,.18); font-weight:700; }
 .rm-search-empty{ padding:10px; color:var(--muted); font-size:13px; }
 
-/* =========================================
-   SIMPLE APP MODAL
-========================================= */
-.app-modal{
-  position:fixed;
-  inset:0;
-  z-index:9999;
-}
-.app-modal-backdrop{
-  position:absolute;
-  inset:0;
-  background:rgba(0,0,0,.45);
-}
+/* =========================================================
+   SIMPLE MODAL
+========================================================= */
+.app-modal{ position:fixed; inset:0; z-index:9999; }
+.app-modal-backdrop{ position:absolute; inset:0; background:rgba(0,0,0,.45); }
 .app-modal-box{
   position:relative;
-  max-width:900px;
+  max-width:950px;
   margin:5vh auto;
   background:#fff;
   border-radius:12px;
@@ -310,26 +295,23 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
   border-bottom:1px solid #eee;
   margin-bottom:12px;
 }
-.app-modal-body{
-  max-height:70vh;
-  overflow:auto;
-}
+.app-modal-body{ max-height:70vh; overflow:auto; }
 
-/* ===== Custom button skins (Bootstrap-safe) ===== */
+/* =========================================================
+   CUSTOM BUTTON SKINS (Bootstrap-safe)
+========================================================= */
 .btn.secondary{
   background:#f3f4f6;
   border:1px solid rgba(0,0,0,.15);
   color:#111;
 }
 .btn.secondary:hover{ background:#e9edf2; }
-
 .btn.info{
   background:#0ea5e9;
   border:1px solid rgba(0,0,0,.08);
   color:#fff;
 }
 .btn.info:hover{ filter:brightness(.95); }
-
 .btn.out{
   background:#dc2626;
   border:1px solid rgba(0,0,0,.08);
@@ -337,29 +319,264 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
 }
 .btn.out:hover{ filter:brightness(.95); }
 
+/* =========================================================
+   NAV DATE/TIME PILL
+========================================================= */
+.nav-right{ position:fixed; top:12px; right:120px; z-index:999; }
+.nav-datetime{
+  display:inline-flex; align-items:center; gap:10px;
+  padding:8px 12px;
+  border-radius:999px;
+  background:linear-gradient(180deg, rgba(255,255,255,.9), rgba(255,255,255,.65));
+  border:1px solid rgba(0,0,0,.08);
+  box-shadow: 0 6px 18px rgba(0,0,0,.06);
+  backdrop-filter: blur(8px);
+  font-weight:700; font-size:13px; letter-spacing:.2px;
+  color:#111; white-space:nowrap; user-select:none;
+}
+.nav-datetime .dt-date{ font-weight:700; opacity:.85; }
+.nav-datetime .dt-dot{
+  width:6px; height:6px; border-radius:50%;
+  background: var(--accent-2, #2980b9);
+  box-shadow: 0 0 0 4px rgba(41,128,185,.15);
+}
+.nav-datetime .dt-time{ font-weight:800; color: var(--accent, #2c3e50); }
+
+/* =========================================================
+   DASHBOARD (Scoped dark theme)
+========================================================= */
+.dash-wrap{
+  --dash-bg: #000;
+  --dash-panel: rgba(255,255,255,.06);
+  --dash-stroke: rgba(255,255,255,.12);
+  --dash-text: rgba(255,255,255,.92);
+  --dash-muted: rgba(255,255,255,.70);
+  --dash-radius: 18px;
+  --dash-shadow: 0 18px 60px rgba(0,0,0,.45);
+}
+
+/* Dashboard base colors */
+#dashboardPage{
+  background: var(--dash-bg) !important;
+  color: var(--dash-text) !important;
+}
+
+/* Sticky topbar */
+#dashboardPage .dash-topbar{
+  position: sticky; top:0; z-index:20;
+  backdrop-filter: blur(10px);
+  background: linear-gradient(to bottom, rgba(0,0,0,.85), rgba(0,0,0,.45));
+  border-bottom: 1px solid var(--dash-stroke);
+}
+#dashboardPage .dash-topbar-inner{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px; padding: 14px 18px;
+}
+#dashboardPage .dash-title h1{ margin:0; font-size:18px; font-weight:800; }
+#dashboardPage .dash-title small{ color: var(--dash-muted); font-size:12px; }
+
+/* Search */
+#dashboardPage .dash-search{ flex:1; max-width:520px; position:relative; }
+#dashboardPage .dash-search input{
+  width:100%;
+  padding: 10px 12px 10px 40px;
+  border-radius: 999px;
+  border:1px solid var(--dash-stroke);
+  background: rgba(255,255,255,.06);
+  color: var(--dash-text);
+  outline:none;
+}
+#dashboardPage .dash-search input::placeholder{ color: rgba(255,255,255,.45); }
+#dashboardPage .dash-search .ico{
+  position:absolute; left:14px; top:50%;
+  transform: translateY(-50%); opacity:.75;
+}
+
+/* User pill */
+#dashboardPage .dash-userpill{
+  display:flex; align-items:center; gap:10px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.06);
+  border:1px solid var(--dash-stroke);
+}
+#dashboardPage .dash-avatar{
+  width: 30px; height: 30px; border-radius: 50%;
+  background: linear-gradient(135deg, rgba(124,92,255,.9), rgba(34,197,94,.75));
+  box-shadow: 0 10px 20px rgba(0,0,0,.25);
+}
+#dashboardPage .dash-userpill b{ font-size: 13px; color: var(--dash-text); }
+#dashboardPage .dash-userpill span{ color: var(--dash-muted); font-size: 11px; display:block; margin-top:-1px; }
+
+/* Panels + grid */
+#dashboardPage .dash-panel{
+  border:1px solid var(--dash-stroke);
+  background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.04));
+  border-radius: var(--dash-radius);
+  box-shadow: var(--dash-shadow);
+}
+#dashboardPage .dash-panel-head{
+  padding: 14px 16px;
+  display:flex; align-items:center; justify-content:space-between;
+  border-bottom: 1px solid var(--dash-stroke);
+}
+#dashboardPage .dash-panel-head h2{ margin:0; font-size:14px; font-weight:800; color: var(--dash-text); }
+#dashboardPage .dash-panel-head .sub{ color: var(--dash-muted); font-size:12px; }
+#dashboardPage .dash-panel-body{ padding: 14px 16px; }
+
+#dashboardPage .dash-grid{
+  display:grid;
+  grid-template-columns: 1.35fr .65fr;
+  gap: 16px;
+}
+@media (max-width: 980px){
+  #dashboardPage .dash-grid{ grid-template-columns: 1fr; }
+}
+
+/* KPI cards */
+#dashboardPage .dash-kpis{
+  display:grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+@media (max-width: 980px){ #dashboardPage .dash-kpis{ grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px){ #dashboardPage .dash-kpis{ grid-template-columns: 1fr; } }
+
+#dashboardPage .dash-kpi{
+  border:1px solid var(--dash-stroke);
+  background: rgba(255,255,255,.06);
+  border-radius: 16px;
+  padding: 14px;
+  display:flex; gap: 10px; align-items:flex-start;
+}
+#dashboardPage .dash-kpi .badge{
+  width: 38px; height: 38px;
+  border-radius: 12px;
+  display:grid; place-items:center;
+  background: rgba(124,92,255,.18);
+  border:1px solid rgba(124,92,255,.25);
+}
+#dashboardPage .dash-kpi .badge.green{ background: rgba(34,197,94,.14); border-color: rgba(34,197,94,.25); }
+#dashboardPage .dash-kpi .badge.warn{ background: rgba(251,191,36,.14); border-color: rgba(251,191,36,.25); }
+#dashboardPage .dash-kpi .badge.red{ background: rgba(251,113,133,.14); border-color: rgba(251,113,133,.25); }
+#dashboardPage .dash-kpi b{ display:block; font-size:18px; font-weight:900; color: var(--dash-text); }
+#dashboardPage .dash-kpi small{ color: var(--dash-muted); display:block; margin-top:2px; }
+#dashboardPage .dash-kpi .trend{ margin-top: 6px; font-size: 12px; color: rgba(255,255,255,.75); }
+#dashboardPage .dash-kpi .trend.up{ color: rgba(34,197,94,.95); }
+#dashboardPage .dash-kpi .trend.down{ color: rgba(251,113,133,.95); }
+
+/* Buttons */
+#dashboardPage .dash-btn{
+  border:1px solid var(--dash-stroke);
+  background: rgba(255,255,255,.06);
+  color: var(--dash-text);
+  padding: 10px 12px;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 13px;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  cursor:pointer;
+}
+#dashboardPage .dash-btn:hover{ background: rgba(255,255,255,.10); }
+#dashboardPage .dash-btn.primary{
+  border-color: rgba(124,92,255,.35);
+  background: linear-gradient(135deg, rgba(124,92,255,.70), rgba(124,92,255,.25));
+}
+#dashboardPage .dash-btn.primary:hover{ filter: brightness(1.05); }
+
+/* List */
+#dashboardPage .dash-list{ display:flex; flex-direction:column; gap: 10px; }
+#dashboardPage .dash-item{
+  display:flex; align-items:flex-start; justify-content:space-between;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border:1px solid var(--dash-stroke);
+  background: rgba(255,255,255,.05);
+}
+#dashboardPage .dash-item .left b{ display:block; font-size:13px; color: var(--dash-text); }
+#dashboardPage .dash-item .left small{ color: var(--dash-muted); }
+
+#dashboardPage .dash-pill{
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 11px;
+  border: 1px solid var(--dash-stroke);
+  background: rgba(255,255,255,.06);
+  color: var(--dash-text);
+}
+#dashboardPage .dash-pill.green{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.10); }
+#dashboardPage .dash-pill.warn{ border-color: rgba(251,191,36,.35); background: rgba(251,191,36,.10); }
+#dashboardPage .dash-pill.red{ border-color: rgba(251,113,133,.35); background: rgba(251,113,133,.10); }
+
+/* Charts */
+#dashboardPage .dash-chartbox{ height: 280px; }
+#dashboardPage .dash-chartbox canvas{ width:100% !important; height:100% !important; }
+
+/* =========================================================
+   ✅ DASHBOARD FULL SCREEN MODE (only when class exists)
+   Add JS: document.body.classList.toggle('sm-on-dashboard', pageId==='dashboardPage')
+========================================================= */
+body.sm-on-dashboard .main{
+  padding: 0 !important;
+}
+
+body.sm-on-dashboard #dashboardPage{
+  width: 100%;
+  height: var(--vh) !important;
+  min-height: var(--vh) !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
+  overflow: hidden;
+}
+
+/* Dashboard container scroll */
+body.sm-on-dashboard #dashboardPage .dash-container{
+  height: calc(var(--vh) - 64px);
+  overflow: auto;
+  padding: 16px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+/* Keep topbar height fixed */
+body.sm-on-dashboard #dashboardPage .dash-topbar,
+body.sm-on-dashboard #dashboardPage .dash-topbar-inner{
+  height: 64px;
+}
+
+/* =========================================================
+   ✅ RESPONSIVE SIDEBAR: overlay on mobile
+========================================================= */
+@media (max-width: 768px){
+  .main{ margin-left: 0 !important; }
+
+  .sidebar{
+    transform: translateX(-100%);
+    border-radius: 0 12px 12px 0;
+  }
+  body.sm-sidebar-open .sidebar{
+    transform: translateX(0);
+  }
+
+  body.sm-on-dashboard #dashboardPage{
+    width: 100% !important;
+  }
+}
+
+/* =========================================================
+   PRINT
+========================================================= */
 @media print{
   body{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
 }
-/* DN searchable product picker */
-.dn-pick{ position:relative; width:100%; }
-.dn-pick-input{
-  width:100%; padding:8px 10px; border:1px solid rgba(0,0,0,.12);
-  border-radius:10px; outline:none; font-size:13px;
-}
-.dn-pick-list{
-  position:absolute; left:0; right:0; top:calc(100% + 6px);
-  background:#fff; border:1px solid rgba(0,0,0,.12);
-  border-radius:10px; box-shadow:0 10px 24px rgba(0,0,0,.10);
-  max-height:260px; overflow:auto; z-index:9999; display:none;
-}
-.dn-pick-item{ padding:8px 10px; cursor:pointer; }
-.dn-pick-item:hover{ background:rgba(0,0,0,.06); }
-.dn-pick-muted{ font-size:12px; color:#6b6f76; margin-top:2px; }
-
-#rmDeliveryNote .sm-card,
-#rmDeliveryNote td{ overflow: visible !important; }
-
 </style>
+
 </head>
 
 <body>
@@ -470,6 +687,8 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
         <li class="submenu" data-action="printStockReport">Print RM Stock Report</li>
         <li class="submenu" data-action="printFGStockReport">Print FG Stock Report</li>
         <li class="submenu" data-action="exportPDF">Export PDF</li>
+<li class="submenu" data-page="auditPage">Audit Trail</li>
+
       </ul>
 
       <div class="sidebar-footer">Data stored locally; cloud optional.</div>
@@ -478,6 +697,10 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
 
   <!-- MAIN -->
   <main class="main">
+<div class="nav-right">
+  <div id="navDateTime" class="nav-datetime" title="Current date & time"></div>
+</div>
+
     <button onclick="logout()" class="btn btn-danger sm-logout">Logout</button>
 
     <!-- USER MANAGEMENT -->
@@ -506,116 +729,158 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
     </section>
 
     <!-- MAIN DASHBOARD -->
-    <section id="dashboardPage" class="page container-fluid py-3" style="display:none">
-      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+   <!-- ✅ NEW DASHBOARD -->
+<section id="dashboardPage" class="page dash-wrap" style="display:none;">
+
+  
+  <!-- Topbar -->
+  <div class="dash-topbar">
+    <div class="dash-topbar-inner">
+      <div class="dash-title">
+        <h1>Stock Manager</h1>
+        <small id="dashSubtitle">Live inventory overview</small>
+      </div>
+
+      <div class="dash-search d-none d-md-block">
+        <span class="ico">🔎</span>
+        <input id="dashSearch" placeholder="Search RM / FG / Supplier..." />
+      </div>
+
+      <div class="dash-userpill">
+        <div class="dash-avatar"></div>
         <div>
-          <h2 class="m-0">Dashboard</h2>
-          <div class="text-muted small" id="dashUpdatedAt">—</div>
+          <b id="dashUser">User</b>
+          <span id="dashRole">role</span>
         </div>
+      </div>
+    </div>
+  </div>
 
-        <div class="d-flex gap-2 flex-wrap">
-          <button class="btn btn-outline-secondary btn-sm" type="button" onclick="Dashboard.refresh()">
-            Refresh
-          </button>
-          <button class="btn btn-primary btn-sm" type="button" onclick="openFGFromDashboard()">
-            Open FG
-          </button>
+  <div class="dash-container">
+    
+    <!-- KPI Row -->
+    <div class="dash-kpis mb-3">
+      <div class="dash-kpi">
+        <div class="badge">📦</div>
+        <div>
+          <b id="kpiRmItems">0</b>
+          <small>RM Items</small>
+          <div class="trend up" id="kpiRmTrend">+0 today</div>
         </div>
       </div>
 
-      <div class="row g-3">
-        <div class="col-12 col-sm-6 col-xl-3">
-          <div class="card shadow-sm h-100">
-            <div class="card-body">
-              <div class="text-muted small">Total RM Products</div>
-              <div class="fs-2 fw-semibold" id="dashTotalProducts">0</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-12 col-sm-6 col-xl-3">
-          <div class="card shadow-sm h-100">
-            <div class="card-body">
-              <div class="text-muted small">Total RM Stock</div>
-              <div class="fs-2 fw-semibold" id="dashTotalStock">0</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-12 col-sm-6 col-xl-3">
-          <div class="card shadow-sm h-100">
-            <div class="card-body">
-              <div class="text-muted small">Low Stock Items (RM)</div>
-              <div class="fs-2 fw-semibold" id="dashLowStock">0</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-12 col-sm-6 col-xl-3">
-          <div class="card shadow-sm h-100" role="button" onclick="openFGFromDashboard()" style="cursor:pointer">
-            <div class="card-body">
-              <div class="text-muted small">Total FG Balance</div>
-              <div class="fs-2 fw-semibold" id="dashFGBalance">0</div>
-              <div class="small text-muted mt-1">Click to open FG</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-12 col-sm-6 col-xl-3">
-          <div class="card shadow-sm h-100" role="button" onclick="openFGFromDashboard()" style="cursor:pointer">
-            <div class="card-body">
-              <div class="text-muted small">FG Products</div>
-              <div class="fs-2 fw-semibold" id="dashFGTotalProducts">0</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-12 col-sm-6 col-xl-3">
-          <div class="card shadow-sm h-100" role="button" onclick="openLowFGFromDashboard()" style="cursor:pointer">
-            <div class="card-body">
-              <div class="text-muted small">Low FG Stock</div>
-              <div class="fs-2 fw-semibold" id="dashFGLowStock">0</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-12 col-sm-6 col-xl-3">
-          <div class="card shadow-sm h-100">
-            <div class="card-body">
-              <div class="text-muted small">Max FG Balance</div>
-              <div class="fs-2 fw-semibold" id="dashFGMaxBalance">—</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-12 col-sm-6 col-xl-3">
-          <div class="card shadow-sm h-100">
-            <div class="card-body">
-              <div class="text-muted small">Min FG Balance</div>
-              <div class="fs-2 fw-semibold" id="dashFGMinBalance">—</div>
-            </div>
-          </div>
+      <div class="dash-kpi">
+        <div class="badge green">🏭</div>
+        <div>
+          <b id="kpiFgItems">0</b>
+          <small>FG Items</small>
+          <div class="trend up" id="kpiFgTrend">+0 today</div>
         </div>
       </div>
 
-      <!-- FILTERS + CHART -->
-      <div class="card shadow-sm mt-3">
-        <div class="card-body">
-          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-            <div class="fw-semibold">FG Balance Chart</div>
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-              <div class="text-muted small">Volume filter:</div>
-              <div id="fgVolumeFilter" class="d-flex gap-2 flex-wrap"></div>
+      <div class="dash-kpi">
+        <div class="badge warn">⚠️</div>
+        <div>
+          <b id="kpiLowStock">0</b>
+          <small>Low Stock</small>
+          <div class="trend" id="kpiLowHint">Needs attention</div>
+        </div>
+      </div>
+
+      <div class="dash-kpi">
+        <div class="badge red">🧾</div>
+        <div>
+          <b id="kpiDocsToday">0</b>
+          <small>Docs Today</small>
+          <div class="trend" id="kpiDocsHint">BOE / DN / PROD</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main grid -->
+    <div class="dash-grid">
+
+      <!-- Left: Chart + recent movements -->
+      <div class="dash-panel">
+        <div class="dash-panel-head">
+          <div>
+            <h2>Stock Movement (Last 14 days)</h2>
+            <div class="sub">IN vs OUT overview</div>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button class="dash-btn" onclick="openPage?.('billEntry')">➕ GRN</button>
+            <button class="dash-btn" onclick="openPage?.('rmDeliveryNote')">➖ Delivery Note</button>
+            <button class="dash-btn primary" onclick="openPage?.('productionAuto')">🏭 Production</button>
+          </div>
+        </div>
+        <div class="dash-panel-body">
+          <div class="dash-chartbox">
+            <canvas id="dashMoveChart"></canvas>
+          </div>
+
+          <div style="height:12px"></div>
+
+          <div class="dash-panel dash-panel-inner" style="box-shadow:none;">
+            <div class="dash-panel-head" style="border-bottom:1px solid var(--stroke);">
+              <div>
+                <h2>Recent Activity</h2>
+                <div class="sub">Latest movements and documents</div>
+              </div>
+              <button class="dash-btn" onclick="openPage?.('moves')">View all</button>
+            </div>
+            <div class="dash-panel-body">
+              <div id="dashRecentList" class="dash-list">
+                <!-- JS will render items here -->
+              </div>
             </div>
           </div>
 
-          <div class="mt-3" style="height:360px">
-            <canvas id="fgStockChart"></canvas>
-          </div>
         </div>
       </div>
-    </section>
 
+      <!-- Right: Alerts + quick stats -->
+      <div style="display:flex; flex-direction:column; gap:16px;">
+
+        <div class="dash-panel">
+          <div class="dash-panel-head">
+            <div>
+              <h2>Low Stock Alerts</h2>
+              <div class="sub">Top priority items</div>
+            </div>
+            <button class="dash-btn" onclick="openPage?.('products')">Open RM</button>
+          </div>
+          <div class="dash-panel-body">
+            <div id="dashLowStockList" class="dash-list">
+              <!-- JS will render alerts here -->
+            </div>
+          </div>
+        </div>
+
+        <div class="dash-panel">
+          <div class="dash-panel-head">
+            <div>
+              <h2>Quick Actions</h2>
+              <div class="sub">One click navigation</div>
+            </div>
+          </div>
+          <div class="dash-panel-body" style="display:grid; gap:10px;">
+            <button class="dash-btn" onclick="openPage('history')">View all</button>
+
+<button class="dash-btn primary" onclick="openPage('products')">📦 RM Items</button>
+<button class="dash-btn primary" onclick="openPage('fgStock')">🏭 FG Items</button>
+<button class="dash-btn" onclick="openPage('suppliers')">👤 Suppliers</button>
+<button class="dash-btn" onclick="openPage('history')">📊 Reports</button>
+        </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+    
     <!-- RM PRODUCTS -->
     <section id="products" class="page" style="display:none">
       <h2>Raw Material List</h2>
@@ -746,6 +1011,30 @@ body.sm-sidebar-min .main{ margin-left: 60px; }
         </table>
       </div>
     </section>
+<section id="auditPage" class="page" style="display:none">
+  <h2>Audit Trail</h2>
+
+  <div class="d-flex gap-2 flex-wrap mb-2">
+    <input id="auditSearch" class="sm-search" placeholder="Search action / user / id...">
+    <button class="btn btn-outline-secondary" onclick="renderAudit()">Refresh</button>
+    <button class="btn btn-outline-danger" onclick="clearAudit()">Clear Log</button>
+  </div>
+
+  <div class="table-responsive" style="max-height:65vh">
+    <table class="table table-sm table-hover align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Date & Time</th>
+          <th>User</th>
+          <th>Action</th>
+          <th>Entity</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody id="auditBody"></tbody>
+    </table>
+  </div>
+</section>
 
     <!-- FG STOCK LIST -->
     <section id="fgStock" class="page" style="display:none">
@@ -1303,8 +1592,7 @@ function openPage(pageId){
   // page-specific renders
   if(pageId === 'dashboardPage'){
     renderMainDashboard();
-    renderFGVolumeFilter();
-    renderFGChart();
+   
   }
   if(pageId === 'dashboard'){
     renderDashboardGrouped();
@@ -1356,6 +1644,7 @@ if(pageId === 'rmDeliveryNote'){
   renderDNTable();
 }
 
+if(pageId === 'auditPage') renderAudit();
 
 
 
@@ -1497,8 +1786,7 @@ async function login(){
   }catch(err){
     console.error(err);
     loginMsg.textContent="Login failed";
-  }
-}
+  }}
 
 function logout(){
   localStorage.removeItem('sms_currentUser');
@@ -1732,62 +2020,191 @@ function initFGVolumeSelection(){
   });
 }
 
+
+
+function setText(id, val){
+  const el = document.getElementById(id);
+  if (el) el.textContent = (val ?? '');
+}
+
+function safeTodayISO(){
+  if (typeof todayISO === 'function') return todayISO();
+  return new Date().toISOString().slice(0,10);
+}
+
+function safeFmtDate(d){
+  if (typeof fmtDate === 'function') return fmtDate(d);
+  return (d || '');
+}
+
+function safeEscape(s){
+  if (typeof escapeHtml === 'function') return escapeHtml(String(s ?? ''));
+  return String(s ?? '').replace(/[&<>"']/g, m => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[m]));
+}
+
 /* =========================
    ✅ DASHBOARD (MAIN CARDS)
 ========================= */
-function getFGLowStockCount(){
-  return fgProducts.filter(f => computeFGBalance(f.id) <= (Number(f.threshold ?? 5))).length;
-}
-
 function renderMainDashboard(){
-  const totalProductsEl = document.getElementById('dashTotalProducts');
-  const totalStockEl    = document.getElementById('dashTotalStock');
-  const lowStockEl      = document.getElementById('dashLowStock');
-  const fgBalanceEl     = document.getElementById('dashFGBalance');
+  // ✅ Real sources from your app
+  const rm    = Array.isArray(window.products) ? window.products : [];
+  const fg    = Array.isArray(window.fgProducts) ? window.fgProducts : [];
+  const moves = Array.isArray(window.stockMovements) ? window.stockMovements : [];
 
-  const fgTotalEl       = document.getElementById('dashFGTotalProducts');
-  const fgLowEl         = document.getElementById('dashFGLowStock');
-  const fgMaxEl         = document.getElementById('dashFGMaxBalance');
-  const fgMinEl         = document.getElementById('dashFGMinBalance');
+  const bills = Array.isArray(window.savedBills) ? window.savedBills : [];
+  const dns   = Array.isArray(window.deliveryNotes) ? window.deliveryNotes : [];
+  const prod  = Array.isArray(window.productions) ? window.productions : [];
 
-  if(!totalProductsEl || !totalStockEl || !lowStockEl || !fgBalanceEl) return;
+  // ✅ IMPORTANT: prefer window.currentUser, but also accept global currentUser
+  const user = window.currentUser || (typeof currentUser !== 'undefined' ? currentUser : {}) || {};
 
-  // RM
-  totalProductsEl.textContent = products.length;
+  // --- topbar user ---
+  setText('dashUser', user.username || user.name || 'User');
+  setText('dashRole', user.role || user.permissionLevel || 'user');
 
-  let totalStock = 0;
-  let lowStock = 0;
-  products.forEach(p=>{
-    const bal = computeBalance(p.id);
-    totalStock += Number(bal)||0;
-    if((Number(bal)||0) <= (Number(p.threshold ?? 5))) lowStock++;
+  // --- KPI calcs ---
+  const canBalance = (typeof computeBalance === 'function');
+  const low = rm.filter(p => {
+    const bal = canBalance ? Number(computeBalance(p.id) || 0) : 0;
+    return bal <= Number(p.threshold || 0);
   });
 
-  totalStockEl.textContent = totalStock;
-  lowStockEl.textContent = lowStock;
+  const today = safeTodayISO();
+  const docsToday =
+    bills.filter(b => (b.date || b.boeDate) === today).length +
+    dns.filter(d => (d.date || d.dnDate) === today).length +
+    prod.filter(p => (p.date || p.prodDate) === today).length;
 
-  // FG
-  const fgTotal = fgProducts.reduce((sum,f)=> sum + computeFGBalance(f.id), 0);
-  fgBalanceEl.textContent = fgTotal;
+  setText('kpiRmItems', rm.length);
+  setText('kpiFgItems', fg.length);
+  setText('kpiLowStock', low.length);
+  setText('kpiDocsToday', docsToday);
 
-  if(fgTotalEl) fgTotalEl.textContent = fgProducts.length;
-  if(fgLowEl) fgLowEl.textContent = getFGLowStockCount();
+  // --- Recent Activity (last 6 moves) ---
+  const recent = moves.slice().sort((a,b)=>{
+    return String(b.createdAt||b.ts||b.date||'').localeCompare(String(a.createdAt||a.ts||a.date||''));
+  }).slice(0,6);
 
-  if(fgMaxEl){
-    const maxFG = fgProducts.reduce((max, f)=>{
-      const bal = computeFGBalance(f.id);
-      return (bal > max.balance) ? {name:f.name, balance:bal} : max;
-    }, {name:'-', balance:-Infinity});
-    fgMaxEl.textContent = (maxFG.balance === -Infinity) ? '-' : `${maxFG.name} (${maxFG.balance})`;
+  const recentBox = document.getElementById('dashRecentList');
+  if (recentBox){
+    recentBox.innerHTML = recent.length ? recent.map(m=>{
+      const p = rm.find(x=>x.id===m.productId);
+      const name = p?.name || 'Item';
+      const title = `${m.type} • ${name}`;
+      const sub = `${safeFmtDate(m.date)} • Qty: ${Number(m.quantity||0)}`;
+      const pill = (String(m.type).toUpperCase()==='OUT') ? 'warn' : 'green';
+
+      return `
+        <div class="dash-item">
+          <div class="left">
+            <b>${safeEscape(title)}</b>
+            <small>${safeEscape(sub)}</small>
+          </div>
+          <div class="dash-pill ${pill}">${safeEscape(m.type)}</div>
+        </div>
+      `;
+    }).join('') : `
+      <div class="dash-item">
+        <div class="left">
+          <b>No activity yet</b>
+          <small>Start by adding BOE / DN / Production</small>
+        </div>
+      </div>
+    `;
   }
 
-  if(fgMinEl){
-    const minFG = fgProducts.reduce((min, f)=>{
-      const bal = computeFGBalance(f.id);
-      return (bal < min.balance) ? {name:f.name, balance:bal} : min;
-    }, {name:'-', balance:Infinity});
-    fgMinEl.textContent = (minFG.balance === Infinity) ? '-' : `${minFG.name} (${minFG.balance})`;
+  // --- Low stock list (top 6) ---
+  const lowBox = document.getElementById('dashLowStockList');
+  if (lowBox){
+    lowBox.innerHTML = (low.slice(0,6).map(p=>{
+      const bal = (typeof computeBalance === 'function') ? Number(computeBalance(p.id) || 0) : 0;
+      const th  = Number(p.threshold || 0);
+      const cls = bal <= 0 ? 'red' : 'warn';
+
+      return `
+        <div class="dash-item">
+          <div class="left">
+            <b>${safeEscape(p.name || 'RM')}</b>
+            <small>Balance: ${bal} • Threshold: ${th}</small>
+          </div>
+          <div class="dash-pill ${cls}">${bal <= 0 ? 'OUT' : 'LOW'}</div>
+        </div>
+      `;
+    }).join('')) || `
+      <div class="dash-item">
+        <div class="left">
+          <b>All good</b>
+          <small>No low stock items</small>
+        </div>
+        <div class="dash-pill green">OK</div>
+      </div>
+    `;
   }
+
+  // --- Chart ---
+  if (typeof buildDashMoveChart === 'function'){
+    buildDashMoveChart(moves);
+  }
+}
+
+
+function buildDashMoveChart(moves){
+  if(!window.Chart) return;
+  const ctx = document.getElementById('dashMoveChart');
+  if(!ctx) return;
+
+  // Example: last 14 days labels
+  const days = [...Array(14)].map((_,i)=>{
+    const d = new Date(); d.setDate(d.getDate()-(13-i));
+    return d.toISOString().slice(5,10); // MM-DD
+  });
+
+  const inMap = Object.create(null);
+  const outMap = Object.create(null);
+
+  (moves||[]).forEach(m=>{
+ const d = String(m.date||'').slice(5,10);
+
+    const q = Number(m.quantity ?? m.qty ?? 0);
+
+    if(!d) return;
+    if((m.type||'').toUpperCase()==='IN') inMap[d]=(inMap[d]||0)+q;
+    if((m.type||'').toUpperCase()==='OUT') outMap[d]=(outMap[d]||0)+q;
+  });
+
+  const inData = days.map(d=> inMap[d]||0);
+  const outData = days.map(d=> outMap[d]||0);
+
+  // destroy old
+  if(window._dashChart) window._dashChart.destroy();
+
+  window._dashChart = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels: days,
+      datasets:[
+        { label:'IN', data: inData, tension:.35 },
+        { label:'OUT', data: outData, tension:.35 }
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'rgba(255,255,255,.8)' } } },
+      scales:{
+        x:{ ticks:{ color:'rgba(255,255,255,.6)' }, grid:{ color:'rgba(255,255,255,.06)' } },
+        y:{ ticks:{ color:'rgba(255,255,255,.6)' }, grid:{ color:'rgba(255,255,255,.06)' } }
+      }
+    }
+  });
+}
+
+function escapeHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, m => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[m]));
 }
 
 /* =========================
@@ -3141,6 +3558,7 @@ function submitProduction(){
         createdAt: nowISO?.() || new Date().toISOString(),
         createdBy: who?.() || (currentUser?.username || '')
       });
+logChange(type === 'IN' ? "RM_IN" : "RM_OUT", productId, { qty, remark });
     }
 
     // damage out
@@ -5135,6 +5553,12 @@ function autoPushFGToCloud(){
 
 
 
+
+
+
+
+
+
 /* =========================
    ✅ REPORTS + EXPORT/IMPORT
 ========================= */
@@ -5719,6 +6143,86 @@ document.querySelectorAll('[data-page]').forEach(el=>{
   });
 });
 
+function startNavClock(){
+  const el = document.getElementById('navDateTime');
+  if(!el) return;
+
+  const tick = ()=>{
+    const now = new Date();
+    el.innerHTML = `
+      <span class="dt-date">${now.toLocaleDateString('en-GB',{ timeZone:'Asia/Dubai' })}</span>
+      <span class="dt-dot"></span>
+      <span class="dt-time">${now.toLocaleTimeString('en-GB',{ timeZone:'Asia/Dubai', hour12:true })}</span>
+    `;
+  };
+
+  tick();
+  setInterval(tick, 1000);
+}
+startNavClock();
+
+// start it
+document.addEventListener('DOMContentLoaded', startNavClock);
+// ✅ Time helpers (store ISO, display Dubai)
+function nowISO(){ return new Date().toISOString(); }
+
+function fmtDateTime(iso){
+  if(!iso) return '-';
+  try{
+    return new Date(iso).toLocaleString('en-GB', {
+      timeZone: 'Asia/Dubai',
+      year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', second:'2-digit',
+      hour12: true
+    });
+  }catch(e){
+    return iso;
+  }
+}
+
+function who(){ return (currentUser?.username || "unknown"); }
+
+function renderAudit(){
+  const tb = document.getElementById('auditBody');
+  if(!tb) return;
+
+  const q = (document.getElementById('auditSearch')?.value || '').toLowerCase().trim();
+  const list = (Array.isArray(auditLog) ? auditLog : []).slice()
+    .sort((a,b)=> String(b.at||'').localeCompare(String(a.at||'')));
+
+  tb.innerHTML = '';
+
+  list.forEach(row=>{
+    const detailsText = JSON.stringify(row.details || {});
+    const hay = `${row.at} ${row.by} ${row.action} ${row.entityId} ${detailsText}`.toLowerCase();
+    if(q && !hay.includes(q)) return;
+
+    tb.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>${escapeHtml(fmtDateTime(row.at))}</td>
+        <td>${escapeHtml(row.by || '')}</td>
+        <td><b>${escapeHtml(row.action || '')}</b></td>
+        <td class="text-muted">${escapeHtml(row.entityId || '')}</td>
+        <td><code style="font-size:11px">${escapeHtml(detailsText)}</code></td>
+      </tr>
+    `);
+  });
+
+  if(!tb.children.length){
+    tb.innerHTML = `<tr><td colspan="5" class="text-muted">No audit records</td></tr>`;
+  }
+}
+
+function clearAudit(){
+  if(!confirm("Clear audit log?")) return;
+  auditLog = [];
+  saveAudit();
+  renderAudit();
+}
+
+
+
+
 
 // Searches
 document.getElementById('productSearch')?.addEventListener('input', renderProductsTable);
@@ -5999,4 +6503,3 @@ window.viewProduction = viewProduction;
 
 </body>
 </html>
-

@@ -5536,20 +5536,23 @@ renderBOM?.(); // optional (if FG already selected)
 
 }
 
-function autoPushFGToCloud(){
-  if (typeof cloudDB === "undefined" || !cloudDB) return Promise.resolve();
+// ===== FG CLOUD PATHS =====
+const CLOUD_PATH_BASE = "stockManager/v1";
+const CLOUD_PATH_FG_PRODUCTS = `${CLOUD_PATH_BASE}/fgProducts`;
+const CLOUD_PATH_FG_MOVES    = `${CLOUD_PATH_BASE}/fgMovements`;
 
-  const payload = {
-    products: Array.isArray(window.fgProducts) ? window.fgProducts : [],
-    movements: Array.isArray(window.fgMovements) ? window.fgMovements : [],
-    updatedAt: new Date().toISOString()
-  };
-
-  return cloudDB.ref("fgManager").set(payload).catch(err=>{
-    console.error("autoPushFGToCloud failed:", err);
-    window.showToast?.("FG sync failed (check Firebase rules)", true);
-  });
+// ===== PUSH FG TO CLOUD =====
+async function autoPushFGToCloud(){
+  try{
+    if(!window.cloudDB) return;
+    await cloudDB.ref(CLOUD_PATH_FG_PRODUCTS).set(Array.isArray(fgProducts) ? fgProducts : []);
+    await cloudDB.ref(CLOUD_PATH_FG_MOVES).set(Array.isArray(fgMovements) ? fgMovements : []);
+    console.log("✅ FG pushed to cloud");
+  }catch(err){
+    console.error("❌ FG push failed:", err);
+  }
 }
+window.autoPushFGToCloud = autoPushFGToCloud;
 
 
 

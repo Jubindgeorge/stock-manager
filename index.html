@@ -641,53 +641,54 @@ body.sm-on-dashboard #dashboardPage .dash-topbar-inner{
 
     <ul class="sidebar-menu" id="menu">
 
-      <li id="usersMenu" class="menu-title collapsible admin-only">
-        Users <span class="arrow">▾</span>
-      </li>
-      <ul class="subgroup admin-only">
-        <li class="submenu" data-page="userManagement">Manage Users</li>
-      </ul>
+      <li id="usersMenu" class="menu-title collapsible" data-perm="users:manage">
+  Users <span class="arrow">▾</span>
+</li>
+<ul class="subgroup" data-perm="users:manage">
+  <li class="submenu" data-page="userManagement" data-perm="users:manage">Manage Users</li>
+</ul>
 
-      <li class="menu-link" data-page="dashboardPage">Dashboard</li>
+<li class="menu-link" data-page="dashboardPage" data-perm="dashboard:view">Dashboard</li>
 
       <li class="menu-title collapsible">Purchase <span class="arrow">▾</span></li>
       <ul class="subgroup">
-        <li class="submenu" data-page="billEntry">Goods Received Note</li>
-        <li class="submenu" data-page="suppliers">Manage Raw Suppliers</li>
-      </ul>
+        <li class="submenu" data-page="billEntry" data-perm="boe:view">Goods Received Note</li>
+<li class="submenu" data-page="rmDeliveryNote" data-perm="dn:view">Delivery Note</li>
+ </ul>
 
       <li class="menu-title collapsible">Store <span class="arrow">▾</span></li>
       <ul class="subgroup">
-        <li class="submenu" data-page="products">Stock Ledger</li>
-        <li class="submenu admin-only" data-page="rmAddProduct">Add Product</li>
-        <li class="submenu" data-page="stockIn">Physical Entry In</li>
-        <li class="submenu" data-page="stockOut">Physical Entry Out</li>
-        <li class="submenu" data-page="rmDeliveryNote">Delivery Note</li>
+        <li class="submenu" data-page="rmAddProduct" data-perm="rm:add">Add Product</li>
+<li class="submenu" data-page="products" data-perm="rm:view">Stock Ledger</li>
+<li class="submenu" data-page="stockIn"  data-perm="rm:stockin">Physical Entry In</li>
+<li class="submenu" data-page="stockOut" data-perm="rm:stockout">Physical Entry Out</li>
+<li class="submenu" data-page="rmDeliveryNote" data-perm="dn:view">Delivery Note</li>
+
       </ul>
 
       <li class="menu-title collapsible">Finished Goods <span class="arrow">▾</span></li>
       <ul class="subgroup">
-        <li class="submenu" data-page="fgStock">Stock Ledger</li>
-        <li class="submenu admin-only" data-page="fgAddProduct">Add Product</li>
-        <li class="submenu" data-page="fgStockIn">Physical Entry In</li>
-        <li class="submenu" data-page="fgStockOut">Physical Entry Out</li>
-      </ul>
+       <li class="submenu" data-page="fgAddProduct" data-perm="fg:add">Add Product</li>
+        <li class="submenu" data-page="fgStock"    data-perm="fg:view">Stock Ledger</li>
+<li class="submenu" data-page="fgStockIn"  data-perm="fg:stockin">Physical Entry In</li>
+<li class="submenu" data-page="fgStockOut" data-perm="fg:stockout">Physical Entry Out</li>
+    </ul>
 
       <li class="menu-title collapsible">Manufacture <span class="arrow">▾</span></li>
       <ul class="subgroup">
-        <li class="submenu" data-page="productionAuto">Production Entry</li>
+<li class="submenu" data-page="productionAuto" data-perm="prod:view">Production Entry</li>
         <li class="submenu" data-page="pageProductionRecords">Saved Production</li>
       </ul>
 
       <li class="menu-title collapsible">Report <span class="arrow">▾</span></li>
       <ul class="subgroup">
-        <li class="submenu" data-page="history">RM History</li>
+<li class="submenu" data-page="history" data-perm="rm:history:view">RM History</li>
         <li class="submenu" data-action="importExcel">Import Excel</li>
         <li class="submenu" data-action="exportExcel">Export Excel</li>
         <li class="submenu" data-action="printStockReport">Print RM Stock Report</li>
         <li class="submenu" data-action="printFGStockReport">Print FG Stock Report</li>
         <li class="submenu" data-action="exportPDF">Export PDF</li>
-<li class="submenu" data-page="auditPage">Audit Trail</li>
+<li class="submenu" data-page="auditPage" data-perm="audit:view">Audit Trail</li>
 
       </ul>
 
@@ -721,9 +722,14 @@ body.sm-on-dashboard #dashboardPage .dash-topbar-inner{
         <input id="newUsername" class="form-control" style="max-width:260px" placeholder="Username">
         <input id="newPassword" class="form-control" style="max-width:260px" type="password" placeholder="Password">
         <select id="newRole" class="form-select" style="max-width:220px">
-          <option value="user">User</option>
-          <option value="admin">Admin</option>
-        </select>
+  <option value="viewer">Viewer</option>
+  <option value="store">Store</option>
+  <option value="production">Production</option>
+  <option value="manager">Manager</option>
+  <option value="power">Power</option>
+  <option value="admin">Admin</option>
+</select>
+
         <button class="btn btn-primary admin-only" onclick="addUser()">Add User</button>
       </div>
     </section>
@@ -920,7 +926,7 @@ body.sm-on-dashboard #dashboardPage .dash-topbar-inner{
         </label>
       </div>
 
-      <button class="btn btn-primary" onclick="addRMProduct()">Add Product</button>
+<button class="btn btn-primary" onclick="addRMProduct()" data-perm="rm:add">Add Product</button>
     </section>
 
     <!-- STOCK IN -->
@@ -1646,6 +1652,7 @@ if(pageId === 'rmDeliveryNote'){
 
 if(pageId === 'auditPage') renderAudit();
 
+RBAC.applyUI();
 
 
   refreshAll();
@@ -1664,10 +1671,21 @@ const DEFAULT_ADMIN = {
 
 async function ensureAdminExists(){
   try{
-    const snap = await cloudDB.ref('users').orderByChild('role').equalTo('admin').once('value');
+    // ✅ check by username "admin" (most reliable)
+    const snap = await cloudDB.ref('users')
+      .orderByChild('username')
+      .equalTo('admin')
+      .once('value');
+
     if(!snap.exists()){
       const userId = 'admin_' + Date.now().toString(36);
-      await cloudDB.ref('users/' + userId).set(DEFAULT_ADMIN);
+      await cloudDB.ref('users/' + userId).set({
+        username: "admin",
+        password: "admin123",
+        role: "admin",
+        permissionLevel: "full",
+        createdAt: new Date().toISOString()
+      });
       console.log("✅ Default admin created");
     }
   }catch(err){
@@ -1675,6 +1693,7 @@ async function ensureAdminExists(){
   }
 }
 ensureAdminExists();
+
 
 /* =========================
    ✅ ROLE PERMISSIONS (ADMIN ALWAYS FULL POWER)
@@ -1701,15 +1720,201 @@ function showAdminUI(){
   });
 }
 
-function applyPermissions(){
-  showAdminUI();
-  const p = getPerms();
+/* =========================================================
+   ✅ RBAC v2 (Admin + Power User + roles)
+========================================================= */
 
-  document.querySelectorAll('.btn-add').forEach(b => b.style.display = p.add ? 'inline-block' : 'none');
-  document.querySelectorAll('.btn-edit').forEach(b => b.style.display = p.edit ? 'inline-block' : 'none');
-  document.querySelectorAll('.btn-delete').forEach(b => b.style.display = p.delete ? 'inline-block' : 'none');
-  document.querySelectorAll('.btn-stock-out').forEach(b => b.style.display = p.stockOut ? 'inline-block' : 'none');
+const RBAC = (() => {
+  const ROLE = {
+    admin: ["*"],
+
+    power: [
+      "dashboard:view",
+
+      "rm:view","rm:add","rm:edit","rm:delete","rm:stockin","rm:stockout","rm:history:view","rm:report:print",
+      "fg:view","fg:add","fg:edit","fg:delete","fg:stockin","fg:stockout","fg:report:print",
+      "boe:view","boe:create","boe:edit","boe:delete","boe:print",
+      "dn:view","dn:create","dn:edit","dn:delete","dn:print",
+      "prod:view","prod:create","prod:print",
+      "suppliers:view","suppliers:add","suppliers:edit","suppliers:delete",
+      "audit:view"
+    ],
+
+    manager: [
+      "dashboard:view",
+      "rm:view","rm:add","rm:edit","rm:stockin","rm:stockout","rm:history:view",
+      "fg:view","fg:add","fg:edit","fg:stockin","fg:stockout",
+      "boe:view","boe:create","boe:edit","boe:print",
+      "dn:view","dn:create","dn:print",
+      "prod:view","prod:create",
+      "suppliers:view","suppliers:add","suppliers:edit",
+      "audit:view"
+    ],
+
+    store: [
+      "dashboard:view",
+      "rm:view","rm:stockin","rm:stockout","rm:history:view",
+      "boe:view","boe:create","boe:print",
+      "dn:view","dn:create","dn:print",
+      "suppliers:view",
+      "audit:view"
+    ],
+
+    production: [
+      "dashboard:view",
+      "rm:view","rm:history:view",
+      "fg:view",
+      "prod:view","prod:create",
+      "audit:view"
+    ],
+
+    viewer: [
+      "dashboard:view",
+      "rm:view","rm:history:view",
+      "fg:view",
+      "boe:view",
+      "dn:view",
+      "prod:view",
+      "suppliers:view",
+      "audit:view"
+    ]
+  };
+
+  function getRoleName(){
+    return String(currentUser?.role || "viewer").toLowerCase();
+  }
+
+  function listPerms(){
+    return ROLE[getRoleName()] || ROLE.viewer;
+  }
+
+  function can(perm){
+    const p = String(perm || "").trim();
+    if(!p) return false;
+
+    const perms = listPerms();
+    if(perms.includes("*")) return true;
+
+    const [mod, act] = p.split(":");
+    if(mod && act && perms.includes(`${mod}:*`)) return true;
+
+    return perms.includes(p);
+  }
+
+  function requirePerm(perm, msg="No permission"){
+    if(!can(perm)){
+      showToast?.(msg, true);
+      throw new Error(`RBAC_BLOCKED: ${perm}`);
+    }
+  }
+
+  function applyUI(){
+    // ✅ preferred: explicit permission on element
+    document.querySelectorAll("[data-perm]").forEach(el => {
+      const perm = el.getAttribute("data-perm");
+      el.style.display = can(perm) ? "" : "none";
+    });
+
+    // ✅ keep admin-only areas
+    document.querySelectorAll(".admin-only").forEach(el => {
+      el.style.display = (getRoleName() === "admin") ? "" : "none";
+    });
+  }
+
+  return { ROLE, can, requirePerm, applyUI, getRoleName };
+})();
+
+window.RBAC = RBAC;
+
+/* =========================================================
+   ✅ applyPermissions() REWRITE (RBAC-driven)
+   - Fixes: Power role FG Add not showing
+========================================================= */
+
+function applyPermissions(){
+  showAdminUI?.();
+
+  // 1) Apply explicit [data-perm] gating everywhere
+  RBAC.applyUI();
+
+  // 2) Backward compatible: old class buttons
+  //    We decide which module we are in by checking which page is visible.
+  const pageIsVisible = (id) => {
+    const el = document.getElementById(id);
+    if(!el) return false;
+    return el.style.display !== "none" && !el.classList.contains("d-none");
+  };
+
+  // Map module -> default perms for old class buttons
+  let mod = null;
+  if(pageIsVisible("fgPage") || pageIsVisible("fgSection") || pageIsVisible("fgProductsPage")) mod = "fg";
+  else if(pageIsVisible("rmPage") || pageIsVisible("rmSection") || pageIsVisible("productsPage")) mod = "rm";
+  else if(pageIsVisible("billEntry") || pageIsVisible("boePage")) mod = "boe";
+  else if(pageIsVisible("deliveryNote") || pageIsVisible("dnPage")) mod = "dn";
+  else if(pageIsVisible("productionPage") || pageIsVisible("prodPage")) mod = "prod";
+  else if(pageIsVisible("suppliersPage") || pageIsVisible("supplierPage")) mod = "suppliers";
+
+  // If we can't detect module, do nothing to avoid hiding wrong buttons
+  if(!mod) return;
+
+  // Action -> perm
+  const permFor = (action) => {
+    if(mod === "boe"){
+      if(action === "add") return "boe:create";
+      if(action === "edit") return "boe:edit";
+      if(action === "delete") return "boe:delete";
+      return "";
+    }
+    if(mod === "dn"){
+      if(action === "add") return "dn:create";
+      if(action === "edit") return "dn:edit";
+      if(action === "delete") return "dn:delete";
+      return "";
+    }
+    if(mod === "prod"){
+      if(action === "add") return "prod:create";
+      if(action === "edit") return "prod:edit";   // (if you have it later)
+      if(action === "delete") return "prod:delete"; // (if you have it later)
+      return "";
+    }
+    if(mod === "suppliers"){
+      if(action === "add") return "suppliers:add";
+      if(action === "edit") return "suppliers:edit";
+      if(action === "delete") return "suppliers:delete";
+      return "";
+    }
+    // rm / fg default
+    if(action === "add") return `${mod}:add`;
+    if(action === "edit") return `${mod}:edit`;
+    if(action === "delete") return `${mod}:delete`;
+    if(action === "stockOut") return `${mod}:stockout`;
+    return "";
+  };
+
+  // Apply old class gating safely
+  document.querySelectorAll('.btn-add').forEach(b => {
+    if(b.hasAttribute("data-perm")) return; // already handled
+    b.style.display = RBAC.can(permFor("add")) ? "inline-block" : "none";
+  });
+
+  document.querySelectorAll('.btn-edit').forEach(b => {
+    if(b.hasAttribute("data-perm")) return;
+    b.style.display = RBAC.can(permFor("edit")) ? "inline-block" : "none";
+  });
+
+  document.querySelectorAll('.btn-delete').forEach(b => {
+    if(b.hasAttribute("data-perm")) return;
+    b.style.display = RBAC.can(permFor("delete")) ? "inline-block" : "none";
+  });
+
+  document.querySelectorAll('.btn-stock-out').forEach(b => {
+    if(b.hasAttribute("data-perm")) return;
+    b.style.display = RBAC.can(permFor("stockOut")) ? "inline-block" : "none";
+  });
 }
+
+
+
 
 /* =========================
    ✅ AUTH UI
@@ -1768,10 +1973,17 @@ async function login(){
     if(userData.password !== p){ loginMsg.textContent="Invalid login"; return; }
 
     currentUser = userData;
-    localStorage.setItem('sms_currentUser', JSON.stringify(currentUser));
+localStorage.setItem('sms_currentUser', JSON.stringify(currentUser));
 
-    loginScreen.style.display='none';
-    document.querySelector('.app').style.display='flex';
+loginScreen.style.display='none';
+document.querySelector('.app').style.display='flex';
+
+// ✅ apply permissions UI
+RBAC.applyUI();
+
+// open page
+openPage(currentUser.role === 'admin' ? 'userManagement' : 'dashboardPage');
+
 
     applyPermissions();
 
@@ -1838,17 +2050,37 @@ function changeUserPermission(username, level){
 }
 
 async function deleteUser(username){
+  RBAC.requirePerm("users:manage", "Only admin can manage users");
+
   if(!confirm(`Delete "${username}"?`)) return;
 
   try{
+    // Find user record
     const snap = await cloudDB.ref('users').orderByChild('username').equalTo(username).once('value');
     if(!snap.exists()) return alert("User not found");
 
     const userId = Object.keys(snap.val())[0];
     const userData = snap.val()[userId];
-    if(userData.role === 'admin') return alert("Cannot delete admin");
 
-    await cloudDB.ref('users/'+userId).remove();
+    // ❌ Never delete main admin account
+    if(String(userData.username).toLowerCase() === 'admin'){
+      return alert("Cannot delete main admin (username: admin).");
+    }
+
+    // ✅ If deleting an admin, ensure at least 1 admin remains
+    if(String(userData.role || '').toLowerCase() === 'admin'){
+      const all = await cloudDB.ref('users').once('value');
+      const users = all.val() ? Object.values(all.val()) : [];
+      const adminCount = users.filter(u => String(u.role || '').toLowerCase() === 'admin').length;
+
+      if(adminCount <= 1){
+        return alert("You cannot delete the last remaining admin.");
+      }
+
+      if(!confirm(`"${username}" is an ADMIN.\nDelete this admin user?`)) return;
+    }
+
+    await cloudDB.ref('users/' + userId).remove();
     showToast("User deleted ✅");
     renderUsersTable();
   }catch(err){
@@ -1862,43 +2094,78 @@ async function renderUsersTable(){
   if(!tbody) return;
 
   tbody.innerHTML = '';
-  const snap = await cloudDB.ref('users').once('value');
-  const users = snap.val() ? Object.values(snap.val()) : [];
 
-  users.forEach((u,i)=>{
-    const perm = u.permissionLevel || 'view';
-    const isAdminRow = (u.role === 'admin' || u.username === 'admin');
+  const snap = await cloudDB.ref('users').once('value');
+  const raw  = snap.val() || {};
+  const users = Object.values(raw)
+    .filter(Boolean)
+    .sort((a,b)=> String(a.username||'').localeCompare(String(b.username||'')));
+
+  const meRole = String(currentUser?.role || '').toLowerCase();
+  const iAmAdmin = (meRole === 'admin');
+
+  users.forEach((u, idx) => {
+    const username = String(u.username || '').trim();
+    const role = String(u.role || 'viewer').toLowerCase();
+
+    // ✅ Only this exact username is "protected admin"
+    const isProtectedAdmin = (username.toLowerCase() === 'admin');
+
+    // ✅ Admin can manage everyone except the protected admin account
+    const canManageRow = iAmAdmin && !isProtectedAdmin;
+
+    // Role cell
+    const roleCell = isProtectedAdmin
+      ? `<b>Admin</b>`
+      : (canManageRow
+          ? `
+            <select class="form-select form-select-sm"
+                    onchange="changeUserRole('${escapeHtml(username)}', this.value)">
+              <option value="viewer" ${role==='viewer'?'selected':''}>Viewer</option>
+              <option value="store" ${role==='store'?'selected':''}>Store</option>
+              <option value="production" ${role==='production'?'selected':''}>Production</option>
+              <option value="manager" ${role==='manager'?'selected':''}>Manager</option>
+              <option value="power" ${role==='power'?'selected':''}>Power</option>
+              <option value="admin" ${role==='admin'?'selected':''}>Admin</option>
+            </select>
+          `
+          : `<b>${escapeHtml(role)}</b>`
+        );
+
+    // ✅ Allow deleting extra admins too (anything except username=admin)
+    const canDeleteRow = iAmAdmin && !isProtectedAdmin;
+
+    const actionsCell = `
+      ${canDeleteRow
+        ? `<button class="btn btn-sm btn-danger"
+                   onclick="deleteUser('${escapeHtml(username)}')">Delete</button>`
+        : ''
+      }
+    `;
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${i+1}</td>
-      <td>${escapeHtml(u.username)}</td>
-      <td>
-        ${
-          isAdminRow
-            ? `<b>Full (Admin)</b>`
-            : (currentUser?.role === 'admin'
-                ? `
-                  <select onchange="changeUserPermission('${escapeHtml(u.username)}', this.value)">
-                    <option value="full" ${perm==='full'?'selected':''}>Full</option>
-                    <option value="half" ${perm==='half'?'selected':''}>Half</option>
-                    <option value="view" ${perm==='view'?'selected':''}>View</option>
-                  </select>
-                `
-                : escapeHtml(perm)
-              )
-        }
-      </td>
-      <td>
-        ${
-          (!isAdminRow && currentUser?.role === 'admin')
-            ? `<button class="btn out" onclick="deleteUser('${escapeHtml(u.username)}')">Delete</button>`
-            : ''
-        }
-      </td>
+      <td>${idx + 1}</td>
+      <td>${escapeHtml(username)}</td>
+      <td>${roleCell}</td>
+      <td>${actionsCell}</td>
     `;
     tbody.appendChild(tr);
   });
+}
+
+function changeUserRole(username, role){
+  RBAC.requirePerm("users:manage", "Only admin can manage users");
+  if(username === 'admin') return showToast("Admin role cannot be changed", true);
+
+  cloudDB.ref('users').orderByChild('username').equalTo(username).once('value')
+    .then(snap=>{
+      if(!snap.exists()) return;
+      const userId = Object.keys(snap.val())[0];
+      cloudDB.ref('users/'+userId+'/role').set(String(role||'viewer'));
+      showToast("User role updated ✅");
+      renderUsersTable();
+    });
 }
 
 async function addUser(){
@@ -1917,13 +2184,13 @@ async function addUser(){
   if(snap.exists()){ showToast("Username already exists", true); return; }
 
   const userId = 'u_'+Date.now().toString(36)+'_'+Math.floor(Math.random()*1000);
-  await cloudDB.ref('users/'+userId).set({
-    username: u,
-    password: p,
-    role,
-    permissionLevel: (role === 'admin' ? 'full' : 'view'),
-    createdAt: new Date().toISOString()
-  });
+ await cloudDB.ref('users/'+userId).set({
+  username: u,
+  password: p,
+  role,                 // ✅ save role
+  createdAt: new Date().toISOString()
+});
+
 
   document.getElementById('newUsername').value = '';
   document.getElementById('newPassword').value = '';
@@ -2738,6 +3005,9 @@ function postStock(bill){
 
   // ---------- create/edit ----------
   function submit(){
+  if(editingId) RBAC.requirePerm("boe:edit", "You cannot edit BOE");
+  else RBAC.requirePerm("boe:create", "You cannot create BOE");
+
     if(!canStockIn()){ showToast("Stock IN not allowed for your role", true); return; }
 
     const billNo = (document.getElementById('boeNo')?.value || '').trim();
@@ -2966,6 +3236,8 @@ logChange("BOE_CREATE", bill.id, {
   }
 
   function remove(billId){
+  RBAC.requirePerm("boe:delete", "You cannot delete BOE");
+
     if(currentUser?.role !== 'admin') return showToast("Only admin can delete bills", true);
 
     const b = bills.find(x=>x.id===billId);
@@ -3543,39 +3815,73 @@ function submitProduction(){
     createdBy: who?.() || (currentUser?.username || '')
   });
 
-  // 3) RM OUT movements
+    // 3) RM OUT movements
   rmLines.forEach(l=>{
+    const rmProd = products.find(x => x.id === l.rmId);
+    const rmName = rmProd?.name || 'RM';
+
     // net used
     if(l.net > 0){
+      const mvId = genId();
       stockMovements.push({
-        id: genId(),
+        id: mvId,
         productId: l.rmId,
         type: 'OUT',
-        quantity: l.net,
+        quantity: Number(l.net.toFixed(6)),
         date: prodDate,
-        remark: `PROD ${prodNo} RM Used`,
+        remark: `PROD ${prodNo} RM Used${rmName ? ' - ' + rmName : ''}`,
         productionId,
         createdAt: nowISO?.() || new Date().toISOString(),
         createdBy: who?.() || (currentUser?.username || '')
       });
-logChange(type === 'IN' ? "RM_IN" : "RM_OUT", productId, { qty, remark });
+
+      // ✅ audit
+      logChange("RM_OUT", l.rmId, {
+        productionId,
+        prodNo,
+        date: prodDate,
+        rm: rmName,
+        qty: Number(l.net.toFixed(6)),
+        kind: "USED"
+      });
     }
 
     // damage out
     if(l.dmg > 0){
+      const mvId2 = genId();
       stockMovements.push({
-        id: genId(),
+        id: mvId2,
         productId: l.rmId,
         type: 'OUT',
         quantity: Number(l.dmg.toFixed(6)),
         date: prodDate,
-        remark: `PROD ${prodNo} RM Damage`,
+        remark: `PROD ${prodNo} RM Damage${rmName ? ' - ' + rmName : ''}`,
         productionId,
         createdAt: nowISO?.() || new Date().toISOString(),
         createdBy: who?.() || (currentUser?.username || '')
       });
+
+      // ✅ audit
+      logChange("RM_OUT", l.rmId, {
+        productionId,
+        prodNo,
+        date: prodDate,
+        rm: rmName,
+        qty: Number(l.dmg.toFixed(6)),
+        kind: "DAMAGE"
+      });
     }
   });
+
+  // ✅ also log FG IN (nice for audit)
+  logChange("FG_IN", fgId, {
+    productionId,
+    prodNo,
+    date: prodDate,
+    fg: fg?.name || '',
+    qty: fgQty
+  });
+
 
   // 4) Persist (local)
   saveProductions();
@@ -5846,6 +6152,8 @@ function renderSuppliers(){
 }
 
 function addSupplier(){
+  RBAC.requirePerm("suppliers:add", "You cannot add suppliers");
+
   if(!canAdd?.()){ showToast("No permission to add supplier", true); return; }
 
   const nameEl = document.getElementById("newSupplierName");
@@ -5920,6 +6228,8 @@ function editSupplier(id){
 }
 
 function deleteSupplier(id){
+  RBAC.requirePerm("suppliers:delete", "You cannot delete suppliers");
+
   if(!canDelete?.()){ showToast("No permission to delete supplier", true); return; }
 
   const s = (window.suppliers || []).find(x => x.id === id);
@@ -6263,9 +6573,18 @@ const savedUser = localStorage.getItem('sms_currentUser');
 if(savedUser){
   currentUser = JSON.parse(savedUser);
   loginScreen.style.display='none';
-  document.querySelector('.app').style.display='flex';
-  applyPermissions();
+document.querySelector('.app').style.display='flex';
+
+RBAC.applyUI();
+applyPermissions();
+
+if(currentUser.role === 'admin'){
+  openPage('userManagement');
+  renderUsersTable();
+}else{
   openPage('dashboardPage');
+}
+
 }
 
 /* initial pulls */

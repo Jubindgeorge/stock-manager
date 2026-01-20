@@ -2300,16 +2300,71 @@ function _auditSafe(details, maxChars = 8000){
 }
 
 // ✅ Cloud write: /auditLogs/{logId}
+// =========================
+// ✅ AUDIT CLOUD CONSOLE (only audit)
+// =========================
+const AUDIT_CONSOLE = true;
+
+function alog(...a){ if(AUDIT_CONSOLE) console.log("[AUDIT]", ...a); }
+function awarn(...a){ if(AUDIT_CONSOLE) console.warn("[AUDIT]", ...a); }
+function aerr(...a){ if(AUDIT_CONSOLE) console.error("[AUDIT]", ...a); }
+function ams(t0){ return Math.round(performance.now() - t0); }
+
+
+// ✅ Cloud write: /auditLogs/{logId}
 async function pushAuditToCloud(entry){
+  const t0 = performance.now();
   try{
-    if(!window.database) return false; // firebase not ready
+    if(!window.database){
+      awarn("PUSH skipped (firebase not ready)", entry?.id, entry?.action);
+      return false;
+    }
+
+    alog("PUSH start", entry?.id, entry?.action, "| by:", entry?.by);
+
     await window.database.ref("auditLogs/" + entry.id).set(entry);
+
+    alog("PUSH done", entry.id, "| ms:", ams(t0));
     return true;
+
   }catch(err){
-    console.warn("Audit cloud push failed:", err);
+    aerr("PUSH failed", entry?.id, entry?.action, "| ms:", ams(t0), err);
     return false;
   }
 }
+
+
+async function pullAuditFromCloud(limit = 300){
+  const t0 = performance.now();
+  try{
+    if(!window.database){
+      awarn("PULL skipped (firebase not ready) | limit:", limit);
+      return [];
+    }
+
+    alog("PULL start | limit:", limit);
+
+    const snap = await window.database
+      .ref("auditLogs")
+      .orderByChild("at")
+      .limitToLast(limit)
+      .once("value");
+
+    const obj = snap.val() || {};
+    const list = Object.values(obj);
+
+    // newest first
+    list.sort((a,b) => String(b.at||"").localeCompare(String(a.at||"")));
+
+    alog("PULL done | count:", list.length, "| ms:", ams(t0));
+    return list;
+
+  }catch(err){
+    aerr("PULL failed | limit:", limit, "| ms:", ams(t0), err);
+    return [];
+  }
+}
+
 
 // action examples: "BOE_CREATE", "BOE_EDIT", "BOE_DELETE", "PROD_CREATE", ...
 function logChange(action, entityId, details = {}){
@@ -2338,22 +2393,18 @@ function logChange(action, entityId, details = {}){
 
   return entry.id;
 }
-async function pullAuditFromCloud(limit = 300){
-  if(!window.database) return [];
+window.addEventListener("error", (e)=>{
+  try{
+    logChange?.("APP_ERROR", "", { message: e.message, file: e.filename, line: e.lineno, col: e.colno });
+  }catch(_){}
+});
 
-  const snap = await window.database
-    .ref("auditLogs")
-    .orderByChild("at")
-    .limitToLast(limit)
-    .once("value");
+window.addEventListener("unhandledrejection", (e)=>{
+  try{
+    logChange?.("APP_PROMISE_REJECT", "", { reason: String(e.reason || "") });
+  }catch(_){}
+});
 
-  const obj = snap.val() || {};
-  const list = Object.values(obj);
-
-  // newest first
-  list.sort((a,b) => String(b.at||"").localeCompare(String(a.at||"")));
-  return list;
-}
 
 /* =========================
    ✅ LOCAL STORAGE DATA (RM)

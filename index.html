@@ -2269,12 +2269,11 @@ async function addUser(){
 }
 
 // =========================
-// ✅ AUDIT LOG (time + username + changes)
+// ✅ AUDIT LOG (time + username + changes) + CLOUD
 // =========================
 const KEY_AUDIT = "sm_audit_v1";
 let auditLog = JSON.parse(localStorage.getItem(KEY_AUDIT) || "[]");
 
-// ISO time in Dubai local display (still stores ISO)
 function nowISO(){ return new Date().toISOString(); }
 function who(){ return (currentUser?.username || currentUser?.user || "unknown"); }
 
@@ -2282,21 +2281,78 @@ function saveAudit(){
   localStorage.setItem(KEY_AUDIT, JSON.stringify(auditLog));
 }
 
+// Safe genId fallback (in case genId is not loaded yet)
+function _auditGenId(){
+  if (typeof genId === "function") return genId();
+  return (Date.now().toString(16) + Math.random().toString(16).slice(2));
+}
+
+// (Optional) keep details small to avoid huge writes
+function _auditSafe(details, maxChars = 8000){
+  try{
+    if(details == null) return null;
+    const s = JSON.stringify(details);
+    if(s.length <= maxChars) return JSON.parse(s);
+    return { _trimmed:true, _len:s.length, _preview:s.slice(0, maxChars) };
+  }catch(e){
+    return { _unserializable:true };
+  }
+}
+
+// ✅ Cloud write: /auditLogs/{logId}
+async function pushAuditToCloud(entry){
+  try{
+    if(!window.database) return false; // firebase not ready
+    await window.database.ref("auditLogs/" + entry.id).set(entry);
+    return true;
+  }catch(err){
+    console.warn("Audit cloud push failed:", err);
+    return false;
+  }
+}
+
 // action examples: "BOE_CREATE", "BOE_EDIT", "BOE_DELETE", "PROD_CREATE", ...
 function logChange(action, entityId, details = {}){
-  auditLog.push({
-    id: "log_" + genId(),
+  const entry = {
+    id: "log_" + _auditGenId(),
     at: nowISO(),
     by: who(),
-    action,
-    entityId,
-    details
-  });
+    action: String(action || "").toUpperCase(),
+    entityId: String(entityId || ""),
+    details: _auditSafe(details),
+    // extra helpful fields (optional)
+    uid: currentUser?.id || "",
+    page: window.currentPage || "",
+    ua: navigator?.userAgent || ""
+  };
 
-  // optional: keep log size under control
+  auditLog.push(entry);
+
+  // keep log size under control
   if(auditLog.length > 5000) auditLog = auditLog.slice(auditLog.length - 5000);
 
   saveAudit();
+
+  // fire-and-forget cloud push (doesn't block UI)
+  pushAuditToCloud(entry);
+
+  return entry.id;
+}
+async function pullAuditFromCloud(limit = 300){
+  if(!window.database) return [];
+
+  const snap = await window.database
+    .ref("auditLogs")
+    .orderByChild("at")
+    .limitToLast(limit)
+    .once("value");
+
+  const obj = snap.val() || {};
+  const list = Object.values(obj);
+
+  // newest first
+  list.sort((a,b) => String(b.at||"").localeCompare(String(a.at||"")));
+  return list;
 }
 
 /* =========================

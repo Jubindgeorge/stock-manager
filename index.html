@@ -1596,6 +1596,15 @@ firebase.initializeApp(firebaseConfig);
 const cloudDB = firebase.database();
 window.cloudDB = cloudDB;
 const CLOUD_PATH_RM = "stockManager/v1";
+// ✅ Backward compatibility alias (your audit code uses window.database)
+window.database = cloudDB;
+
+// ✅ Central root path
+const CLOUD_ROOT = CLOUD_PATH_RM || "stockManager/v1";
+
+// ✅ Audit path inside same root
+const AUDIT_PATH = `${CLOUD_ROOT}/auditLogs`;
+
 /* =========================
    ✅ UTILITIES
 ========================= */
@@ -2315,14 +2324,15 @@ function ams(t0){ return Math.round(performance.now() - t0); }
 async function pushAuditToCloud(entry){
   const t0 = performance.now();
   try{
-    if(!window.database){
+    const db = window.cloudDB || window.database;
+    if(!db){
       awarn("PUSH skipped (firebase not ready)", entry?.id, entry?.action);
       return false;
     }
 
     alog("PUSH start", entry?.id, entry?.action, "| by:", entry?.by);
 
-    await window.database.ref("auditLogs/" + entry.id).set(entry);
+    await db.ref(AUDIT_PATH + "/" + entry.id).set(entry);
 
     alog("PUSH done", entry.id, "| ms:", ams(t0));
     return true;
@@ -2333,25 +2343,25 @@ async function pushAuditToCloud(entry){
   }
 }
 
-
 async function pullAuditFromCloud(limit = 300){
   const t0 = performance.now();
   try{
-    if(!window.database){
+    const db = window.cloudDB || window.database;
+    if(!db){
       awarn("PULL skipped (firebase not ready) | limit:", limit);
       return [];
     }
 
     alog("PULL start | limit:", limit);
 
-    const snap = await window.database
-      .ref("auditLogs")
+    const snap = await db
+      .ref(AUDIT_PATH)
       .orderByChild("at")
       .limitToLast(limit)
       .once("value");
 
     const obj = snap.val() || {};
-    const list = Object.values(obj);
+    const list = Object.values(obj).filter(Boolean);
 
     // newest first
     list.sort((a,b) => String(b.at||"").localeCompare(String(a.at||"")));
@@ -2404,6 +2414,79 @@ window.addEventListener("unhandledrejection", (e)=>{
     logChange?.("APP_PROMISE_REJECT", "", { reason: String(e.reason || "") });
   }catch(_){}
 });
+
+async function renderAudit(){
+  const body = document.getElementById("auditBody");
+  if(!body) return;
+
+  // ✅ pull latest from cloud and merge with local
+  const cloud = await pullAuditFromCloud(400);
+  const mergedMap = new Map();
+
+  // local first
+  (auditLog || []).forEach(e => mergedMap.set(e.id, e));
+  // cloud overwrites local if same id
+  cloud.forEach(e => mergedMap.set(e.id, e));
+
+  const merged = [...mergedMap.values()]
+    .sort((a,b)=> String(b.at||"").localeCompare(String(a.at||"")));
+
+  // keep local stored (optional)
+  auditLog = merged.slice(0, 5000);
+  saveAudit();
+
+  const q = (document.getElementById("auditSearch")?.value || "").toLowerCase().trim();
+
+  const filtered = !q ? merged : merged.filter(e=>{
+    return (
+      String(e.by||"").toLowerCase().includes(q) ||
+      String(e.action||"").toLowerCase().includes(q) ||
+      String(e.entityId||"").toLowerCase().includes(q) ||
+      JSON.stringify(e.details||{}).toLowerCase().includes(q)
+    );
+  });
+
+  body.innerHTML = filtered.length ? filtered.map(e=>{
+    const detailsText = e.details ? escapeHtml(JSON.stringify(e.details)) : "";
+    return `
+      <tr>
+        <td>${escapeHtml(fmtDateTime(e.at))}</td>
+        <td>${escapeHtml(e.by||"-")}</td>
+        <td><b>${escapeHtml(e.action||"-")}</b></td>
+        <td>${escapeHtml(e.entityId||"-")}</td>
+        <td style="max-width:520px; white-space:pre-wrap; overflow-wrap:anywhere;">${detailsText}</td>
+      </tr>
+    `;
+  }).join("") : `
+    <tr><td colspan="5" class="text-muted">No audit records</td></tr>
+  `;
+}
+
+// live search
+document.getElementById("auditSearch")?.addEventListener("input", ()=> renderAudit());
+
+async function clearAudit(){
+  if(!confirm("Clear audit log (local + cloud)?")) return;
+
+  // clear local
+  auditLog = [];
+  saveAudit();
+
+  // clear cloud (optional)
+  try{
+    const db = window.cloudDB || window.database;
+    if(db) await db.ref(AUDIT_PATH).remove();
+  }catch(e){
+    console.warn("Cloud audit clear failed:", e);
+  }
+
+  renderAudit();
+  showToast("Audit cleared ✅");
+}
+
+
+
+
 
 
 /* =========================
@@ -5506,14 +5589,14 @@ function parseISOIgnoreTZ(value){
 }
 
 function fmtDateTime(iso){
-  if(!iso) return '-';
+  if(!iso) return "-";
   const d = new Date(iso);
   if(isNaN(d)) return String(iso);
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Dubai',
-    year:'numeric', month:'2-digit', day:'2-digit',
-    hour:'2-digit', minute:'2-digit', second:'2-digit'
-  }).format(d);
+  // Local time display (browser time)
+  return d.toLocaleString(undefined, {
+    year:"numeric", month:"2-digit", day:"2-digit",
+    hour:"2-digit", minute:"2-digit", second:"2-digit"
+  });
 }
 
 

@@ -576,6 +576,24 @@ body.sm-on-dashboard #dashboardPage .dash-topbar-inner{
 @media print{
   body{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
 }
+.sm-modal{
+  position:fixed; inset:0;
+  background:rgba(0,0,0,.35);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+}
+.sm-modal-card{
+  width:min(950px,95vw);
+  max-height:85vh;
+  overflow:auto;
+  background:#fff;
+  border-radius:14px;
+  padding:14px;
+  box-shadow:0 20px 60px rgba(0,0,0,.25);
+}
+
 </style>
 
 </head>
@@ -654,7 +672,7 @@ body.sm-on-dashboard #dashboardPage .dash-topbar-inner{
       <li class="menu-title collapsible">Purchase <span class="arrow">▾</span></li>
       <ul class="subgroup">
         <li class="submenu" data-page="billEntry" data-perm="boe:view">Goods Received Note</li>
-<li class="submenu" data-page="rmDeliveryNote" data-perm="dn:view">Delivery Note</li>
+<li class="submenu" data-page="suppliers" data-perm="dn:view">RM Suppliers </li>
  </ul>
 
       <li class="menu-title collapsible">Store <span class="arrow">▾</span></li>
@@ -982,6 +1000,53 @@ body.sm-on-dashboard #dashboardPage .dash-topbar-inner{
         </table>
       </div>
     </section>
+<!-- ✅ STOCK IN HISTORY MODAL (GLOBAL) -->
+<div id="stockInHistoryModal" class="sm-modal" style="display:none">
+  <div class="sm-modal-card">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h5 class="m-0">Stock IN History</h5>
+      <button class="btn btn-sm btn-outline-secondary" onclick="closeStockInHistory()">Close</button>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-sm table-striped align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Date</th>
+            <th>Product</th>
+            <th class="text-end">Qty</th>
+            <th>Remark</th>
+          </tr>
+        </thead>
+        <tbody id="stockInHistoryPopupBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ STOCK OUT HISTORY MODAL (GLOBAL) -->
+<div id="stockOutHistoryModal" class="sm-modal" style="display:none">
+  <div class="sm-modal-card">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h5 class="m-0">Stock OUT History</h5>
+      <button class="btn btn-sm btn-outline-secondary" onclick="closeStockOutHistory()">Close</button>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-sm table-striped align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Date</th>
+            <th>Product</th>
+            <th class="text-end">Qty</th>
+            <th>Remark</th>
+          </tr>
+        </thead>
+        <tbody id="stockOutHistoryPopupBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
     <!-- SUPPLIERS -->
     <section id="suppliers" class="page" style="display:none">
@@ -1605,6 +1670,8 @@ function openPage(pageId){
     renderDashboardGrouped();
   }
 if(pageId === 'suppliers'){
+  initSuppliersUI?.();
+  autoPullSuppliersFromCloud?.();   // optional but helpful
   renderSuppliers?.();
 }
   if(pageId === 'pageProductionRecords'){
@@ -2996,7 +3063,7 @@ function postStock(bill){
       billId: bill.id,
 
       // ✅ time + user
-      createdAt: nowISO(),
+      createdAt: new Date().toISOString(),
       createdBy: who()
     });
   });
@@ -5108,7 +5175,7 @@ stockMovements.push({
   date: todayISO(),
   remark,
 
-  createdAt: nowISO(),
+  createdAt: new Date().toISOString(),
   createdBy: who()
 });
 
@@ -5207,7 +5274,7 @@ function openHistory(productId){
     .forEach(m=>{
       tbody.insertAdjacentHTML('beforeend',`
         <tr>
-          <td>${fmtDate(m.date)}</td>
+          <td>${fmtDateTime(m.date || m.createdAt)}</td>
           <td>${escapeHtml(prod.name)}</td>
           <td>${escapeHtml(m.type)}</td>
           <td>${Number(m.quantity||0)}</td>
@@ -5225,54 +5292,131 @@ function closeHistoryModal(){
 
 /* RM Stock IN/OUT History modals */
 function stockInHistoryModal(){
-  const modal=document.getElementById('stockInHistoryModal');
-  modal.style.display='flex';
-  const tbody=document.getElementById('stockInHistoryPopupBody');
-  tbody.innerHTML='';
+  const modal = document.getElementById('stockInHistoryModal');
+  if(!modal){
+    console.error('Missing element: #stockInHistoryModal (add the modal HTML or fix the id)');
+    return;
+  }
 
-  stockMovements
-    .filter(m=>m.type==='IN')
+  const tbody = document.getElementById('stockInHistoryPopupBody');
+  if(!tbody){
+    console.error('Missing element: #stockInHistoryPopupBody (fix tbody id in HTML)');
+    return;
+  }
+
+  modal.style.display = 'flex';
+  tbody.innerHTML = '';
+
+  (Array.isArray(stockMovements) ? stockMovements : [])
+    .filter(m => m?.type === 'IN')
     .slice()
-    .sort((a,b)=>new Date(b.date)-new Date(a.date))
+    .sort((a,b)=> new Date(b.date) - new Date(a.date))
     .forEach(m=>{
-      const prod = products.find(p=>p.id===m.productId);
+      const prod = (Array.isArray(products) ? products : []).find(p=>p.id === m.productId);
       if(!prod) return;
-      tbody.insertAdjacentHTML('beforeend',`
+
+      tbody.insertAdjacentHTML('beforeend', `
         <tr>
-          <td>${fmtDate(m.date)}</td>
+	  <td>${fmtDateTime(m.date || m.createdAt)}</td>
           <td>${escapeHtml(prod.name)}</td>
-          <td>${Number(m.quantity||0)}</td>
+          <td class="text-end">${Number(m.quantity||0)}</td>
           <td>${escapeHtml(m.remark||'')}</td>
         </tr>
       `);
     });
 }
-function closeStockInHistory(){ document.getElementById('stockInHistoryModal').style.display='none'; }
 
+function closeStockInHistory(){
+  const el = document.getElementById('stockInHistoryModal');
+  if(el) el.style.display = 'none';
+}
 function stockOutHistoryModal(){
-  const modal=document.getElementById('stockOutHistoryModal');
+  const modal = document.getElementById('stockOutHistoryModal');
+  if(!modal){
+    console.error('Missing element: #stockOutHistoryModal');
+    return;
+  }
+
+  const tbody = document.getElementById('stockOutHistoryPopupBody');
+  if(!tbody){
+    console.error('Missing element: #stockOutHistoryPopupBody');
+    return;
+  }
+
   modal.style.display='flex';
-  const tbody=document.getElementById('stockOutHistoryPopupBody');
   tbody.innerHTML='';
 
-  stockMovements
-    .filter(m=>m.type==='OUT')
+  (Array.isArray(stockMovements) ? stockMovements : [])
+    .filter(m=>m?.type==='OUT')
     .slice()
     .sort((a,b)=>new Date(b.date)-new Date(a.date))
     .forEach(m=>{
-      const prod = products.find(p=>p.id===m.productId);
+      const prod = (Array.isArray(products) ? products : []).find(p=>p.id===m.productId);
       if(!prod) return;
+
       tbody.insertAdjacentHTML('beforeend',`
         <tr>
-          <td>${fmtDate(m.date)}</td>
+         <td>${fmtDateTime(m.date || m.createdAt)}</td>
           <td>${escapeHtml(prod.name)}</td>
-          <td>${Number(m.quantity||0)}</td>
+          <td class="text-end">${Number(m.quantity||0)}</td>
           <td>${escapeHtml(m.remark||'')}</td>
         </tr>
       `);
     });
 }
-function closeStockOutHistory(){ document.getElementById('stockOutHistoryModal').style.display='none'; }
+
+function closeStockOutHistory(){
+  const el = document.getElementById('stockOutHistoryModal');
+  if(el) el.style.display='none';
+}
+function parseISOIgnoreTZ(value){
+  if(!value) return null;
+
+  const s = String(value).trim();
+
+  // YYYY-MM-DD
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)){
+    const [y,m,d] = s.split('-').map(Number);
+    return new Date(y, m-1, d, 0, 0, 0);
+  }
+
+  // YYYY-MM-DDTHH:mm(:ss)?(.ms)?(Z or +xx:yy)?
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if(m){
+    const y  = Number(m[1]);
+    const mo = Number(m[2]);
+    const d  = Number(m[3]);
+    const hh = Number(m[4] || 0);
+    const mi = Number(m[5] || 0);
+    const ss = Number(m[6] || 0);
+    // IMPORTANT: create as LOCAL time (ignore Z / offsets completely)
+    return new Date(y, mo-1, d, hh, mi, ss);
+  }
+
+  // fallback
+  const x = new Date(s);
+  return isNaN(x) ? null : x;
+}
+
+function fmtDateTime(value){
+  const x = parseISOIgnoreTZ(value);
+  if(!x) return '';
+
+  const dd = String(x.getDate()).padStart(2,'0');
+  const mm = String(x.getMonth()+1).padStart(2,'0');
+  const yy = x.getFullYear();
+
+  let h = x.getHours();
+  const ampm = h >= 12 ? 'pm' : 'am';
+  h = h % 12; if(h === 0) h = 12;
+
+  const HH = String(h).padStart(2,'0');
+  const MI = String(x.getMinutes()).padStart(2,'0');
+  const SS = String(x.getSeconds()).padStart(2,'0');
+
+  return `${dd}/${mm}/${yy}, ${HH}:${MI}:${SS} ${ampm}`;
+}
+
 
 /* FG IN/OUT History (use historyModal) */
 function fgStockInHistoryModal(){
@@ -6100,17 +6244,55 @@ function exportPDF(){
 
 
 
+/* =========================================================
+   ✅ PATCH: SUPPLIERS MODULE (FIX EMPTY TABLE + NO SAVE)
+   - Prevents form reload
+   - Adds localStorage key + window.suppliers
+   - Adds render / add / edit / delete
+   - Optional cloud sync
+========================================================= */
 
-/* =========================
-   ✅ SUPPLIERS MODULE (FIXED)
-========================= */
 const KEY_SUPPLIERS = "sms_suppliers_v1";
-window.suppliers = JSON.parse(localStorage.getItem(KEY_SUPPLIERS) || "[]"); // ✅ global for BOE
+window.KEY_SUPPLIERS = KEY_SUPPLIERS;
 
+// ✅ global state
+window.suppliers = JSON.parse(localStorage.getItem(KEY_SUPPLIERS) || "[]");
+
+// ---------- helpers ----------
 function saveSuppliers(){
   localStorage.setItem(KEY_SUPPLIERS, JSON.stringify(window.suppliers || []));
 }
+window.saveSuppliers = saveSuppliers;
 
+// Optional cloud sync (safe)
+async function autoPushSuppliersToCloud(){
+  try{
+    if(!window.cloudDB || !window.CLOUD_PATH_RM) return;
+    await cloudDB.ref(`${CLOUD_PATH_RM}/suppliers`).set(window.suppliers || []);
+  }catch(err){
+    console.warn("Suppliers push failed:", err);
+  }
+}
+window.autoPushSuppliersToCloud = autoPushSuppliersToCloud;
+
+async function autoPullSuppliersFromCloud(){
+  try{
+    if(!window.cloudDB || !window.CLOUD_PATH_RM) return;
+    const snap = await cloudDB.ref(`${CLOUD_PATH_RM}/suppliers`).once("value");
+    const cloudList = snap.val();
+
+    // accept array only
+    if(Array.isArray(cloudList)){
+      window.suppliers = cloudList.filter(Boolean);
+      saveSuppliers();
+    }
+  }catch(err){
+    console.warn("Suppliers pull failed:", err);
+  }
+}
+window.autoPullSuppliersFromCloud = autoPullSuppliersFromCloud;
+
+// ---------- render ----------
 function renderSuppliers(){
   const tbody = document.querySelector("#suppliersTable tbody");
   if(!tbody) return;
@@ -6118,44 +6300,59 @@ function renderSuppliers(){
   const q = (document.getElementById("supplierSearch")?.value || "").toLowerCase().trim();
   const list = Array.isArray(window.suppliers) ? window.suppliers : [];
 
-  const filtered = list
-    .filter(s=>{
-      const hay = `${s.name||""} ${s.contact||""} ${s.phone||""} ${s.email||""}`.toLowerCase();
-      return !q || hay.includes(q);
-    })
-    .sort((a,b)=> String(a.name||"").localeCompare(String(b.name||"")));
+  // sort by name
+  const sorted = list.slice().sort((a,b)=> String(a.name||"").localeCompare(String(b.name||"")));
 
-  tbody.innerHTML = filtered.length ? "" : `<tr><td colspan="7" class="text-muted">No suppliers found</td></tr>`;
+  tbody.innerHTML = "";
+  let i = 1;
 
-  filtered.forEach((s, idx)=>{
-    const canEditRow = (currentUser?.role === "admin") || canEdit?.();
-    const canDelRow  = (currentUser?.role === "admin") || canDelete?.();
+  sorted.forEach(s=>{
+    const name = String(s.name||"");
+    const contact = String(s.contact||"");
+    const phone = String(s.phone||"");
+    const email = String(s.email||"");
+
+    const match =
+      !q ||
+      name.toLowerCase().includes(q) ||
+      contact.toLowerCase().includes(q) ||
+      phone.toLowerCase().includes(q) ||
+      email.toLowerCase().includes(q);
+
+    if(!match) return;
+
+    const canEdit = window.RBAC?.can ? RBAC.can("suppliers:edit") : true;
+    const canDel  = window.RBAC?.can ? RBAC.can("suppliers:delete") : true;
 
     tbody.insertAdjacentHTML("beforeend", `
       <tr>
-        <td>${idx+1}</td>
-        <td><b>${escapeHtml(s.name||"")}</b></td>
-        <td>${escapeHtml(s.contact||"")}</td>
-        <td>${escapeHtml(s.phone||"")}</td>
-        <td>${escapeHtml(s.email||"")}</td>
+        <td>${i++}</td>
+        <td>${escapeHtml(name)}</td>
+        <td>${escapeHtml(contact)}</td>
+        <td>${escapeHtml(phone)}</td>
+        <td>${escapeHtml(email)}</td>
         <td>
-          ${canEditRow ? `<button class="btn secondary btn-sm" type="button" onclick="editSupplier('${escapeHtml(s.id)}')">Edit</button>` : ``}
+          ${canEdit ? `<button class="btn btn-sm btn-outline-secondary" onclick="editSupplier('${escapeHtml(s.id)}')">Edit</button>` : ``}
         </td>
         <td>
-          ${canDelRow ? `<button class="btn out btn-sm" type="button" onclick="deleteSupplier('${escapeHtml(s.id)}')">Delete</button>` : ``}
+          ${canDel ? `<button class="btn btn-sm btn-danger" onclick="deleteSupplier('${escapeHtml(s.id)}')">Delete</button>` : ``}
         </td>
       </tr>
     `);
   });
 
-  // keep BOE dropdown fresh
-  renderBOESupplierDropdown?.();
+  // keep RBAC UI consistent
+  window.RBAC?.applyUI?.();
 }
+window.renderSuppliers = renderSuppliers;
 
+// ---------- add ----------
 function addSupplier(){
-  RBAC.requirePerm("suppliers:add", "You cannot add suppliers");
-
-  if(!canAdd?.()){ showToast("No permission to add supplier", true); return; }
+  // permission
+  if(window.RBAC?.can && !RBAC.can("suppliers:add")){
+    showToast("No permission to add supplier", true);
+    return;
+  }
 
   const nameEl = document.getElementById("newSupplierName");
   const contactEl = document.getElementById("newSupplierContact");
@@ -6167,11 +6364,17 @@ function addSupplier(){
   const phone = (phoneEl?.value || "").trim();
   const email = (emailEl?.value || "").trim();
 
-  if(!name){ showToast("Supplier name required", true); return; }
+  if(!name){
+    showToast("Supplier name required", true);
+    return;
+  }
 
-  // prevent duplicates by name
-  const exists = (window.suppliers || []).some(s => (s.name||"").toLowerCase() === name.toLowerCase());
-  if(exists){ showToast("Supplier already exists", true); return; }
+  // prevent duplicates by name (optional)
+  const exists = (window.suppliers || []).some(s => String(s.name||"").toLowerCase() === name.toLowerCase());
+  if(exists){
+    showToast("Supplier already exists", true);
+    return;
+  }
 
   window.suppliers.push({
     id: "sup_" + genId(),
@@ -6180,78 +6383,107 @@ function addSupplier(){
     phone,
     email,
     createdAt: new Date().toISOString(),
-    createdBy: currentUser?.username || ""
+    createdBy: (currentUser?.username || "")
   });
 
   saveSuppliers();
-  autoPushToCloud?.();              // ✅ push to cloud if you have it
-  renderSuppliers();
-  renderBOESupplierDropdown?.();
+  autoPushSuppliersToCloud();
 
+  // clear
   if(nameEl) nameEl.value = "";
   if(contactEl) contactEl.value = "";
   if(phoneEl) phoneEl.value = "";
   if(emailEl) emailEl.value = "";
 
+  renderSuppliers();
+  // update BOE supplier dropdown too
+  window.renderBOESupplierDropdown?.();
+
   showToast("Supplier added ✅");
 }
+window.addSupplier = addSupplier;
 
+// ---------- edit ----------
 function editSupplier(id){
-  if(!canEdit?.()){ showToast("No permission to edit supplier", true); return; }
+  if(window.RBAC?.can && !RBAC.can("suppliers:edit")){
+    showToast("No permission to edit supplier", true);
+    return;
+  }
 
-  const s = (window.suppliers || []).find(x => x.id === id);
+  const s = (window.suppliers || []).find(x => String(x.id) === String(id));
   if(!s) return;
 
-  const newName = prompt("Supplier Name:", s.name || "");
-  if(newName === null) return;
+  const name = prompt("Supplier name:", s.name || "");
+  if(name === null) return;
 
-  const newAddr = prompt("Address Info:", s.contact || "");
-  if(newAddr === null) return;
+  const contact = prompt("Address info:", s.contact || "");
+  if(contact === null) return;
 
-  const newPhone = prompt("Phone:", s.phone || "");
-  if(newPhone === null) return;
+  const phone = prompt("Phone:", s.phone || "");
+  if(phone === null) return;
 
-  const newEmail = prompt("Email:", s.email || "");
-  if(newEmail === null) return;
+  const email = prompt("Email:", s.email || "");
+  if(email === null) return;
 
-  s.name = String(newName).trim();
-  s.contact = String(newAddr).trim();
-  s.phone = String(newPhone).trim();
-  s.email = String(newEmail).trim();
+  s.name = String(name||"").trim();
+  s.contact = String(contact||"").trim();
+  s.phone = String(phone||"").trim();
+  s.email = String(email||"").trim();
   s.updatedAt = new Date().toISOString();
-  s.updatedBy = currentUser?.username || "";
+  s.updatedBy = (currentUser?.username || "");
 
   saveSuppliers();
-  autoPushToCloud?.();
+  autoPushSuppliersToCloud();
   renderSuppliers();
-  renderBOESupplierDropdown?.();
+  window.renderBOESupplierDropdown?.();
   showToast("Supplier updated ✅");
 }
+window.editSupplier = editSupplier;
 
+// ---------- delete ----------
 function deleteSupplier(id){
-  RBAC.requirePerm("suppliers:delete", "You cannot delete suppliers");
+  if(window.RBAC?.can && !RBAC.can("suppliers:delete")){
+    showToast("No permission to delete supplier", true);
+    return;
+  }
 
-  if(!canDelete?.()){ showToast("No permission to delete supplier", true); return; }
-
-  const s = (window.suppliers || []).find(x => x.id === id);
+  const s = (window.suppliers || []).find(x => String(x.id) === String(id));
   if(!s) return;
 
   if(!confirm(`Delete supplier "${s.name}"?`)) return;
 
-  window.suppliers = (window.suppliers || []).filter(x => x.id !== id);
-
+  window.suppliers = (window.suppliers || []).filter(x => String(x.id) !== String(id));
   saveSuppliers();
-  autoPushToCloud?.();
+  autoPushSuppliersToCloud();
   renderSuppliers();
-  renderBOESupplierDropdown?.();
+  window.renderBOESupplierDropdown?.();
   showToast("Supplier deleted ✅");
 }
+window.deleteSupplier = deleteSupplier;
 
-/* ✅ Wire suppliers UI */
-document.addEventListener("DOMContentLoaded", ()=>{
-  document.getElementById("addSupplierBtn")?.addEventListener("click", addSupplier);
-  document.getElementById("supplierSearch")?.addEventListener("input", renderSuppliers);
-});
+// ---------- init wiring (IMPORTANT) ----------
+function initSuppliersUI(){
+  // stop form submit reload (THIS is the main bug in many cases)
+  const form = document.getElementById("supplierForm");
+  if(form && !form._wired){
+    form._wired = true;
+    form.addEventListener("submit", (e)=>{
+      e.preventDefault();
+      addSupplier();
+    });
+  }
+
+  // live search
+  const search = document.getElementById("supplierSearch");
+  if(search && !search._wired){
+    search._wired = true;
+    search.addEventListener("input", renderSuppliers);
+  }
+}
+window.initSuppliersUI = initSuppliersUI;
+
+// Call once when script loads (safe)
+initSuppliersUI();
 
 
 

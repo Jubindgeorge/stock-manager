@@ -2733,7 +2733,7 @@ function viewFGHistory(fgId){
     .forEach(m=>{
       tbody.insertAdjacentHTML('beforeend',`
         <tr>
-          <td>${fmtDate(m.date)}</td>
+    <td>${fmtDateTime(m.createdAt || (m.date ? m.date+"T00:00:00.000Z" : ""))}</td>
           <td>${escapeHtml(fg.name)}</td>
           <td>${escapeHtml(m.type)}</td>
           <td>${Number(m.qty||0)}</td>
@@ -5128,7 +5128,7 @@ function renderCombinedHistory(){
 
       tbody.insertAdjacentHTML('beforeend',`
         <tr>
-          <td>${fmtDate(m.date)}</td>
+    <td>${fmtDateTime(m.createdAt || (m.date ? m.date+"T00:00:00.000Z" : ""))}</td>
           <td>${escapeHtml(prod.name||'')}</td>
           <td>${escapeHtml(m.type||'')}</td>
           <td>${Number(m.quantity||0)}</td>
@@ -5274,7 +5274,7 @@ function openHistory(productId){
     .forEach(m=>{
       tbody.insertAdjacentHTML('beforeend',`
         <tr>
-          <td>${fmtDateTime(m.date || m.createdAt)}</td>
+    <td>${fmtDateTime(m.createdAt || (m.date ? m.date+"T00:00:00.000Z" : ""))}</td>
           <td>${escapeHtml(prod.name)}</td>
           <td>${escapeHtml(m.type)}</td>
           <td>${Number(m.quantity||0)}</td>
@@ -5317,7 +5317,7 @@ function stockInHistoryModal(){
 
       tbody.insertAdjacentHTML('beforeend', `
         <tr>
-	  <td>${fmtDateTime(m.date || m.createdAt)}</td>
+    <td>${fmtDateTime(m.createdAt || (m.date ? m.date+"T00:00:00.000Z" : ""))}</td>
           <td>${escapeHtml(prod.name)}</td>
           <td class="text-end">${Number(m.quantity||0)}</td>
           <td>${escapeHtml(m.remark||'')}</td>
@@ -5356,7 +5356,7 @@ function stockOutHistoryModal(){
 
       tbody.insertAdjacentHTML('beforeend',`
         <tr>
-         <td>${fmtDateTime(m.date || m.createdAt)}</td>
+    <td>${fmtDateTime(m.createdAt || (m.date ? m.date+"T00:00:00.000Z" : ""))}</td>
           <td>${escapeHtml(prod.name)}</td>
           <td class="text-end">${Number(m.quantity||0)}</td>
           <td>${escapeHtml(m.remark||'')}</td>
@@ -5398,23 +5398,15 @@ function parseISOIgnoreTZ(value){
   return isNaN(x) ? null : x;
 }
 
-function fmtDateTime(value){
-  const x = parseISOIgnoreTZ(value);
-  if(!x) return '';
-
-  const dd = String(x.getDate()).padStart(2,'0');
-  const mm = String(x.getMonth()+1).padStart(2,'0');
-  const yy = x.getFullYear();
-
-  let h = x.getHours();
-  const ampm = h >= 12 ? 'pm' : 'am';
-  h = h % 12; if(h === 0) h = 12;
-
-  const HH = String(h).padStart(2,'0');
-  const MI = String(x.getMinutes()).padStart(2,'0');
-  const SS = String(x.getSeconds()).padStart(2,'0');
-
-  return `${dd}/${mm}/${yy}, ${HH}:${MI}:${SS} ${ampm}`;
+function fmtDateTime(iso){
+  if(!iso) return '-';
+  const d = new Date(iso);
+  if(isNaN(d)) return String(iso);
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Dubai',
+    year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', second:'2-digit'
+  }).format(d);
 }
 
 
@@ -5436,7 +5428,7 @@ function fgStockInHistoryModal(){
       if(!fg) return;
       tbody.insertAdjacentHTML("beforeend", `
         <tr>
-          <td>${fmtDate(m.date)}</td>
+    <td>${fmtDateTime(m.createdAt || (m.date ? m.date+"T00:00:00.000Z" : ""))}</td>
           <td>${escapeHtml(fg.name)}</td>
           <td>IN</td>
           <td>${Number(m.qty || 0)}</td>
@@ -5465,7 +5457,7 @@ function fgStockOutHistoryModal(){
       if(!fg) return;
       tbody.insertAdjacentHTML("beforeend", `
         <tr>
-          <td>${fmtDate(m.date)}</td>
+    <td>${fmtDateTime(m.createdAt || (m.date ? m.date+"T00:00:00.000Z" : ""))}</td>
           <td>${escapeHtml(fg.name)}</td>
           <td>OUT</td>
           <td>${Number(m.qty || 0)}</td>

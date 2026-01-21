@@ -6008,178 +6008,137 @@ function saveAllRM(){
   saveProductions();
 }
 
-/* =========================
-   ✅ CLOUD SYNC (RM + FG) — SAFE GLOBAL VERSION
-   Works even if your main data lives inside an IIFE
-========================= */
+
+const CLOUD_BASE = "stockManager/v1";
+const CLOUD_PATH_ALL = `${CLOUD_BASE}/all`;
+const CLOUD_PATH_FG_PRODUCTS = `${CLOUD_BASE}/fgProducts`;
+const CLOUD_PATH_FG_MOVES    = `${CLOUD_BASE}/fgMovements`;
+
+function normArr(v){
+  return Array.isArray(v) ? v : (v && typeof v === "object" ? Object.values(v) : []);
+}
+
+function setBoth(name, arr){
+  // write to window
+  window[name] = Array.isArray(arr) ? arr : [];
+  // also try local variable (if it exists in this scope)
+  try{ eval(`${name} = window["${name}"]`); }catch(e){}
+}
+
 function getBillsForCloud(){
-  // ✅ BOE module stores bills here
   try{
     const ls = JSON.parse(localStorage.getItem("sms_bills_v1") || "[]");
     if(Array.isArray(ls)) return ls;
   }catch(e){}
-
-  // fallback
-  if(Array.isArray(window.savedBills)) return window.savedBills;
-  if(Array.isArray(window.BOE?.saveBills) && Array.isArray(window.BOE?.bills)) return window.BOE.bills;
-
-  return [];
+  return Array.isArray(window.savedBills) ? window.savedBills : [];
 }
 
-function toArray(v){
-  if(Array.isArray(v)) return v;
-  if(v && typeof v === "object") return Object.values(v);
-  return [];
-}
-
-/* =========================
-   ✅ CLOUD SYNC (RM + FG + Suppliers + BOE + DN + Production)
-========================= */
+/* ---------- PUSH ALL ---------- */
 function autoPushToCloud(){
   if(!window.cloudDB) return;
 
+  // always read from window.* to avoid IIFE desync
   const payload = {
-    products: (products || []),
-    stockMovements: (stockMovements || []),
-    fgProducts: (fgProducts || []),
-    fgMovements: (fgMovements || []),
+    products:       normArr(window.products),
+    stockMovements: normArr(window.stockMovements),
+    fgProducts:     normArr(window.fgProducts),
+    fgMovements:    normArr(window.fgMovements),
 
-    suppliers: (window.suppliers || []),
+    suppliers:      normArr(window.suppliers),
 
-    bills: (window.savedBills || []),          // from BOE module
-    productions: (window.productions || []),
-    deliveryNotes: (window.deliveryNotes || []) // if you make it global; else remove
+    bills:          getBillsForCloud(),
+    productions:    normArr(window.productions),
+    deliveryNotes:  normArr(window.deliveryNotes)
   };
 
-  cloudDB.ref(CLOUD_PATH_RM).set(payload)
-    .then(()=> console.log("☁️ pushed:", CLOUD_PATH_RM))
+  return cloudDB.ref(CLOUD_PATH_ALL).set(payload)
+    .then(()=> console.log("☁️ pushed:", CLOUD_PATH_ALL))
     .catch(err=> console.error("☁️ push failed:", err));
 }
 window.autoPushToCloud = autoPushToCloud;
 
+/* ---------- PULL ALL ---------- */
 async function autoPullFromCloud(){
   if(!window.cloudDB) return;
 
   try{
-    const snap = await cloudDB.ref(CLOUD_PATH_RM).once("value");
+    const snap = await cloudDB.ref(CLOUD_PATH_ALL).once("value");
     const data = snap.val();
-    if(!data){ console.warn("☁️ no data at:", CLOUD_PATH_RM); return; }
+    if(!data){ console.warn("☁️ no data at:", CLOUD_PATH_ALL); return; }
 
-    if(Array.isArray(data.products)) products = data.products;
-    if(Array.isArray(data.stockMovements)) stockMovements = data.stockMovements;
+    // ✅ keep window + local in sync
+    setBoth("products", data.products);
+    setBoth("stockMovements", data.stockMovements);
+    setBoth("fgProducts", data.fgProducts);
+    setBoth("fgMovements", data.fgMovements);
 
-    if(Array.isArray(data.fgProducts)) fgProducts = data.fgProducts;
-    if(Array.isArray(data.fgMovements)) fgMovements = data.fgMovements;
+    window.suppliers    = normArr(data.suppliers);
+    window.productions  = normArr(data.productions);
+    window.deliveryNotes= normArr(data.deliveryNotes);
 
-    if(Array.isArray(data.suppliers)) window.suppliers = data.suppliers;
-
-    if(Array.isArray(data.bills)) {
+    // bills are owned by BOE module
+    if(Array.isArray(data.bills)){
       window.savedBills = data.bills;
       localStorage.setItem("sms_bills_v1", JSON.stringify(window.savedBills));
     }
 
-    if(Array.isArray(data.productions)) {
-      window.productions = data.productions;
-      localStorage.setItem("sms_productions_v1", JSON.stringify(window.productions));
-    }
-
-    // persist locals
-    localStorage.setItem(KEY_PRODUCTS, JSON.stringify(products || []));
-    localStorage.setItem(KEY_MOVES, JSON.stringify(stockMovements || []));
-    saveFGLocal?.();
-    saveSuppliers?.();
+    // persist locals (only if keys exist in your app)
+    try{ if(typeof KEY_PRODUCTS!=="undefined") localStorage.setItem(KEY_PRODUCTS, JSON.stringify(window.products)); }catch(e){}
+    try{ if(typeof KEY_MOVES!=="undefined")    localStorage.setItem(KEY_MOVES, JSON.stringify(window.stockMovements)); }catch(e){}
+    try{ saveFGLocal?.(); }catch(e){}
+    try{ saveSuppliers?.(); }catch(e){}
 
     // refresh UI
     refreshAll?.();
     renderSuppliers?.();
     BOE?.renderTable?.();
     renderBOESupplierDropdown?.();
+    renderProdFGDropdown?.(); // production FG dropdown
+    renderBOM?.();            // optional
 
-    console.log("☁️ pulled:", CLOUD_PATH_RM);
+    console.log("☁️ pulled:", CLOUD_PATH_ALL);
   }catch(err){
     console.error("☁️ pull failed:", err);
   }
 }
 window.autoPullFromCloud = autoPullFromCloud;
 
-
-function autoPullFromCloud(){
-  if (typeof cloudDB === "undefined" || !cloudDB) return Promise.resolve();
-
-  return cloudDB.ref("stockManager").once("value")
-    .then(snapshot=>{
-      const data = snapshot.val();
-      if(!data) return;
-
-      products = data.products || [];
-      stockMovements = data.stockMovements || [];
-      productions = data.productions || [];
-
-      // bills are owned by BOE module
-      if (Array.isArray(data.bills)) {
-        localStorage.setItem("sms_bills_v1", JSON.stringify(data.bills));
-        window.savedBills = data.bills;
-      }
-
-      // audit log
-      auditLog = Array.isArray(data.auditLog) ? data.auditLog : auditLog;
-      saveAudit();
-
-      saveAll?.();
-      saveProductions?.();
-      refreshAll?.();
-
-      // refresh BOE table if module exists
-      BOE?.renderTable?.();
-    })
-    .catch(err => console.error("Auto pull failed:", err));
-}
-
-
+/* ---------- FG ONLY PULL (if you still want it) ---------- */
 function autoPullFGFromCloud(){
-  if (typeof cloudDB === "undefined" || !cloudDB) return Promise.resolve();
+  if(!window.cloudDB) return Promise.resolve();
 
-  return cloudDB.ref("fgManager").once("value")
+  return cloudDB.ref(CLOUD_BASE).once("value")
     .then(snap=>{
-      if(!snap.exists()) return;
+      const root = snap.val() || {};
 
-      const data = snap.val() || {};
-      const normArr = (v) => Array.isArray(v) ? v : (v && typeof v === "object" ? Object.values(v) : []);
+      // support both old and new shapes
+      const fgP = root.fgProducts ?? root.fgManager?.products ?? root.products;
+      const fgM = root.fgMovements ?? root.fgManager?.movements ?? root.movements;
 
-window.fgProducts  = normArr(data.products);
-window.fgMovements = normArr(data.movements);
+      setBoth("fgProducts", normArr(fgP));
+      setBoth("fgMovements", normArr(fgM));
 
-// ✅ keep local variables in sync (very important)
-fgProducts  = window.fgProducts;
-fgMovements = window.fgMovements;
+      saveFGLocal?.();
+      initFGVolumeSelection?.();
+      refreshAll?.();
+      renderProdFGDropdown?.();
+      renderBOM?.();
 
-
-      // ✅ call your existing save/render hooks
-      window.saveFG?.();
-      window.saveFGLocal?.();
-      window.initFGVolumeSelection?.();
-      window.refreshAll?.();
+      console.log("☁️ FG pulled:", CLOUD_BASE);
     })
     .catch(err=>{
       console.error("autoPullFGFromCloud failed:", err);
-      window.showToast?.("FG pull failed (check Firebase rules)", true);
+      showToast?.("FG pull failed (check Firebase rules)", true);
     });
-renderProdFGDropdown?.();
-renderBOM?.(); // optional (if FG already selected)
-
 }
+window.autoPullFGFromCloud = autoPullFGFromCloud;
 
-// ===== FG CLOUD PATHS =====
-const CLOUD_PATH_BASE = "stockManager/v1";
-const CLOUD_PATH_FG_PRODUCTS = `${CLOUD_PATH_BASE}/fgProducts`;
-const CLOUD_PATH_FG_MOVES    = `${CLOUD_PATH_BASE}/fgMovements`;
-
-// ===== PUSH FG TO CLOUD =====
+/* ---------- FG ONLY PUSH ---------- */
 async function autoPushFGToCloud(){
   try{
     if(!window.cloudDB) return;
-    await cloudDB.ref(CLOUD_PATH_FG_PRODUCTS).set(Array.isArray(fgProducts) ? fgProducts : []);
-    await cloudDB.ref(CLOUD_PATH_FG_MOVES).set(Array.isArray(fgMovements) ? fgMovements : []);
+    await cloudDB.ref(CLOUD_PATH_FG_PRODUCTS).set(normArr(window.fgProducts));
+    await cloudDB.ref(CLOUD_PATH_FG_MOVES).set(normArr(window.fgMovements));
     console.log("✅ FG pushed to cloud");
   }catch(err){
     console.error("❌ FG push failed:", err);

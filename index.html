@@ -5240,8 +5240,8 @@ function renderProductsTable(){
         <td>${Number(p.threshold ?? 5)}</td>
         <td>${escapeHtml(p.barcode||'')}</td>
         <td><button class="btn secondary" onclick="openHistory('${p.id}')">History</button></td>
-        <td><button class="btn secondary btn-edit admin-only" onclick="editProduct('${p.id}')">Edit</button></td>
-        <td><button class="btn out btn-delete admin-only" onclick="deleteProduct('${p.id}')">Delete</button></td>
+        <td><button class="btn secondary btn-edit " onclick="editProduct('${p.id}')">Edit</button></td>
+        <td><button class="btn out btn-delete " onclick="deleteProduct('${p.id}')">Delete</button></td>
       </tr>
     `);
   });

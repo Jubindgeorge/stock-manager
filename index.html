@@ -4074,50 +4074,74 @@ function submitProduction(){
   });
 
     // 3) RM OUT movements
-  rmLines.forEach(l=>{
-    const rmProd = products.find(x => x.id === l.rmId);
-    const rmName = rmProd?.name || 'RM';
+// 3) RM OUT movements  ✅ (always write into window.stockMovements)
+normalizeRMGlobals(); // ✅ important
 
-    // net used
-    if(l.net > 0){
-      const mvId = genId();
-      stockMovements.push({
-        id: mvId,
-        productId: l.rmId,
-        type: 'OUT',
-        quantity: Number(l.net.toFixed(6)),
-        date: prodDate,
-        remark: `PROD ${prodNo} RM Used${rmName ? ' - ' + rmName : ''}`,
-        productionId,
-        createdAt: nowISO?.() || new Date().toISOString(),
-        createdBy: who?.() || (currentUser?.username || '')
-      });
+const rmMoves = window.stockMovements;
+const rmList  = window.products;
 
-      // ✅ audit
-      logChange("RM_OUT", l.rmId, {
-        productionId,
-        prodNo,
-        date: prodDate,
-        rm: rmName,
-        qty: Number(l.net.toFixed(6)),
-        kind: "USED"
-      });
-    }
+rmLines.forEach(l=>{
+  const rmProd = rmList.find(x => String(x.id) === String(l.rmId));
+  const rmName = rmProd?.name || 'RM';
 
-    // damage out
-    if(l.dmg > 0){
-      const mvId2 = genId();
-      stockMovements.push({
-        id: mvId2,
-        productId: l.rmId,
-        type: 'OUT',
-        quantity: Number(l.dmg.toFixed(6)),
-        date: prodDate,
-        remark: `PROD ${prodNo} RM Damage${rmName ? ' - ' + rmName : ''}`,
-        productionId,
-        createdAt: nowISO?.() || new Date().toISOString(),
-        createdBy: who?.() || (currentUser?.username || '')
-      });
+  const usedQty   = Number((l.net || 0).toFixed(6));
+  const damageQty = Number((l.dmg || 0).toFixed(6));
+
+  // net used
+  if(usedQty > 0){
+    const mvId = genId();
+
+    rmMoves.push({
+      id: mvId,
+      productId: l.rmId,        // ✅ common key
+      productID: l.rmId,        // ✅ fallback if other code uses productID
+      type: 'OUT',
+
+      qty: usedQty,             // ✅ support computeBalance expecting qty
+      quantity: usedQty,        // ✅ support computeBalance expecting quantity
+
+      date: prodDate,
+      remark: `PROD ${prodNo} RM Used - ${rmName}`,
+      productionId,
+      createdAt: nowISO?.() || new Date().toISOString(),
+      createdBy: who?.() || (currentUser?.username || '')
+    });
+
+    // ✅ audit safe (won't crash if missing)
+    window.logChange?.("RM_OUT", l.rmId, {
+      productionId, prodNo, date: prodDate, rm: rmName, qty: usedQty, kind: "USED"
+    });
+  }
+
+  // damage out
+  if(damageQty > 0){
+    const mvId2 = genId();
+
+    rmMoves.push({
+      id: mvId2,
+      productId: l.rmId,
+      productID: l.rmId,
+      type: 'OUT',
+
+      qty: damageQty,
+      quantity: damageQty,
+
+      date: prodDate,
+      remark: `PROD ${prodNo} RM Damage - ${rmName}`,
+      productionId,
+      createdAt: nowISO?.() || new Date().toISOString(),
+      createdBy: who?.() || (currentUser?.username || '')
+    });
+
+    window.logChange?.("RM_OUT", l.rmId, {
+      productionId, prodNo, date: prodDate, rm: rmName, qty: damageQty, kind: "DAMAGE"
+    });
+ 
+
+
+// ✅ keep local vars synced too (in case other code reads locals)
+try{ stockMovements = window.stockMovements; }catch(e){}
+
 
       // ✅ audit
       logChange("RM_OUT", l.rmId, {
@@ -4469,6 +4493,16 @@ function saveProductions(){
   localStorage.setItem(KEY_PROD, JSON.stringify(productions));
   window.productions = productions; // ✅ keep synced
 }
+function normalizeRMGlobals(){
+  // ensure window arrays exist
+  if(!Array.isArray(window.products)) window.products = (Array.isArray(products) ? products : []);
+  if(!Array.isArray(window.stockMovements)) window.stockMovements = (Array.isArray(stockMovements) ? stockMovements : []);
+
+  // make local vars point to the window arrays (same reference)
+  try{ products = window.products; }catch(e){}
+  try{ stockMovements = window.stockMovements; }catch(e){}
+}
+window.normalizeRMGlobals = normalizeRMGlobals;
 
 
 
@@ -5240,8 +5274,8 @@ function renderProductsTable(){
         <td>${Number(p.threshold ?? 5)}</td>
         <td>${escapeHtml(p.barcode||'')}</td>
         <td><button class="btn secondary" onclick="openHistory('${p.id}')">History</button></td>
-        <td><button class="btn secondary btn-edit admin-only" onclick="editProduct('${p.id}')">Edit</button></td>
-        <td><button class="btn out btn-delete admin-only" onclick="deleteProduct('${p.id}')">Delete</button></td>
+        <td><button class="btn secondary btn-edit " onclick="editProduct('${p.id}')">Edit</button></td>
+        <td><button class="btn out btn-delete " onclick="deleteProduct('${p.id}')">Delete</button></td>
       </tr>
     `);
   });
@@ -6002,11 +6036,14 @@ function saveProductions(){
 }
 
 function saveAllRM(){
-  localStorage.setItem(KEY_PRODUCTS, JSON.stringify(products || []));
-  localStorage.setItem(KEY_MOVES, JSON.stringify(stockMovements || []));
-  saveBills();
-  saveProductions();
+  normalizeRMGlobals();
+
+  // ✅ RM only
+  if(typeof KEY_PRODUCTS !== "undefined") localStorage.setItem(KEY_PRODUCTS, JSON.stringify(window.products || []));
+  if(typeof KEY_MOVES    !== "undefined") localStorage.setItem(KEY_MOVES, JSON.stringify(window.stockMovements || []));
 }
+window.saveAllRM = saveAllRM;
+
 /* =========================
    ✅ CLOUD SYNC (RM + FG + Suppliers + BOE + DN + Production)
    - Single source of truth node (bundle)

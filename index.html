@@ -1378,67 +1378,138 @@ body.sm-on-dashboard #dashboardPage .dash-topbar-inner{
       </div>
     </section>
 
-    <!-- RM DELIVERY NOTE -->
-    <section id="rmDeliveryNote" class="page" style="display:none">
-      <h2>RM Delivery Note (Warehouse → Factory)</h2>
+   <!-- ✅ RM DELIVERY NOTE (VERTICAL) -->
+<section id="rmDeliveryNote" class="page" style="display:none">
 
-<div class="d-flex flex-column gap-3 align-items-stretch">
+  <!-- Header -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div>
+      <h2 class="mb-0">RM Delivery Note</h2>
+      <div class="text-muted small">Warehouse → Factory stock issue note</div>
+    </div>
+    <div class="d-flex gap-2">
+      <span class="badge text-bg-light border">RM</span>
+      <span class="badge text-bg-light border">DN</span>
+      <span class="badge text-bg-light border">Transfer</span>
+    </div>
+  </div>
 
-        <div class="sm-card" style="flex:1;min-width:320px">
-          <h3 class="mb-2">Create Delivery Note</h3>
-
-        <div class="d-flex gap-2 flex-wrap mb-2">
-  <input id="dnNo" class="sm-small" placeholder="Delivery Note No">
-  <input id="dnDate" class="sm-small" type="date">
-  <input id="dnFrom" class="sm-small" placeholder="From (Warehouse)" value="Main Store">
-  <input id="dnTo" class="sm-small" placeholder="To (Factory)" value="Factory">
-  <input id="dnPlan" class="sm-small" placeholder="Production Plan (optional)">
-  <input id="dnProdRef" class="sm-small" placeholder="Production Ref (optional)">
-</div>
-
-
-          <div class="mb-2">
-            <input id="dnRemark" class="sm-search" placeholder="General Remark (optional)">
-          </div>
-
-          <div >
-            <table class="table table-sm align-middle mb-0">
-              <thead class="table-light">
-              <tr>
-  <th style="min-width:240px">RM Product</th>
-  <th style="width:120px">Qty</th>
-  <th>Remark</th>
-  <th style="width:80px">Remove</th>
-</tr>
-
-              </thead>
-              <tbody id="dnItemsBody"></tbody>
-            </table>
-          </div>
-
-          <div class="d-flex gap-2 flex-wrap mt-2">
-            <button class="btn btn-outline-secondary" onclick="dnAddRow()">➕ Add Item</button>
-            <button class="btn btn-primary" onclick="submitDeliveryNote()">✅ Save Delivery Note</button>
-            <button class="btn btn-danger" onclick="resetDeliveryNoteForm()">Clear</button>
-          </div>
+  <!-- 1) Create DN -->
+  <div class="card shadow-sm border-0 rounded-4 mb-3">
+    <div class="card-body p-3 p-md-4">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+          <h5 class="mb-0">Create Delivery Note</h5>
+          <div class="text-muted small">Fill details, add items, then save</div>
         </div>
-
-        <div class="sm-card" style="flex:1;min-width:320px">
-          <h3 class="mb-2">Saved Delivery Notes</h3>
-          <input id="dnSearch" class="sm-search mb-2" placeholder="Search DN no / remark...">
-
-          <div class="table-responsive border rounded-3" style="max-height:520px">
-            <table id="dnTable" class="table table-sm table-hover align-middle mb-0">
-              <thead class="table-light">
-              <tr><th>Date</th><th>DN No</th><th>To</th><th>Items</th><th>Actions</th></tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </div>
-
+        <span class="badge rounded-pill text-bg-primary">New</span>
       </div>
-    </section>
+
+      <!-- Fields -->
+      <div class="row g-2">
+        <div class="col-12 col-md-4">
+          <label class="form-label small text-muted mb-1">Delivery Note No</label>
+          <input id="dnNo" class="form-control form-control-sm" placeholder="DN-YYYYMMDD-001">
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label small text-muted mb-1">Date</label>
+          <input id="dnDate" class="form-control form-control-sm" type="date">
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label small text-muted mb-1">Production Ref</label>
+          <input id="dnProdRef" class="form-control form-control-sm" placeholder="Optional">
+        </div>
+
+        <div class="col-12 col-md-6">
+          <label class="form-label small text-muted mb-1">From</label>
+          <input id="dnFrom" class="form-control form-control-sm" placeholder="Warehouse" value="Main Store">
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label small text-muted mb-1">To</label>
+          <input id="dnTo" class="form-control form-control-sm" placeholder="Factory" value="Factory">
+        </div>
+
+        <div class="col-12 col-md-6">
+          <label class="form-label small text-muted mb-1">Production Plan</label>
+          <input id="dnPlan" class="form-control form-control-sm" placeholder="Optional">
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label small text-muted mb-1">General Remark</label>
+          <input id="dnRemark" class="form-control form-control-sm" placeholder="Optional note for this DN">
+        </div>
+      </div>
+
+      <!-- Items table -->
+      <div class="mt-3">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <div class="fw-semibold">Items</div>
+          <button class="btn btn-outline-secondary btn-sm" onclick="dnAddRow()">➕ Add Item</button>
+        </div>
+
+        <div class="table-responsive border rounded-4" style="max-height:360px;">
+          <table class="table table-sm align-middle mb-0">
+            <thead class="table-light" style="position:sticky;top:0;z-index:1;">
+              <tr>
+                <th >RM Product</th>
+                <th style="width:120px">Qty</th>
+                <th>Remark</th>
+                <th class="text-end" style="width:90px">Remove</th>
+              </tr>
+            </thead>
+            <tbody id="dnItemsBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <button class="btn btn-primary btn-sm" onclick="submitDeliveryNote()">✅ Save Delivery Note</button>
+        <button class="btn btn-outline-danger btn-sm" onclick="resetDeliveryNoteForm()">Clear</button>
+      </div>
+
+  
+    </div>
+  </div>
+
+  <!-- 2) Saved DN (below) -->
+  <div class="card shadow-sm border-0 rounded-4">
+    <div class="card-body p-3 p-md-4">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+          <h5 class="mb-0">Saved Delivery Notes</h5>
+          <div class="text-muted small">Search and manage previously saved DNs</div>
+        </div>
+        <span class="badge rounded-pill text-bg-light border">History</span>
+      </div>
+
+      <div class="input-group input-group-sm mb-3">
+        <span class="input-group-text">🔎</span>
+        <input id="dnSearch" class="form-control" placeholder="Search DN no / remark / to...">
+      </div>
+
+      <div class="table-responsive border rounded-4" style="max-height:520px;">
+        <table id="dnTable" class="table table-sm table-hover align-middle mb-0">
+          <thead class="table-light" style="position:sticky;top:0;z-index:1;">
+            <tr>
+              <th style="min-width:110px;">Date</th>
+              <th style="min-width:150px;">DN No</th>
+              <th style="min-width:130px;">To</th>
+              <th style="width:70px;" class="text-end">Items</th>
+              <th style="min-width:220px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="text-muted small mt-2">
+        You can view, print, or delete from Actions.
+      </div>
+    </div>
+  </div>
+
+</section>
+
 
     <!-- DN VIEW MODAL -->
     <div id="dnViewModal" class="modal" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
@@ -3076,11 +3147,12 @@ function renderFGStock(){
         <td>${escapeHtml(p.volume||'-')}</td>
         <td class="${bal <= thr ? 'low-stock' : ''}">${bal}</td>
         <td>
-          <button class="btn info" onclick="viewFGHistory('${p.id}')">👁 View</button>  </td>
-         <td><button class="btn secondary btn-edit " onclick="editProduct('${p.id}')">Edit</button></td>
-        <td><button class="btn out btn-delete " onclick="deleteProduct('${p.id}')">Delete</button></td>
-
-      
+          <button class="btn info" onclick="viewFGHistory('${p.id}')">👁 View</button>
+          ${currentUser?.role === 'admin' ? `
+            <button class="btn secondary btn-edit" onclick="editFGProduct('${p.id}')">✏️ Edit</button>
+            <button class="btn out btn-delete" onclick="deleteFGProduct('${p.id}')">🗑 Delete</button>
+          `:''}
+        </td>
       </tr>
     `);
   });
@@ -7385,4 +7457,3 @@ window.viewProduction = viewProduction;
 
 </body>
 </html>
-

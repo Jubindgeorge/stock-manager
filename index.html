@@ -1702,7 +1702,7 @@ if(pageId === 'billEntry'){
   if(!document.getElementById('boeDate').value) document.getElementById('boeDate').value = todayISO();
 
   // ✅ AUTO BOE NUMBER
-  setAutoBOENo(false);
+  initAutoBOE(false);
 
   if(!document.getElementById('boeItemsBody').children.length) boeAddRow();
   BOE.renderTable();
@@ -1714,14 +1714,14 @@ if(pageId === 'productionAuto'){
 
   // ✅ AUTO PRODUCTION NUMBER
   if(!document.getElementById('prodDate').value) document.getElementById('prodDate').value = todayISO();
-  setAutoPRODNo(false);
+  initAutoPROD(false);
 }
 
 if(pageId === 'rmDeliveryNote'){
   if(!document.getElementById('dnDate').value) document.getElementById('dnDate').value = todayISO();
 
   // ✅ AUTO DN NUMBER
-  setAutoDNNo(false);
+  initAutoDN(false);
 
   if(!document.getElementById('dnItemsBody').children.length) dnAddRow();
   renderDNTable();
@@ -5240,8 +5240,8 @@ function renderProductsTable(){
         <td>${Number(p.threshold ?? 5)}</td>
         <td>${escapeHtml(p.barcode||'')}</td>
         <td><button class="btn secondary" onclick="openHistory('${p.id}')">History</button></td>
-        <td><button class="btn secondary btn-edit " onclick="editProduct('${p.id}')">Edit</button></td>
-        <td><button class="btn out btn-delete " onclick="deleteProduct('${p.id}')">Delete</button></td>
+        <td><button class="btn secondary btn-edit admin-only" onclick="editProduct('${p.id}')">Edit</button></td>
+        <td><button class="btn out btn-delete admin-only" onclick="deleteProduct('${p.id}')">Delete</button></td>
       </tr>
     `);
   });
@@ -6007,95 +6007,140 @@ function saveAllRM(){
   saveBills();
   saveProductions();
 }
-
-/* =========================
-   ✅ CLOUD SYNC (RM + FG) — SAFE GLOBAL VERSION
-   Works even if your main data lives inside an IIFE
-========================= */
-function getBillsForCloud(){
-  // ✅ BOE module stores bills here
-  try{
-    const ls = JSON.parse(localStorage.getItem("sms_bills_v1") || "[]");
-    if(Array.isArray(ls)) return ls;
-  }catch(e){}
-
-  // fallback
-  if(Array.isArray(window.savedBills)) return window.savedBills;
-  if(Array.isArray(window.BOE?.saveBills) && Array.isArray(window.BOE?.bills)) return window.BOE.bills;
-
-  return [];
-}
-
-function toArray(v){
-  if(Array.isArray(v)) return v;
-  if(v && typeof v === "object") return Object.values(v);
-  return [];
-}
-
 /* =========================
    ✅ CLOUD SYNC (RM + FG + Suppliers + BOE + DN + Production)
+   - Single source of truth node (bundle)
+   - Legacy fallback support (stockManager, fgManager)
 ========================= */
-function autoPushToCloud(){
-  if(!window.cloudDB) return;
+
+/* ---------- PATHS ---------- */
+const CLOUD_PATH_BASE = "stockManager/v1";
+const CLOUD_PATH_BUNDLE      = (typeof CLOUD_PATH_RM === "string" && CLOUD_PATH_RM)
+  ? CLOUD_PATH_RM
+  : `${CLOUD_PATH_BASE}/bundle`;
+
+const CLOUD_PATH_FG_PRODUCTS = `${CLOUD_PATH_BASE}/fgProducts`;
+const CLOUD_PATH_FG_MOVES    = `${CLOUD_PATH_BASE}/fgMovements`;
+
+/* ---------- HELPERS ---------- */
+const toArray = (v) => Array.isArray(v) ? v : (v && typeof v === "object" ? Object.values(v) : []);
+const hasDB = () => !!(window.cloudDB && typeof cloudDB.ref === "function");
+
+/* =========================
+   ✅ PUSH ALL (RM + FG + etc.)
+========================= */
+async function autoPushToCloud(){
+  if(!hasDB()) return;
 
   const payload = {
-    products: (products || []),
-    stockMovements: (stockMovements || []),
-    fgProducts: (fgProducts || []),
-    fgMovements: (fgMovements || []),
+    products:       Array.isArray(window.products) ? window.products : (Array.isArray(products) ? products : []),
+    stockMovements: Array.isArray(window.stockMovements) ? window.stockMovements : (Array.isArray(stockMovements) ? stockMovements : []),
 
-    suppliers: (window.suppliers || []),
+    fgProducts:     Array.isArray(window.fgProducts) ? window.fgProducts : (Array.isArray(fgProducts) ? fgProducts : []),
+    fgMovements:    Array.isArray(window.fgMovements) ? window.fgMovements : (Array.isArray(fgMovements) ? fgMovements : []),
 
-    bills: (window.savedBills || []),          // from BOE module
-    productions: (window.productions || []),
-    deliveryNotes: (window.deliveryNotes || []) // if you make it global; else remove
+    suppliers:      Array.isArray(window.suppliers) ? window.suppliers : [],
+    bills:          Array.isArray(window.savedBills) ? window.savedBills : [],
+    productions:    Array.isArray(window.productions) ? window.productions : [],
+    deliveryNotes:  Array.isArray(window.deliveryNotes) ? window.deliveryNotes : [],
+
+    // optional if you have audit
+    auditLog:       Array.isArray(window.auditLog) ? window.auditLog : (Array.isArray(window.auditLogs) ? window.auditLogs : undefined),
+    updatedAt:      new Date().toISOString()
   };
 
-  cloudDB.ref(CLOUD_PATH_RM).set(payload)
-    .then(()=> console.log("☁️ pushed:", CLOUD_PATH_RM))
-    .catch(err=> console.error("☁️ push failed:", err));
+  // remove undefined keys (optional cleanliness)
+  Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+
+  try{
+    await cloudDB.ref(CLOUD_PATH_BUNDLE).set(payload);
+    console.log("☁️ pushed:", CLOUD_PATH_BUNDLE);
+  }catch(err){
+    console.error("☁️ push failed:", err);
+  }
 }
 window.autoPushToCloud = autoPushToCloud;
 
+
+/* =========================
+   ✅ PULL ALL (RM + FG + etc.)
+   - tries bundle first
+   - legacy fallback: "stockManager"
+========================= */
 async function autoPullFromCloud(){
-  if(!window.cloudDB) return;
+  if(!hasDB()) return;
 
   try{
-    const snap = await cloudDB.ref(CLOUD_PATH_RM).once("value");
-    const data = snap.val();
-    if(!data){ console.warn("☁️ no data at:", CLOUD_PATH_RM); return; }
+    // 1) New bundle
+    let snap = await cloudDB.ref(CLOUD_PATH_BUNDLE).once("value");
+    let data = snap.val();
 
-    if(Array.isArray(data.products)) products = data.products;
-    if(Array.isArray(data.stockMovements)) stockMovements = data.stockMovements;
-
-    if(Array.isArray(data.fgProducts)) fgProducts = data.fgProducts;
-    if(Array.isArray(data.fgMovements)) fgMovements = data.fgMovements;
-
-    if(Array.isArray(data.suppliers)) window.suppliers = data.suppliers;
-
-    if(Array.isArray(data.bills)) {
-      window.savedBills = data.bills;
-      localStorage.setItem("sms_bills_v1", JSON.stringify(window.savedBills));
+    // 2) Legacy fallback
+    if(!data){
+      const legacySnap = await cloudDB.ref("stockManager").once("value");
+      data = legacySnap.val();
+      if(data) console.warn("☁️ pulled from legacy path: stockManager");
     }
 
-    if(Array.isArray(data.productions)) {
-      window.productions = data.productions;
-      localStorage.setItem("sms_productions_v1", JSON.stringify(window.productions));
+    if(!data){
+      console.warn("☁️ no data found in cloud");
+      return;
     }
 
-    // persist locals
-    localStorage.setItem(KEY_PRODUCTS, JSON.stringify(products || []));
-    localStorage.setItem(KEY_MOVES, JSON.stringify(stockMovements || []));
-    saveFGLocal?.();
-    saveSuppliers?.();
+    // ---- Assign + normalize ----
+    const pulledProducts   = toArray(data.products);
+    const pulledMoves      = toArray(data.stockMovements);
+    const pulledFGProducts = toArray(data.fgProducts);
+    const pulledFGMoves    = toArray(data.fgMovements);
 
-    // refresh UI
-    refreshAll?.();
-    renderSuppliers?.();
-    BOE?.renderTable?.();
-    renderBOESupplierDropdown?.();
+    // keep both window + local vars in sync
+    window.products = pulledProducts;
+    window.stockMovements = pulledMoves;
+    try{ products = pulledProducts; }catch(e){}
+    try{ stockMovements = pulledMoves; }catch(e){}
 
-    console.log("☁️ pulled:", CLOUD_PATH_RM);
+    window.fgProducts  = pulledFGProducts;
+    window.fgMovements = pulledFGMoves;
+    try{ fgProducts = pulledFGProducts; }catch(e){}
+    try{ fgMovements = pulledFGMoves; }catch(e){}
+
+    if(Array.isArray(data.suppliers))  window.suppliers = data.suppliers;
+    if(Array.isArray(data.bills))      window.savedBills = data.bills;
+    if(Array.isArray(data.productions))window.productions = data.productions;
+    if(Array.isArray(data.deliveryNotes)) window.deliveryNotes = data.deliveryNotes;
+
+    // audit optional
+    if(Array.isArray(data.auditLog)){
+      window.auditLog = data.auditLog;
+      try{ auditLog = data.auditLog; }catch(e){}
+      window.saveAudit?.();
+      try{ saveAudit?.(); }catch(e){}
+    }
+
+    // ---- Persist localStorage ----
+    try{
+      if(typeof KEY_PRODUCTS !== "undefined") localStorage.setItem(KEY_PRODUCTS, JSON.stringify(window.products || []));
+      if(typeof KEY_MOVES    !== "undefined") localStorage.setItem(KEY_MOVES, JSON.stringify(window.stockMovements || []));
+    }catch(e){}
+
+    try{
+      localStorage.setItem("sms_bills_v1", JSON.stringify(window.savedBills || []));
+      localStorage.setItem("sms_productions_v1", JSON.stringify(window.productions || []));
+    }catch(e){}
+
+    window.saveFGLocal?.();
+    window.saveSuppliers?.();
+    window.saveAll?.();
+
+    // ---- Refresh UI ----
+    window.refreshAll?.();
+    window.renderSuppliers?.();
+    window.BOE?.renderTable?.();
+    window.renderBOESupplierDropdown?.();
+    window.renderProdFGDropdown?.();
+    window.renderBOM?.();
+
+    console.log("☁️ pulled:", CLOUD_PATH_BUNDLE);
   }catch(err){
     console.error("☁️ pull failed:", err);
   }
@@ -6103,90 +6148,72 @@ async function autoPullFromCloud(){
 window.autoPullFromCloud = autoPullFromCloud;
 
 
-function autoPullFromCloud(){
-  if (typeof cloudDB === "undefined" || !cloudDB) return Promise.resolve();
+/* =========================
+   ✅ FG ONLY PULL (Optional)
+   - new paths first
+   - legacy fallback: "fgManager" with {products, movements}
+========================= */
+async function autoPullFGFromCloud(){
+  if(!hasDB()) return;
 
-  return cloudDB.ref("stockManager").once("value")
-    .then(snapshot=>{
-      const data = snapshot.val();
-      if(!data) return;
-
-      products = data.products || [];
-      stockMovements = data.stockMovements || [];
-      productions = data.productions || [];
-
-      // bills are owned by BOE module
-      if (Array.isArray(data.bills)) {
-        localStorage.setItem("sms_bills_v1", JSON.stringify(data.bills));
-        window.savedBills = data.bills;
-      }
-
-      // audit log
-      auditLog = Array.isArray(data.auditLog) ? data.auditLog : auditLog;
-      saveAudit();
-
-      saveAll?.();
-      saveProductions?.();
-      refreshAll?.();
-
-      // refresh BOE table if module exists
-      BOE?.renderTable?.();
-    })
-    .catch(err => console.error("Auto pull failed:", err));
-}
-
-
-function autoPullFGFromCloud(){
-  if (typeof cloudDB === "undefined" || !cloudDB) return Promise.resolve();
-
-  return cloudDB.ref("fgManager").once("value")
-    .then(snap=>{
-      if(!snap.exists()) return;
-
-      const data = snap.val() || {};
-      const normArr = (v) => Array.isArray(v) ? v : (v && typeof v === "object" ? Object.values(v) : []);
-
-window.fgProducts  = normArr(data.products);
-window.fgMovements = normArr(data.movements);
-
-// ✅ keep local variables in sync (very important)
-fgProducts  = window.fgProducts;
-fgMovements = window.fgMovements;
-
-
-      // ✅ call your existing save/render hooks
-      window.saveFG?.();
-      window.saveFGLocal?.();
-      window.initFGVolumeSelection?.();
-      window.refreshAll?.();
-    })
-    .catch(err=>{
-      console.error("autoPullFGFromCloud failed:", err);
-      window.showToast?.("FG pull failed (check Firebase rules)", true);
-    });
-renderProdFGDropdown?.();
-renderBOM?.(); // optional (if FG already selected)
-
-}
-
-// ===== FG CLOUD PATHS =====
-const CLOUD_PATH_BASE = "stockManager/v1";
-const CLOUD_PATH_FG_PRODUCTS = `${CLOUD_PATH_BASE}/fgProducts`;
-const CLOUD_PATH_FG_MOVES    = `${CLOUD_PATH_BASE}/fgMovements`;
-
-// ===== PUSH FG TO CLOUD =====
-async function autoPushFGToCloud(){
   try{
-    if(!window.cloudDB) return;
-    await cloudDB.ref(CLOUD_PATH_FG_PRODUCTS).set(Array.isArray(fgProducts) ? fgProducts : []);
-    await cloudDB.ref(CLOUD_PATH_FG_MOVES).set(Array.isArray(fgMovements) ? fgMovements : []);
+    // new split paths
+    const [pSnap, mSnap] = await Promise.all([
+      cloudDB.ref(CLOUD_PATH_FG_PRODUCTS).once("value"),
+      cloudDB.ref(CLOUD_PATH_FG_MOVES).once("value"),
+    ]);
+
+    let p = pSnap.val();
+    let m = mSnap.val();
+
+    // legacy fallback
+    if(!p && !m){
+      const legacy = await cloudDB.ref("fgManager").once("value");
+      const legacyData = legacy.val() || {};
+      p = legacyData.products;
+      m = legacyData.movements;
+      if(p || m) console.warn("☁️ FG pulled from legacy path: fgManager");
+    }
+
+    const pulledFGProducts = toArray(p);
+    const pulledFGMoves    = toArray(m);
+
+    window.fgProducts  = pulledFGProducts;
+    window.fgMovements = pulledFGMoves;
+    try{ fgProducts = pulledFGProducts; }catch(e){}
+    try{ fgMovements = pulledFGMoves; }catch(e){}
+
+    window.saveFG?.();
+    window.saveFGLocal?.();
+    window.initFGVolumeSelection?.();
+    window.refreshAll?.();
+    window.renderProdFGDropdown?.();
+    window.renderBOM?.();
+
+    console.log("☁️ FG pulled OK");
+  }catch(err){
+    console.error("autoPullFGFromCloud failed:", err);
+    window.showToast?.("FG pull failed (check Firebase rules)", true);
+  }
+}
+window.autoPullFGFromCloud = autoPullFGFromCloud;
+
+
+/* =========================
+   ✅ FG ONLY PUSH (Optional)
+========================= */
+async function autoPushFGToCloud(){
+  if(!hasDB()) return;
+
+  try{
+    await cloudDB.ref(CLOUD_PATH_FG_PRODUCTS).set(Array.isArray(window.fgProducts) ? window.fgProducts : (Array.isArray(fgProducts) ? fgProducts : []));
+    await cloudDB.ref(CLOUD_PATH_FG_MOVES).set(Array.isArray(window.fgMovements) ? window.fgMovements : (Array.isArray(fgMovements) ? fgMovements : []));
     console.log("✅ FG pushed to cloud");
   }catch(err){
     console.error("❌ FG push failed:", err);
   }
 }
 window.autoPushFGToCloud = autoPushFGToCloud;
-
 
 
 
@@ -6683,26 +6710,31 @@ window.Dashboard = window.Dashboard || {
     }
   }
 };
-
 /* =========================================================
-   ✅ AUTO DOCUMENT NUMBER GENERATOR - NO +1 ON REFRESH
-   - "peek" shows next number (draft) without consuming
-   - "consume" commits only when you SAVE
+   ✅ AUTO DOCUMENT NUMBER GENERATOR (NO +1 ON REFRESH)
+   - peek: draft only (saved in localStorage so refresh won't +1)
+   - consume: commit ONLY after successful SAVE
+   - wire: auto-retries until inputs exist (works with openPage)
 ========================================================= */
 
 const AutoDocNo = (() => {
-  const seqKey   = 'sms_auto_docno_v1';        // committed last seq per day
-  const draftKey = 'sms_auto_docno_draft_v1';  // draft number per day
+  const seqKey   = 'sms_auto_docno_v1';
+  const draftKey = 'sms_auto_docno_draft_v1';
 
-  const state  = JSON.parse(localStorage.getItem(seqKey) || '{}');
-  const drafts = JSON.parse(localStorage.getItem(draftKey) || '{}');
+  const state  = JSON.parse(localStorage.getItem(seqKey) || '{}');    // { PREFIX: { YYYYMMDD: lastSeq } }
+  const drafts = JSON.parse(localStorage.getItem(draftKey) || '{}');  // { PREFIX: { YYYYMMDD: draftSeq } }
 
   const save = () => {
     localStorage.setItem(seqKey, JSON.stringify(state));
     localStorage.setItem(draftKey, JSON.stringify(drafts));
   };
 
-  const dateKey = (iso) => String(iso || todayISO()).trim().replace(/-/g, '');
+  const todayISO_safe = () =>
+    (typeof todayISO === 'function')
+      ? todayISO()
+      : new Date().toISOString().slice(0,10);
+
+  const dateKey = (iso) => String(iso || todayISO_safe()).trim().replace(/-/g, '');
 
   const looksAuto = (val, prefix) => {
     const re = new RegExp(`^${prefix}-\\d{8}-\\d{3,}$`, 'i');
@@ -6714,22 +6746,32 @@ const AutoDocNo = (() => {
     let max = 0;
     (values || []).forEach(v => {
       const m = String(v || '').trim().match(re);
-      if (m) {
-        const n = parseInt(m[1], 10);
-        if (n > max) max = n;
-      }
+      if (m) max = Math.max(max, parseInt(m[1], 10) || 0);
     });
     return max;
   };
 
+  // reads existing numbers from your saved arrays (supports multiple possible field names)
   const getExistingMax = (prefix, dkey) => {
-    const prodVals = (window.productions || []).map(p => p?.prodNo);
-    const boeVals  = (window.savedBills || []).map(b => b?.billNo);
-    const dnVals   = (window.deliveryNotes || []).map(d => d?.dnNo);
+    const pickNo = (obj, keys) => {
+      for (const k of keys) {
+        const v = obj?.[k];
+        if (v != null && String(v).trim()) return String(v).trim();
+      }
+      return '';
+    };
 
-    if (prefix === 'PROD') return maxSeqFromList(prodVals, prefix, dkey);
-    if (prefix === 'BOE')  return maxSeqFromList(boeVals,  prefix, dkey);
-    if (prefix === 'DN')   return maxSeqFromList(dnVals,   prefix, dkey);
+    const prodVals = (window.productions || []).map(p =>
+      pickNo(p, ['prodNo','productionNo','prNo','docNo','no','number'])
+    );
+
+    const boeVals  = (window.savedBills || []).map(b =>
+      pickNo(b, ['billNo','boeNo','grnNo','boeNumber','docNo','no','number'])
+    );
+
+    const dnVals   = (window.deliveryNotes || []).map(d =>
+      pickNo(d, ['dnNo','deliveryNo','dnNumber','docNo','no','number'])
+    );
 
     return Math.max(
       maxSeqFromList(prodVals, prefix, dkey),
@@ -6738,12 +6780,12 @@ const AutoDocNo = (() => {
     );
   };
 
-  const format = (prefix, isoDate, seq, pad = 3) => {
+  const format = (prefix, isoDate, seq, pad=3) => {
     const dkey = dateKey(isoDate);
     return `${prefix}-${dkey}-${String(seq).padStart(pad, '0')}`;
   };
 
-  // ✅ show number WITHOUT committing (+1 only stored as draft)
+  // peek = create draft ONLY (no commit)
   const peekSeq = (prefix, isoDate) => {
     const dkey = dateKey(isoDate);
 
@@ -6761,7 +6803,7 @@ const AutoDocNo = (() => {
     return next;
   };
 
-  // ✅ commit ONLY when saved successfully
+  // consume = commit draft ONLY after successful save
   const consume = (prefix, isoDate) => {
     const dkey = dateKey(isoDate);
     const draft = Number(drafts?.[prefix]?.[dkey] || 0);
@@ -6770,7 +6812,7 @@ const AutoDocNo = (() => {
     state[prefix] = state[prefix] || {};
     state[prefix][dkey] = Math.max(Number(state[prefix][dkey] || 0), draft);
 
-    delete drafts[prefix][dkey];
+    if (drafts[prefix]) delete drafts[prefix][dkey];
     save();
   };
 
@@ -6780,66 +6822,91 @@ const AutoDocNo = (() => {
     save();
   };
 
-  const set = ({ inputId, dateId, prefix, pad = 3, force = false }) => {
-    const input = document.getElementById(inputId);
+  // set input number (draft) — generate only if empty OR force
+  const set = ({ inputId, dateId, prefix, pad=3, force=false }) => {
+    const input  = document.getElementById(inputId);
     const dateEl = document.getElementById(dateId);
-    if (!input || !dateEl) return;
+    if (!input || !dateEl) return '';
 
-    if (!dateEl.value) dateEl.value = todayISO();
+    if (!dateEl.value) dateEl.value = todayISO_safe();
 
     const cur = String(input.value || '').trim();
 
-    // don't overwrite manual text unless force
-    if (!force && cur && !looksAuto(cur, prefix)) return;
+    // keep manual number unless force
+    if (!force && cur && !looksAuto(cur, prefix)) return cur;
 
-    // if already auto and not force => keep it (no refresh +1)
-    if (!force && cur && looksAuto(cur, prefix)) return;
+    // keep already auto number unless force
+    if (!force && cur && looksAuto(cur, prefix)) return cur;
 
     const seq = peekSeq(prefix, dateEl.value);
-    input.value = format(prefix, dateEl.value, seq, pad);
+    const no  = format(prefix, dateEl.value, seq, pad);
+    input.value = no;
+    return no;
   };
 
-  // ✅ prevent duplicate listeners
+  // prevent duplicate listeners
   const wired = new Set();
 
-  const wire = ({ inputId, dateId, prefix, pad = 3 }) => {
-    const dateEl = document.getElementById(dateId);
-    const input  = document.getElementById(inputId);
-    if (!dateEl || !input) return;
-
+  // wire (with retry): works even if page is injected later
+  const wire = ({ inputId, dateId, prefix, pad=3, retries=30, interval=150, fillOnWire=true }) => {
     const key = `${prefix}|${inputId}|${dateId}`;
     if (wired.has(key)) return;
     wired.add(key);
 
-    dateEl.addEventListener('change', () => {
-      // new date => new draft number
-      clearDraft(prefix, dateEl.value);
-      set({ inputId, dateId, prefix, pad, force: true });
-    });
+    let tries = 0;
+
+    const attempt = () => {
+      const dateEl = document.getElementById(dateId);
+      const input  = document.getElementById(inputId);
+
+      if (!dateEl || !input) {
+        tries++;
+        if (tries <= retries) setTimeout(attempt, interval);
+        return;
+      }
+
+      // optional: show draft on screen (but still not committed)
+      if (fillOnWire) {
+        if (!dateEl.value) dateEl.value = todayISO_safe();
+        if (!String(input.value || '').trim()) set({ inputId, dateId, prefix, pad, force:true });
+      }
+
+      dateEl.addEventListener('change', () => {
+        clearDraft(prefix, dateEl.value);
+        // optional: clear input so it re-peeks for the new date
+        input.value = '';
+        // and show new draft immediately
+        set({ inputId, dateId, prefix, pad, force:true });
+      });
+    };
+
+    attempt();
   };
 
-  return { set, wire, consume, clearDraft };
+  return { set, wire, consume, clearDraft, looksAuto };
 })();
-
-
-// ✅ helper wrappers (call these from openPage)
-function setAutoBOENo(force=false){
-  AutoDocNo.set({ inputId:'boeNo', dateId:'boeDate', prefix:'GRN', pad:3, force });
-  AutoDocNo.wire({ inputId:'boeNo', dateId:'boeDate', prefix:'GRN', pad:3 });
+function initAutoBOE(){
+  AutoDocNo.wire({ inputId:'boeNo', dateId:'boeDate', prefix:'GRN', pad:3, fillOnWire:true });
 }
-
-function setAutoDNNo(force=false){
-  AutoDocNo.set({ inputId:'dnNo', dateId:'dnDate', prefix:'DN', pad:3, force });
-  AutoDocNo.wire({ inputId:'dnNo', dateId:'dnDate', prefix:'DN', pad:3 });
+function initAutoDN(){
+  AutoDocNo.wire({ inputId:'dnNo', dateId:'dnDate', prefix:'DN', pad:3, fillOnWire:true });
 }
-
-function setAutoPRODNo(force=false){
-  AutoDocNo.set({ inputId:'prodNo', dateId:'prodDate', prefix:'PR', pad:3, force });
-  AutoDocNo.wire({ inputId:'prodNo', dateId:'prodDate', prefix:'PR', pad:3 });
+function initAutoPROD(){
+  AutoDocNo.wire({ inputId:'prodNo', dateId:'prodDate', prefix:'PR', pad:3, fillOnWire:true });
 }
+function ensureDocNoOnSave({ inputId, dateId, prefix, pad=3 }) {
+  const input = document.getElementById(inputId);
+  const dateEl = document.getElementById(dateId);
+  if (!input || !dateEl) return '';
 
+  if (!dateEl.value) dateEl.value = (typeof todayISO==='function' ? todayISO() : new Date().toISOString().slice(0,10));
 
+  const cur = String(input.value || '').trim();
+  if (cur) return cur;
 
+  AutoDocNo.set({ inputId, dateId, prefix, pad, force:true });
+  return String(input.value || '').trim();
+}
 
 
 /* =========================
@@ -7240,4 +7307,3 @@ window.viewProduction = viewProduction;
 
 </body>
 </html>
-

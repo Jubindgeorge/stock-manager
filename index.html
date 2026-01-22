@@ -3076,12 +3076,11 @@ function renderFGStock(){
         <td>${escapeHtml(p.volume||'-')}</td>
         <td class="${bal <= thr ? 'low-stock' : ''}">${bal}</td>
         <td>
-          <button class="btn info" onclick="viewFGHistory('${p.id}')">👁 View</button>
-          ${currentUser?.role === 'admin' ? `
-            <button class="btn secondary btn-edit" onclick="editFGProduct('${p.id}')">✏️ Edit</button>
-            <button class="btn out btn-delete" onclick="deleteFGProduct('${p.id}')">🗑 Delete</button>
-          `:''}
-        </td>
+          <button class="btn info" onclick="viewFGHistory('${p.id}')">👁 View</button>  </td>
+         <td><button class="btn secondary btn-edit " onclick="editProduct('${p.id}')">Edit</button></td>
+        <td><button class="btn out btn-delete " onclick="deleteProduct('${p.id}')">Delete</button></td>
+
+      
       </tr>
     `);
   });
@@ -7386,3 +7385,4 @@ window.viewProduction = viewProduction;
 
 </body>
 </html>
+

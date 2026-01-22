@@ -1662,6 +1662,240 @@ function isUserTypingInForms(){
   return !!(inForms && isField);
 }
 
+
+
+
+// ✅ PATCH: fix wire() so it clears the OLD date draft (not the new one)
+const AutoDocNo = (() => {
+  const seqKey   = 'sms_auto_docno_v1';
+  const draftKey = 'sms_auto_docno_draft_v1';
+
+  const state  = JSON.parse(localStorage.getItem(seqKey) || '{}');
+  const drafts = JSON.parse(localStorage.getItem(draftKey) || '{}');
+
+  const save = () => {
+    localStorage.setItem(seqKey, JSON.stringify(state));
+    localStorage.setItem(draftKey, JSON.stringify(drafts));
+  };
+
+  const todayISO_safe = () =>
+    (typeof todayISO === 'function') ? todayISO() : new Date().toISOString().slice(0,10);
+
+  const dateKey = (iso) => String(iso || todayISO_safe()).trim().replace(/-/g, '');
+
+  const looksAuto = (val, prefix) => {
+    const re = new RegExp(`^${prefix}-\\d{8}-\\d{3,}$`, 'i');
+    return re.test(String(val || '').trim());
+  };
+
+  const maxSeqFromList = (values, prefix, dkey) => {
+    const re = new RegExp(`^${prefix}-${dkey}-(\\d+)$`, 'i');
+    let max = 0;
+    (values || []).forEach(v => {
+      const m = String(v || '').trim().match(re);
+      if (m) max = Math.max(max, parseInt(m[1], 10) || 0);
+    });
+    return max;
+  };
+
+  const getExistingMax = (prefix, dkey) => {
+    const pickNo = (obj, keys) => {
+      for (const k of keys) {
+        const v = obj?.[k];
+        if (v != null && String(v).trim()) return String(v).trim();
+      }
+      return '';
+    };
+
+    const prodVals = (window.productions || []).map(p =>
+      pickNo(p, ['prodNo','productionNo','prNo','docNo','no','number'])
+    );
+    const boeVals  = (window.savedBills || []).map(b =>
+      pickNo(b, ['billNo','boeNo','grnNo','boeNumber','docNo','no','number'])
+    );
+    const dnVals   = (window.deliveryNotes || []).map(d =>
+      pickNo(d, ['dnNo','deliveryNo','dnNumber','docNo','no','number'])
+    );
+
+    return Math.max(
+      maxSeqFromList(prodVals, prefix, dkey),
+      maxSeqFromList(boeVals,  prefix, dkey),
+      maxSeqFromList(dnVals,   prefix, dkey)
+    );
+  };
+
+  const format = (prefix, isoDate, seq, pad=3) => {
+    const dkey = dateKey(isoDate);
+    return `${prefix}-${dkey}-${String(seq).padStart(pad, '0')}`;
+  };
+
+  const peekSeq = (prefix, isoDate) => {
+    const dkey = dateKey(isoDate);
+
+    const draft = Number(drafts?.[prefix]?.[dkey] || 0);
+    if (draft) return draft;
+
+    const mapMax  = Number(state?.[prefix]?.[dkey] || 0);
+    const dataMax = getExistingMax(prefix, dkey);
+    const next = Math.max(mapMax, dataMax) + 1;
+
+    drafts[prefix] = drafts[prefix] || {};
+    drafts[prefix][dkey] = next;
+    save();
+    return next;
+  };
+
+  const consume = (prefix, isoDate) => {
+    const dkey = dateKey(isoDate);
+    const draft = Number(drafts?.[prefix]?.[dkey] || 0);
+    if (!draft) return;
+
+    state[prefix] = state[prefix] || {};
+    state[prefix][dkey] = Math.max(Number(state[prefix][dkey] || 0), draft);
+
+    if (drafts[prefix]) delete drafts[prefix][dkey];
+    save();
+  };
+
+  const clearDraft = (prefix, isoDate) => {
+    const dkey = dateKey(isoDate);
+    if (drafts[prefix]) delete drafts[prefix][dkey];
+    save();
+  };
+
+  const set = ({ inputId, dateId, prefix, pad=3, force=false }) => {
+    const input  = document.getElementById(inputId);
+    const dateEl = document.getElementById(dateId);
+    if (!input || !dateEl) return '';
+
+    if (!dateEl.value) dateEl.value = todayISO_safe();
+
+    const cur = String(input.value || '').trim();
+
+    // ✅ keep manual entry unless force
+    if (!force && cur && !looksAuto(cur, prefix)) return cur;
+
+    // ✅ keep existing auto unless force
+    if (!force && cur && looksAuto(cur, prefix)) return cur;
+
+    const seq = peekSeq(prefix, dateEl.value);
+    const no  = format(prefix, dateEl.value, seq, pad);
+    input.value = no;
+    return no;
+  };
+
+  const wired = new Set();
+
+  // ✅ PATCHED wire(): clears OLD draft correctly and regenerates
+  const wire = ({ inputId, dateId, prefix, pad=3, retries=30, interval=150, fillOnWire=true }) => {
+    const key = `${prefix}|${inputId}|${dateId}`;
+    if (wired.has(key)) return;
+    wired.add(key);
+
+    let tries = 0;
+
+    const attempt = () => {
+      const dateEl = document.getElementById(dateId);
+      const input  = document.getElementById(inputId);
+
+      if (!dateEl || !input) {
+        tries++;
+        if (tries <= retries) setTimeout(attempt, interval);
+        return;
+      }
+
+      if (fillOnWire) {
+        if (!dateEl.value) dateEl.value = todayISO_safe();
+        if (!String(input.value || '').trim()) set({ inputId, dateId, prefix, pad, force:true });
+      }
+
+      // ✅ remember previous date so we can clear THAT draft
+      let lastDate = dateEl.value || todayISO_safe();
+
+      dateEl.addEventListener('change', () => {
+        // clear old draft, then update lastDate to new value
+        clearDraft(prefix, lastDate);
+
+        if (!dateEl.value) dateEl.value = todayISO_safe();
+        lastDate = dateEl.value;
+
+        // re-peek for new date
+        input.value = '';
+        set({ inputId, dateId, prefix, pad, force:true });
+      });
+    };
+
+    attempt();
+  };
+
+  return { set, wire, consume, clearDraft, looksAuto };
+})();
+
+
+// ✅ Your init functions are fine:
+function initAutoBOE(){  AutoDocNo.wire({ inputId:'boeNo',  dateId:'boeDate',  prefix:'GRN', pad:3, fillOnWire:true }); }
+function initAutoDN(){   AutoDocNo.wire({ inputId:'dnNo',   dateId:'dnDate',   prefix:'DN',  pad:3, fillOnWire:true }); }
+function initAutoPROD(){ AutoDocNo.wire({ inputId:'prodNo', dateId:'prodDate', prefix:'PR',  pad:3, fillOnWire:true }); }
+
+// ✅ COMPATIBILITY WRAPPERS (fix your "setAutoBOENo is not defined" issue)
+function setAutoBOENo(){ initAutoBOE(); }
+function setAutoDNNo(){ initAutoDN(); }
+function setAutoPRODNo(){ initAutoPROD(); }
+
+// ✅ On SAVE success, commit the draft (call this AFTER you push to localStorage/Firebase successfully)
+function commitDocNo({ dateId, prefix }){
+  const dateEl = document.getElementById(dateId);
+  const iso = dateEl?.value || (typeof todayISO==='function' ? todayISO() : new Date().toISOString().slice(0,10));
+  AutoDocNo.consume(prefix, iso);
+}
+
+// Your ensure function is OK; keep it.
+function ensureDocNoOnSave({ inputId, dateId, prefix, pad=3 }) {
+  const input = document.getElementById(inputId);
+  const dateEl = document.getElementById(dateId);
+  if (!input || !dateEl) return '';
+
+  if (!dateEl.value) dateEl.value = (typeof todayISO==='function' ? todayISO() : new Date().toISOString().slice(0,10));
+
+  const cur = String(input.value || '').trim();
+  if (cur) return cur;
+
+  AutoDocNo.set({ inputId, dateId, prefix, pad, force:true });
+  return String(input.value || '').trim();
+}
+function afterSuccessfulBOESave() {
+  // 1) COMMIT draft so next will increment
+  const d = document.getElementById('boeDate')?.value;
+  AutoDocNo.consume('GRN', d);
+
+  // 2) CLEAR the input so the next draft can be generated
+  const noEl = document.getElementById('boeNo');
+  if (noEl) noEl.value = '';
+
+  // 3) GENERATE the next number immediately for the next entry
+  AutoDocNo.set({ inputId:'boeNo', dateId:'boeDate', prefix:'GRN', pad:3, force:true });
+}
+function afterSuccessfulDNSave(){
+  const d = document.getElementById('dnDate')?.value;
+  AutoDocNo.consume('DN', d);
+  const el = document.getElementById('dnNo'); if(el) el.value='';
+  AutoDocNo.set({ inputId:'dnNo', dateId:'dnDate', prefix:'DN', pad:3, force:true });
+}
+
+function afterSuccessfulPRODSave(){
+  const d = document.getElementById('prodDate')?.value;
+  AutoDocNo.consume('PR', d);
+  const el = document.getElementById('prodNo'); if(el) el.value='';
+  AutoDocNo.set({ inputId:'prodNo', dateId:'prodDate', prefix:'PR', pad:3, force:true });
+}
+
+
+
+
+
+
+
+
 /* =========================
    ✅ PAGE NAV
 ========================= */
@@ -3783,7 +4017,10 @@ function boeAddRow(){
 function submitBillEntry(){
   BOE.submit();                 // BOE.submit already calls BOE.saveBills()
   autoPushToCloud();            // ✅ push bills + everything
+afterSuccessfulBOESave();
+
 }
+
 
 function resetBillEntryForm(){ BOE.resetForm(); }
 function renderBillsTable(){
@@ -4533,6 +4770,7 @@ let deliveryNotes = JSON.parse(localStorage.getItem(KEY_DN) || '[]');
 
 function saveDeliveryNotes(){
   localStorage.setItem(KEY_DN, JSON.stringify(deliveryNotes));
+afterSuccessfulDNSave();
 }
 
 /* ---------- helpers ---------- */
@@ -6033,6 +6271,7 @@ function loadProductions(){
 }
 function saveProductions(){
   localStorage.setItem(KEY_PROD, JSON.stringify(productions || []));
+afterSuccessfulPRODSave();
 }
 
 function saveAllRM(){
@@ -6747,203 +6986,6 @@ window.Dashboard = window.Dashboard || {
     }
   }
 };
-/* =========================================================
-   ✅ AUTO DOCUMENT NUMBER GENERATOR (NO +1 ON REFRESH)
-   - peek: draft only (saved in localStorage so refresh won't +1)
-   - consume: commit ONLY after successful SAVE
-   - wire: auto-retries until inputs exist (works with openPage)
-========================================================= */
-
-const AutoDocNo = (() => {
-  const seqKey   = 'sms_auto_docno_v1';
-  const draftKey = 'sms_auto_docno_draft_v1';
-
-  const state  = JSON.parse(localStorage.getItem(seqKey) || '{}');    // { PREFIX: { YYYYMMDD: lastSeq } }
-  const drafts = JSON.parse(localStorage.getItem(draftKey) || '{}');  // { PREFIX: { YYYYMMDD: draftSeq } }
-
-  const save = () => {
-    localStorage.setItem(seqKey, JSON.stringify(state));
-    localStorage.setItem(draftKey, JSON.stringify(drafts));
-  };
-
-  const todayISO_safe = () =>
-    (typeof todayISO === 'function')
-      ? todayISO()
-      : new Date().toISOString().slice(0,10);
-
-  const dateKey = (iso) => String(iso || todayISO_safe()).trim().replace(/-/g, '');
-
-  const looksAuto = (val, prefix) => {
-    const re = new RegExp(`^${prefix}-\\d{8}-\\d{3,}$`, 'i');
-    return re.test(String(val || '').trim());
-  };
-
-  const maxSeqFromList = (values, prefix, dkey) => {
-    const re = new RegExp(`^${prefix}-${dkey}-(\\d+)$`, 'i');
-    let max = 0;
-    (values || []).forEach(v => {
-      const m = String(v || '').trim().match(re);
-      if (m) max = Math.max(max, parseInt(m[1], 10) || 0);
-    });
-    return max;
-  };
-
-  // reads existing numbers from your saved arrays (supports multiple possible field names)
-  const getExistingMax = (prefix, dkey) => {
-    const pickNo = (obj, keys) => {
-      for (const k of keys) {
-        const v = obj?.[k];
-        if (v != null && String(v).trim()) return String(v).trim();
-      }
-      return '';
-    };
-
-    const prodVals = (window.productions || []).map(p =>
-      pickNo(p, ['prodNo','productionNo','prNo','docNo','no','number'])
-    );
-
-    const boeVals  = (window.savedBills || []).map(b =>
-      pickNo(b, ['billNo','boeNo','grnNo','boeNumber','docNo','no','number'])
-    );
-
-    const dnVals   = (window.deliveryNotes || []).map(d =>
-      pickNo(d, ['dnNo','deliveryNo','dnNumber','docNo','no','number'])
-    );
-
-    return Math.max(
-      maxSeqFromList(prodVals, prefix, dkey),
-      maxSeqFromList(boeVals,  prefix, dkey),
-      maxSeqFromList(dnVals,   prefix, dkey)
-    );
-  };
-
-  const format = (prefix, isoDate, seq, pad=3) => {
-    const dkey = dateKey(isoDate);
-    return `${prefix}-${dkey}-${String(seq).padStart(pad, '0')}`;
-  };
-
-  // peek = create draft ONLY (no commit)
-  const peekSeq = (prefix, isoDate) => {
-    const dkey = dateKey(isoDate);
-
-    const draft = Number(drafts?.[prefix]?.[dkey] || 0);
-    if (draft) return draft;
-
-    const mapMax  = Number(state?.[prefix]?.[dkey] || 0);
-    const dataMax = getExistingMax(prefix, dkey);
-    const next = Math.max(mapMax, dataMax) + 1;
-
-    drafts[prefix] = drafts[prefix] || {};
-    drafts[prefix][dkey] = next;
-    save();
-
-    return next;
-  };
-
-  // consume = commit draft ONLY after successful save
-  const consume = (prefix, isoDate) => {
-    const dkey = dateKey(isoDate);
-    const draft = Number(drafts?.[prefix]?.[dkey] || 0);
-    if (!draft) return;
-
-    state[prefix] = state[prefix] || {};
-    state[prefix][dkey] = Math.max(Number(state[prefix][dkey] || 0), draft);
-
-    if (drafts[prefix]) delete drafts[prefix][dkey];
-    save();
-  };
-
-  const clearDraft = (prefix, isoDate) => {
-    const dkey = dateKey(isoDate);
-    if (drafts[prefix]) delete drafts[prefix][dkey];
-    save();
-  };
-
-  // set input number (draft) — generate only if empty OR force
-  const set = ({ inputId, dateId, prefix, pad=3, force=false }) => {
-    const input  = document.getElementById(inputId);
-    const dateEl = document.getElementById(dateId);
-    if (!input || !dateEl) return '';
-
-    if (!dateEl.value) dateEl.value = todayISO_safe();
-
-    const cur = String(input.value || '').trim();
-
-    // keep manual number unless force
-    if (!force && cur && !looksAuto(cur, prefix)) return cur;
-
-    // keep already auto number unless force
-    if (!force && cur && looksAuto(cur, prefix)) return cur;
-
-    const seq = peekSeq(prefix, dateEl.value);
-    const no  = format(prefix, dateEl.value, seq, pad);
-    input.value = no;
-    return no;
-  };
-
-  // prevent duplicate listeners
-  const wired = new Set();
-
-  // wire (with retry): works even if page is injected later
-  const wire = ({ inputId, dateId, prefix, pad=3, retries=30, interval=150, fillOnWire=true }) => {
-    const key = `${prefix}|${inputId}|${dateId}`;
-    if (wired.has(key)) return;
-    wired.add(key);
-
-    let tries = 0;
-
-    const attempt = () => {
-      const dateEl = document.getElementById(dateId);
-      const input  = document.getElementById(inputId);
-
-      if (!dateEl || !input) {
-        tries++;
-        if (tries <= retries) setTimeout(attempt, interval);
-        return;
-      }
-
-      // optional: show draft on screen (but still not committed)
-      if (fillOnWire) {
-        if (!dateEl.value) dateEl.value = todayISO_safe();
-        if (!String(input.value || '').trim()) set({ inputId, dateId, prefix, pad, force:true });
-      }
-
-      dateEl.addEventListener('change', () => {
-        clearDraft(prefix, dateEl.value);
-        // optional: clear input so it re-peeks for the new date
-        input.value = '';
-        // and show new draft immediately
-        set({ inputId, dateId, prefix, pad, force:true });
-      });
-    };
-
-    attempt();
-  };
-
-  return { set, wire, consume, clearDraft, looksAuto };
-})();
-function initAutoBOE(){
-  AutoDocNo.wire({ inputId:'boeNo', dateId:'boeDate', prefix:'GRN', pad:3, fillOnWire:true });
-}
-function initAutoDN(){
-  AutoDocNo.wire({ inputId:'dnNo', dateId:'dnDate', prefix:'DN', pad:3, fillOnWire:true });
-}
-function initAutoPROD(){
-  AutoDocNo.wire({ inputId:'prodNo', dateId:'prodDate', prefix:'PR', pad:3, fillOnWire:true });
-}
-function ensureDocNoOnSave({ inputId, dateId, prefix, pad=3 }) {
-  const input = document.getElementById(inputId);
-  const dateEl = document.getElementById(dateId);
-  if (!input || !dateEl) return '';
-
-  if (!dateEl.value) dateEl.value = (typeof todayISO==='function' ? todayISO() : new Date().toISOString().slice(0,10));
-
-  const cur = String(input.value || '').trim();
-  if (cur) return cur;
-
-  AutoDocNo.set({ inputId, dateId, prefix, pad, force:true });
-  return String(input.value || '').trim();
-}
 
 
 /* =========================

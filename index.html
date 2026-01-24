@@ -2007,7 +2007,7 @@ if(pageId === 'billEntry'){
   if(!document.getElementById('boeDate').value) document.getElementById('boeDate').value = todayISO();
 
   // ✅ AUTO BOE NUMBER
-  initAutoBOE(false);
+  initAutoBOE();
 
   if(!document.getElementById('boeItemsBody').children.length) boeAddRow();
   BOE.renderTable();
@@ -2019,14 +2019,14 @@ if(pageId === 'productionAuto'){
 
   // ✅ AUTO PRODUCTION NUMBER
   if(!document.getElementById('prodDate').value) document.getElementById('prodDate').value = todayISO();
-  initAutoPROD(false);
+  initAutoPROD();
 }
 
 if(pageId === 'rmDeliveryNote'){
   if(!document.getElementById('dnDate').value) document.getElementById('dnDate').value = todayISO();
 
   // ✅ AUTO DN NUMBER
-  initAutoDN(false);
+  initAutoDN();
 
   if(!document.getElementById('dnItemsBody').children.length) dnAddRow();
   renderDNTable();
@@ -3031,11 +3031,6 @@ function buildDashMoveChart(moves){
   });
 }
 
-function escapeHtml(s){
-  return String(s ?? '').replace(/[&<>"']/g, m => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  }[m]));
-}
 
 /* =========================
    ✅ FG FILTER + CHART
@@ -3362,37 +3357,60 @@ window.BOE = (() => {
    ✅ QTY PER FG (RM BOM CONSUMPTION)
 ========================= */
 
-// Convert any input to a safe number (default 1)
 function asQtyPerFG(v, def = 1){
   const n = Number(v);
   if(!isFinite(n) || n <= 0) return def;
   return n;
 }
 
-// ✅ One-time migration: ensure every RM has qtyPerFG
 function ensureQtyPerFGOnProducts(){
-  if(!Array.isArray(products)) return;
+  const list = Array.isArray(window.products) ? window.products : null;
+  if(!list) return;
 
   let changed = false;
-  products.forEach(p=>{
-    if(p && (p.qtyPerFG == null || !isFinite(Number(p.qtyPerFG)) || Number(p.qtyPerFG) <= 0)){
+
+  list.forEach(p => {
+    if(!p) return;
+    const q = Number(p.qtyPerFG);
+
+    if(p.qtyPerFG == null || !isFinite(q) || q <= 0){
       p.qtyPerFG = 1;
       changed = true;
     }else{
-      p.qtyPerFG = asQtyPerFG(p.qtyPerFG, 1);
+      const fixed = asQtyPerFG(p.qtyPerFG, 1);
+      if(fixed !== q){
+        p.qtyPerFG = fixed;
+        changed = true;
+      }
     }
   });
 
-  if(changed){
-    saveAll?.();      // your RM save (KEY_PRODUCTS + KEY_MOVES)
-    autoPushToCloud?.();
-    console.log("✅ qtyPerFG migrated on RM products");
+  if(!changed) return;
+
+  // ✅ save local
+  if(typeof window.saveAll === "function") window.saveAll();
+
+  // ✅ push only if cloud module is ready
+  if(typeof window.autoPushToCloud === "function"){
+    try{
+      const maybePromise = window.autoPushToCloud();
+      // swallow async errors so migration never breaks the page
+      if(maybePromise && typeof maybePromise.catch === "function"){
+        maybePromise.catch(err => console.warn("autoPushToCloud failed (migration):", err));
+      }
+    }catch(err){
+      console.warn("autoPushToCloud threw (migration):", err);
+    }
   }
+
+  console.log("✅ qtyPerFG migrated on RM products");
 }
 
-// call once after products loaded
-ensureQtyPerFGOnProducts();
-
+// call once after products loaded// ✅ call once after the app has loaded products + cloud helpers
+document.addEventListener("DOMContentLoaded", () => {
+  // optional: delay 0ms to let other inline scripts finish
+  setTimeout(() => ensureQtyPerFGOnProducts(), 0);
+});
 
   // ---------- RM Search dropdown per row (must pick) ----------
   function initRowSearch(tr){
@@ -4126,10 +4144,10 @@ function boeAddRow(){
 function submitBillEntry(){
   BOE.submit();                 // BOE.submit already calls BOE.saveBills()
   autoPushToCloud();            // ✅ push bills + everything
-afterSuccessfulBOESave();
+
 
 }
-
+afterSuccessfulBOESave();
 
 function resetBillEntryForm(){ BOE.resetForm(); }
 function renderBillsTable(){
@@ -4303,7 +4321,7 @@ function renderBOM(){
                  oninput="calcNetUsed(this)">
         </td>
 
-        <td class="text-end netUsed">${Number(req.toFixed(6))}</td>
+<td class="text-end netUsed">${netUsedIntRule(req)}</td>
 
         <td class="text-muted small">
           Bal: <span class="rmBal">${Number(computeBalance(rm.id) || 0)}</span>
@@ -4320,16 +4338,46 @@ function calcNetUsed(el){
   if(!tr) return;
 
   const req = Number(tr.querySelector('.reqQty')?.textContent || 0);
-  let dmg = Number(tr.querySelector('.damQty')?.value || 0);
+  let dmg   = Number(tr.querySelector('.damQty')?.value || 0);
 
   if(dmg < 0) dmg = 0;
   if(dmg > req) dmg = req;
 
   tr.querySelector('.damQty').value = String(dmg);
-  const net = Math.max(0, req - dmg);
-  tr.querySelector('.netUsed').textContent = Number(net.toFixed(6));
+
+  const netRaw   = Math.max(0, req - dmg);
+  const netFinal = netUsedIntRule(netRaw);   // ✅ your .8 rule
+
+  tr.querySelector('.netUsed').textContent = String(netFinal);
 }
 window.calcNetUsed = calcNetUsed;
+
+function netUsedIntRule(v){
+  const n = Number(v) || 0;
+  if(n <= 0) return 0;
+
+  const whole = Math.floor(n);
+  const frac  = n - whole;
+
+  // > 0.8 => +1, otherwise +0
+  return whole + (frac > 0.8 ? 1 : 0);
+}
+
+
+function collectRMLines(){
+  const rows = [...document.querySelectorAll('#prodBOMBody tr[data-rm]')];
+  return rows.map(tr=>{
+    const rmId = String(tr.dataset.rm || '').trim();
+    const req  = Number(tr.querySelector('.reqQty')?.textContent || 0);
+    const dmg  = Number(tr.querySelector('.damQty')?.value || 0);
+
+    // ✅ use integer net for movements + validation
+    const netRaw = Math.max(0, req - dmg);
+    const net = Math.round(netRaw);
+
+    return { rmId, req, dmg, net };
+  }).filter(l => l.rmId);
+}
 
 /* ---------- Collect RM Lines from Table ---------- */
 function collectRMLines(){
@@ -4879,9 +4927,9 @@ let deliveryNotes = JSON.parse(localStorage.getItem(KEY_DN) || '[]');
 
 function saveDeliveryNotes(){
   localStorage.setItem(KEY_DN, JSON.stringify(deliveryNotes));
-afterSuccessfulDNSave();
-}
 
+}
+afterSuccessfulDNSave();
 /* ---------- helpers ---------- */
 function dnGenId(){
   return (typeof genId === 'function')
@@ -6406,9 +6454,9 @@ function loadProductions(){
 }
 function saveProductions(){
   localStorage.setItem(KEY_PROD, JSON.stringify(productions || []));
-afterSuccessfulPRODSave();
-}
 
+}
+afterSuccessfulPRODSave();
 function saveAllRM(){
   normalizeRMGlobals();
 

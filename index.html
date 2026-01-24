@@ -1335,14 +1335,17 @@ body.sm-on-dashboard #dashboardPage .dash-topbar-inner{
         <div class="table-responsive">
           <table class="table table-sm table-hover align-middle mb-0">
             <thead class="table-light">
-              <tr>
-                <th style="min-width:240px">RM Product</th>
-                <th class="text-end" style="min-width:120px">Required</th>
-                <th class="text-end" style="min-width:140px">Damage</th>
-                <th class="text-end" style="min-width:120px">Net Used</th>
-                <th class="text-muted small">Balance</th>
-              </tr>
-            </thead>
+  <tr>
+    <th>RM</th>
+    <th class="text-end">Required</th>
+    <th class="text-end">Damage</th>
+<th class="text-end">Actual qty</th>
+    <th class="text-end">Used qty</th>
+    
+    <th class="text-end">Balance</th>
+  </tr>
+</thead>
+
             <tbody id="prodBOMBody">
               <tr><td colspan="5" class="text-muted">Select FG to load BOM.</td></tr>
             </tbody>
@@ -4281,23 +4284,24 @@ function renderBOM(){
 
   body.innerHTML = '';
 
+  // ✅ 6 columns now (Name, Req, Damage, Net Used, Used RM, Balance)
   if(!fgId){
-    body.innerHTML = `<tr><td colspan="5" class="text-muted">Select FG product</td></tr>`;
+    body.innerHTML = `<tr><td colspan="6" class="text-muted">Select FG product</td></tr>`;
     return;
   }
 
   const { fg, key, list } = getBOMRMForFG(fgId);
 
   if(!fg){
-    body.innerHTML = `<tr><td colspan="5" class="text-muted">FG not found</td></tr>`;
+    body.innerHTML = `<tr><td colspan="6" class="text-muted">FG not found</td></tr>`;
     return;
   }
   if(!key){
-    body.innerHTML = `<tr><td colspan="5" class="text-muted">This FG has no group set</td></tr>`;
+    body.innerHTML = `<tr><td colspan="6" class="text-muted">This FG has no group set</td></tr>`;
     return;
   }
   if(!list.length){
-    body.innerHTML = `<tr><td colspan="5" class="text-muted">
+    body.innerHTML = `<tr><td colspan="6" class="text-muted">
       No RM found in group: <b>${escapeHtml(key)}</b><br>
       (Add same group inside RM → Groups field)
     </td></tr>`;
@@ -4305,32 +4309,77 @@ function renderBOM(){
   }
 
   list.forEach(rm=>{
-    // qtyPerFG optional. If not present, default 1
     const per = Number(rm.qtyPerFG || 1);
     const req = per * fgQty;
 
+    const reqDisplay = Number(req.toFixed(6));
+    const netDefault = toUsedIntRule(reqDisplay);
+
     body.insertAdjacentHTML('beforeend', `
       <tr data-rm="${escapeHtml(String(rm.id))}">
-        <td><b>${escapeHtml(rm.name || 'Unknown')}</b></td>
+        <!-- RM name -->
+        <td class="align-middle">
+          <div class="fw-semibold">${escapeHtml(rm.name || 'Unknown')}</div>
+          <div class="text-muted small">Per FG: ${Number(per)}</div>
+        </td>
 
-        <td class="text-end reqQty">${Number(req.toFixed(6))}</td>
+        <!-- Required -->
+        <td class="text-end align-middle reqQty">
+          <span class="d-inline-block" style="min-width:90px;">${reqDisplay}</span>
+        </td>
 
-        <td class="text-end">
-          <input class="form-control form-control-sm damQty"
+        <!-- Damage -->
+        <td class="text-end align-middle">
+          <input class="form-control form-control-sm damQty text-end ms-auto"
+                 style="width:110px"
                  type="number" min="0" step="0.0001" value="0"
                  oninput="calcNetUsed(this)">
         </td>
 
-<td class="text-end netUsed">${netUsedIntRule(req)}</td>
+        <!-- Net Used (auto) -->
+        <td class="text-end align-middle netUsed">
+          <span class="d-inline-block" style="min-width:70px;">${netDefault}</span>
+        </td>
 
-        <td class="text-muted small">
-          Bal: <span class="rmBal">${Number(computeBalance(rm.id) || 0)}</span>
+        <!-- Used RM (editable) -->
+        <td class="text-end align-middle">
+          <input class="form-control form-control-sm usedRmQty text-end ms-auto"
+                 style="width:110px"
+                 type="number" min="0" step="1"
+                 value="${netDefault}"
+                 oninput="markUsedEdited(this)">
+        </td>
+
+        <!-- Balance -->
+        <td class="text-end align-middle text-muted small">
+          <span class="d-inline-block" style="min-width:100px;">
+            Bal: <span class="rmBal">${Number(computeBalance(rm.id) || 0)}</span>
+          </span>
         </td>
       </tr>
     `);
   });
 }
 window.renderBOM = renderBOM;
+function toUsedIntRule(x){
+  const n = Number(x);
+  if(!isFinite(n) || n < 0) return 0;
+  const base = Math.floor(n);
+  const frac = n - base;
+  return (frac >= 0.8) ? (base + 1) : base;
+}
+function markUsedEdited(input){
+  const tr = input.closest('tr');
+  if(!tr) return;
+
+  tr.dataset.usedEdited = "1";
+
+  // clamp to integer >= 0
+  let v = Number(input.value || 0);
+  if(!isFinite(v) || v < 0) v = 0;
+  input.value = String(Math.round(v));
+}
+window.markUsedEdited = markUsedEdited;
 
 /* ---------- UI: Net used calc ---------- */
 function calcNetUsed(el){
@@ -4346,9 +4395,16 @@ function calcNetUsed(el){
   tr.querySelector('.damQty').value = String(dmg);
 
   const netRaw   = Math.max(0, req - dmg);
-  const netFinal = netUsedIntRule(netRaw);   // ✅ your .8 rule
+  const netFinal = toUsedIntRule(netRaw);
 
+  // ✅ Net Used display (not editable)
   tr.querySelector('.netUsed').textContent = String(netFinal);
+
+  // ✅ Used RM default follows Net Used ONLY until user edits it
+  const usedInput = tr.querySelector('.usedRmQty');
+  if(usedInput && tr.dataset.usedEdited !== "1"){
+    usedInput.value = String(netFinal);
+  }
 }
 window.calcNetUsed = calcNetUsed;
 
@@ -4364,81 +4420,109 @@ function netUsedIntRule(v){
 }
 
 
+/* ---------- Collect RM Lines (READ Used RM column) ---------- */
 function collectRMLines(){
   const rows = [...document.querySelectorAll('#prodBOMBody tr[data-rm]')];
+
   return rows.map(tr=>{
     const rmId = String(tr.dataset.rm || '').trim();
-    const req  = Number(tr.querySelector('.reqQty')?.textContent || 0);
-    const dmg  = Number(tr.querySelector('.damQty')?.value || 0);
 
-    // ✅ use integer net for movements + validation
-    const netRaw = Math.max(0, req - dmg);
-    const net = Math.round(netRaw);
+    const req = Number(tr.querySelector('.reqQty')?.textContent || 0);
+    let dmg   = Number(tr.querySelector('.damQty')?.value || 0);
 
-    return { rmId, req, dmg, net };
-  }).filter(l => l.rmId);
+    // clamp damage
+    if(!isFinite(dmg) || dmg < 0) dmg = 0;
+    if(dmg > req) dmg = req;
+
+    // ✅ USED comes from the NEW input column
+    const usedEl = tr.querySelector('.usedRmQty');
+    let used = Number(usedEl?.value ?? 0);
+
+    if(!isFinite(used) || used < 0) used = 0;
+
+    // force integer (because you want 0 / 1 etc.)
+    used = Math.round(used);
+
+    // also ensure used cannot exceed req (optional)
+    if(used > req) used = Math.round(req);
+
+    // write back normalized value
+    if(usedEl) usedEl.value = String(used);
+
+    return { rmId, req, dmg, used };
+  }).filter(x => x.rmId);
 }
+window.collectRMLines = collectRMLines;
+
 
 /* ---------- Collect RM Lines from Table ---------- */
 function collectRMLines(){
   const rows = [...document.querySelectorAll('#prodBOMBody tr[data-rm]')];
+
   return rows.map(tr=>{
     const rmId = String(tr.dataset.rm || '').trim();
+
     const req  = Number(tr.querySelector('.reqQty')?.textContent || 0);
     const dmg  = Number(tr.querySelector('.damQty')?.value || 0);
-    const net  = Number((req - dmg).toFixed(6));
-    return { rmId, req, dmg, net };
+
+    // ✅ READ USED RM COLUMN (editable input)
+    const usedInput = tr.querySelector('.usedRmQty');
+    let used = Number(usedInput?.value || 0);
+
+    if(!isFinite(used) || used < 0) used = 0;
+    used = Math.round(used); // force integer
+
+    return { rmId, req, dmg, used };
   }).filter(l => l.rmId);
 }
+window.collectRMLines = collectRMLines;
 
-/* ---------- Validation ---------- */
-function validateProductionInput(prodNo, fgId, fgQty, rmLines){
-  if(!prodNo) return "Production No required";
-  if(!fgId) return "Select FG product";
-  if(!(fgQty > 0)) return "FG Qty must be > 0";
-  if(!rmLines.length) return "No BOM rows found";
 
-  for(const l of rmLines){
-    if(l.dmg < 0) return "Damage cannot be negative";
-    if(l.dmg > l.req) return "Damage cannot exceed Required";
-
-    // Only validate balance for net used (req - dmg)
-    if(l.net > 0){
-      const bal = Number(computeBalance(l.rmId) || 0);
-      if(l.net > bal){
-        const p = products.find(x => x.id === l.rmId);
-        return `RM stock insufficient: ${p?.name || 'RM'} (Bal ${bal})`;
-      }
-    }
-  }
-  return "";
-}
 
 /* ---------- SUBMIT PRODUCTION (THE MAIN ONE) ---------- */
 function submitProduction(){
-  if(!canProduction()){
-    showToast("No permission to create production", true);
+  // ---------- permission ----------
+  if(typeof canProduction === 'function' && !canProduction()){
+    showToast?.("No permission to create production", true);
     return;
   }
 
+  // ---------- inputs ----------
   const prodNo   = String(document.getElementById('prodNo')?.value || '').trim();
-  const prodDate = String(document.getElementById('prodDate')?.value || todayISO());
+  const prodDate = String(document.getElementById('prodDate')?.value || (todayISO?.() || '')).trim();
   const fgId     = String(document.getElementById('prodFG')?.value || '').trim();
   const fgQty    = Number(document.getElementById('prodFGQty')?.value || 0);
   const remark   = String(document.getElementById('prodRemark')?.value || '').trim();
 
-  const rmLines = collectRMLines();
+  const rmLines  = (typeof collectRMLines === 'function') ? collectRMLines() : [];
 
-  const err = validateProductionInput(prodNo, fgId, fgQty, rmLines);
+  // ---------- validate ----------
+  const err = (typeof validateProductionInput === 'function')
+    ? validateProductionInput(prodNo, fgId, fgQty, rmLines)
+    : "";
+
   if(err){
-    showToast(err, true);
+    showToast?.(err, true);
     return;
   }
 
-  const fg = (fgProducts || []).find(x => x.id === fgId);
-  const productionId = 'prod_' + genId();
+  // ---------- resolve fg ----------
+  const fgList = Array.isArray(window.fgProducts) ? window.fgProducts : (Array.isArray(fgProducts) ? fgProducts : []);
+  const fg = fgList.find(x => String(x?.id) === String(fgId));
 
-  // 1) Save production record
+  const _genId = () => (typeof genId === 'function')
+    ? genId()
+    : (Date.now().toString(16) + Math.random().toString(16).slice(2));
+
+  const productionId = 'prod_' + _genId();
+
+  // ---------- ensure state arrays ----------
+  window.productions   = Array.isArray(window.productions) ? window.productions : (Array.isArray(productions) ? productions : []);
+  window.fgMovements   = Array.isArray(window.fgMovements) ? window.fgMovements : (Array.isArray(fgMovements) ? fgMovements : []);
+  window.products      = Array.isArray(window.products) ? window.products : (Array.isArray(products) ? products : []);
+  window.stockMovements= Array.isArray(window.stockMovements) ? window.stockMovements : (Array.isArray(stockMovements) ? stockMovements : []);
+
+  // ---------- 1) production record ----------
   const record = {
     id: productionId,
     prodNo,
@@ -4447,110 +4531,104 @@ function submitProduction(){
     fgName: fg?.name || '',
     fgQty,
     remark,
-    rmLines: rmLines.map(({rmId, req, dmg}) => ({ rmId, req, dmg })), // store clean
-    createdAt: nowISO?.() || new Date().toISOString(),
-    createdBy: who?.() || (currentUser?.username || '')
+    rmLines: (rmLines || []).map(({ rmId, req, dmg, used }) => ({
+      rmId,
+      req: Number(req || 0),
+      dmg: Number(dmg || 0),
+      used: Math.round(Number(used || 0)) // ✅ keep used
+    })),
+    createdAt: (typeof nowISO === 'function') ? nowISO() : new Date().toISOString(),
+    createdBy: (typeof who === 'function') ? who() : (window.currentUser?.username || '')
   };
 
-  productions.push(record);
+  window.productions.push(record);
 
-  // 2) FG IN movement
-  fgMovements.push({
-    id: genId(),
+  // ---------- 2) FG IN ----------
+  window.fgMovements.push({
+    id: _genId(),
     fgId,
     type: 'IN',
     qty: fgQty,
     date: prodDate,
     remark: `PROD ${prodNo}${remark ? ' - ' + remark : ''}`,
     productionId,
-    createdAt: nowISO?.() || new Date().toISOString(),
-    createdBy: who?.() || (currentUser?.username || '')
+    createdAt: (typeof nowISO === 'function') ? nowISO() : new Date().toISOString(),
+    createdBy: (typeof who === 'function') ? who() : (window.currentUser?.username || '')
   });
 
-    // 3) RM OUT movements
-// 3) RM OUT movements  ✅ (always write into window.stockMovements)
-normalizeRMGlobals(); // ✅ important
-
-const rmMoves = window.stockMovements;
-const rmList  = window.products;
-
-rmLines.forEach(l=>{
-  const rmProd = rmList.find(x => String(x.id) === String(l.rmId));
-  const rmName = rmProd?.name || 'RM';
-
-  const usedQty   = Number((l.net || 0).toFixed(6));
-  const damageQty = Number((l.dmg || 0).toFixed(6));
-
-  // net used
-  if(usedQty > 0){
-    const mvId = genId();
-
-    rmMoves.push({
-      id: mvId,
-      productId: l.rmId,        // ✅ common key
-      productID: l.rmId,        // ✅ fallback if other code uses productID
-      type: 'OUT',
-
-      qty: usedQty,             // ✅ support computeBalance expecting qty
-      quantity: usedQty,        // ✅ support computeBalance expecting quantity
-
-      date: prodDate,
-      remark: `PROD ${prodNo} RM Used - ${rmName}`,
-      productionId,
-      createdAt: nowISO?.() || new Date().toISOString(),
-      createdBy: who?.() || (currentUser?.username || '')
-    });
-
-    // ✅ audit safe (won't crash if missing)
-    window.logChange?.("RM_OUT", l.rmId, {
-      productionId, prodNo, date: prodDate, rm: rmName, qty: usedQty, kind: "USED"
-    });
+  // ---------- 3) RM OUT (USED decides) ----------
+  if(typeof normalizeRMGlobals === 'function'){
+    normalizeRMGlobals();
   }
 
-  // damage out
-  if(damageQty > 0){
-    const mvId2 = genId();
+  // re-point after normalize
+  window.products       = Array.isArray(window.products) ? window.products : [];
+  window.stockMovements = Array.isArray(window.stockMovements) ? window.stockMovements : [];
 
-    rmMoves.push({
-      id: mvId2,
-      productId: l.rmId,
-      productID: l.rmId,
-      type: 'OUT',
+  const rmMoves = window.stockMovements;
+  const rmList  = window.products;
 
-      qty: damageQty,
-      quantity: damageQty,
+  (rmLines || []).forEach(l=>{
+    const rmId = String(l?.rmId || '').trim();
+    if(!rmId) return;
 
-      date: prodDate,
-      remark: `PROD ${prodNo} RM Damage - ${rmName}`,
-      productionId,
-      createdAt: nowISO?.() || new Date().toISOString(),
-      createdBy: who?.() || (currentUser?.username || '')
-    });
+    const rmProd = rmList.find(x => String(x?.id) === rmId);
+    const rmName = rmProd?.name || 'RM';
 
-    window.logChange?.("RM_OUT", l.rmId, {
-      productionId, prodNo, date: prodDate, rm: rmName, qty: damageQty, kind: "DAMAGE"
-    });
- 
+    const usedQty   = Math.round(Number(l?.used || 0));                 // ✅ USED column
+    const damageQty = Number((Number(l?.dmg || 0)).toFixed(6));         // damage can be decimal
 
-
-// ✅ keep local vars synced too (in case other code reads locals)
-try{ stockMovements = window.stockMovements; }catch(e){}
-
-
-      // ✅ audit
-      logChange("RM_OUT", l.rmId, {
-        productionId,
-        prodNo,
+    // ✅ USED OUT (only if > 0)
+    if(usedQty > 0){
+      rmMoves.push({
+        id: _genId(),
+        productId: rmId,
+        productID: rmId,
+        type: 'OUT',
+        qty: usedQty,
+        quantity: usedQty,
         date: prodDate,
-        rm: rmName,
-        qty: Number(l.dmg.toFixed(6)),
-        kind: "DAMAGE"
+        remark: `PROD ${prodNo} RM Used - ${rmName}`,
+        productionId,
+        createdAt: (typeof nowISO === 'function') ? nowISO() : new Date().toISOString(),
+        createdBy: (typeof who === 'function') ? who() : (window.currentUser?.username || '')
+      });
+
+      window.logChange?.("RM_OUT", rmId, {
+        productionId, prodNo, date: prodDate, rm: rmName, qty: usedQty, kind: "USED"
+      });
+    }
+
+    // ✅ DAMAGE OUT (only if > 0)
+    if(damageQty > 0){
+      rmMoves.push({
+        id: _genId(),
+        productId: rmId,
+        productID: rmId,
+        type: 'OUT',
+        qty: damageQty,
+        quantity: damageQty,
+        date: prodDate,
+        remark: `PROD ${prodNo} RM Damage - ${rmName}`,
+        productionId,
+        createdAt: (typeof nowISO === 'function') ? nowISO() : new Date().toISOString(),
+        createdBy: (typeof who === 'function') ? who() : (window.currentUser?.username || '')
+      });
+
+      window.logChange?.("RM_OUT", rmId, {
+        productionId, prodNo, date: prodDate, rm: rmName, qty: damageQty, kind: "DAMAGE"
       });
     }
   });
 
-  // ✅ also log FG IN (nice for audit)
-  logChange("FG_IN", fgId, {
+  // ---------- keep locals synced (optional) ----------
+  try{ productions     = window.productions; }catch(e){}
+  try{ fgMovements     = window.fgMovements; }catch(e){}
+  try{ products        = window.products; }catch(e){}
+  try{ stockMovements  = window.stockMovements; }catch(e){}
+
+  // ---------- audit FG IN ----------
+  window.logChange?.("FG_IN", fgId, {
     productionId,
     prodNo,
     date: prodDate,
@@ -4558,18 +4636,17 @@ try{ stockMovements = window.stockMovements; }catch(e){}
     qty: fgQty
   });
 
+  // ---------- 4) persist local ----------
+  window.saveProductions?.();
+  window.saveAllRM?.();
+  window.saveFG?.();
 
-  // 4) Persist (local)
-  saveProductions();
-  saveAllRM();
-  saveFG();
+  // ---------- 5) persist cloud ----------
+  window.autoPushToCloud?.();
 
-  // 5) Persist (cloud) — VERY IMPORTANT so autoPull doesn't wipe your RM OUT
-  autoPushToCloud?.();
-
-  // 6) UI
-  refreshAll?.();
-  showToast("Production saved ✅");
+  // ---------- 6) UI ----------
+  window.refreshAll?.();
+  showToast?.("Production saved ✅");
 
   // reset form
   const prodNoEl = document.getElementById('prodNo');
@@ -4579,18 +4656,66 @@ try{ stockMovements = window.stockMovements; }catch(e){}
   const bomBody  = document.getElementById('prodBOMBody');
 
   if(prodNoEl) prodNoEl.value = '';
-  if(remEl) remEl.value = '';
-  if(fgEl) fgEl.value = '';
-  if(qtyEl) qtyEl.value = 1;
-  if(bomBody) bomBody.innerHTML = `<tr><td colspan="5" class="text-muted">Select FG product</td></tr>`;
+  if(remEl)    remEl.value = '';
+  if(fgEl)     fgEl.value = '';
+  if(qtyEl)    qtyEl.value = 1;
 
-  // go to records page if you use it
-  openPage?.('pageProductionRecords');
-  renderProductionsTable?.();
+  // 6 columns: Name, Req, Damage, NetUsed, UsedRM, Bal
+  if(bomBody)  bomBody.innerHTML = `<tr><td colspan="6" class="text-muted">Select FG product</td></tr>`;
+
+  window.openPage?.('pageProductionRecords');
+  window.renderProductionsTable?.();
 }
 window.submitProduction = submitProduction;
 
-/* ---------- TABLE: Production Records ---------- */
+
+/* ---------- DELETE: Production Record ---------- */
+function deleteProduction(prodId){
+  const id = String(prodId || '').trim();
+  if(!id) return;
+
+  const p = (window.productions || []).find(x => String(x.id) === id);
+  if(!p){
+    showToast?.("Production not found", true);
+    return;
+  }
+
+  // confirm
+  const ok = confirm(`Delete production ${p.prodNo || ''}?\n\nThis will remove:\n- Production record\n- FG IN movement(s) linked to it\n- RM OUT movement(s) linked to it`);
+  if(!ok) return;
+
+  // 1) remove production record
+  window.productions = (window.productions || []).filter(x => String(x.id) !== id);
+  try{ productions = window.productions; }catch(e){}
+
+  // 2) remove FG movements linked to production
+  if(Array.isArray(window.fgMovements)){
+    window.fgMovements = window.fgMovements.filter(m => String(m.productionId || '') !== id);
+    try{ fgMovements = window.fgMovements; }catch(e){}
+  }
+
+  // 3) remove RM movements linked to production
+  normalizeRMGlobals?.();
+  if(Array.isArray(window.stockMovements)){
+    window.stockMovements = window.stockMovements.filter(m => String(m.productionId || '') !== id);
+    try{ stockMovements = window.stockMovements; }catch(e){}
+  }
+
+  // 4) persist
+  saveProductions?.();
+  saveAllRM?.();     // RM local save
+  saveFG?.();        // FG local save + FG cloud push (your helper)
+  autoPushToCloud?.(); // RM cloud push (your helper)
+
+  // 5) UI
+  renderProductionsTable?.();
+  refreshAll?.();
+  showToast?.("Production deleted ✅");
+}
+window.deleteProduction = deleteProduction;
+
+
+/* ---------- TABLE: Production Records (with Delete button) ---------- */
 function renderProductionsTable(){
   const tb = document.getElementById('prodTableBody');
   if(!tb) return;
@@ -4598,9 +4723,10 @@ function renderProductionsTable(){
   const list = Array.isArray(window.productions) ? window.productions : [];
   const rows = list.slice().sort((a,b)=> (b.date||'').localeCompare(a.date||''));
 
-  tb.innerHTML = rows.length ? '' : `<tr><td colspan="7" class="muted">No production records</td></tr>`;
+  tb.innerHTML = rows.length ? '' : `<tr><td colspan="8" class="muted">No production records</td></tr>`;
 
   rows.forEach(p=>{
+    const pid = escapeHtml(String(p.id||''));
     tb.insertAdjacentHTML('beforeend', `
       <tr>
         <td>${escapeHtml(p.date||'')}</td>
@@ -4609,10 +4735,11 @@ function renderProductionsTable(){
         <td class="right">${Number(p.fgQty||0)}</td>
         <td class="right">${(p.rmLines||[]).length}</td>
         <td>${escapeHtml(p.createdBy||'')}</td>
-        <td>
-          <button class="btn btn-sm btn-outline-secondary" onclick="viewProduction('${escapeHtml(p.id)}')">
-            View
-          </button>
+        <td class="text-end">
+          <div class="btn-group btn-group-sm" role="group">
+            <button class="btn btn-outline-secondary" onclick="viewProduction('${pid}')">View</button>
+            <button class="btn btn-outline-danger" onclick="deleteProduction('${pid}')">Delete</button>
+          </div>
         </td>
       </tr>
     `);

@@ -919,8 +919,8 @@ body.sm-on-dashboard #dashboardPage .dash-topbar-inner{
         <table id="productsTable" class="table table-sm table-hover align-middle">
           <thead class="table-light">
           <tr>
-            <th>#</th><th>Code</th><th>Name</th><th>Category</th><th>Balance</th>
-            <th>Threshold</th><th>Barcode</th><th>History</th><th>Edit</th><th>Delete</th>
+            <th>#</th><th>Code</th><th>Name</th><th>Balance</th>
+            <th>Barcode</th><th>History</th><th>Edit</th><th>Delete</th>
           </tr>
           </thead>
           <tbody></tbody>
@@ -1339,7 +1339,7 @@ body.sm-on-dashboard #dashboardPage .dash-topbar-inner{
     <th>RM</th>
     <th class="text-end">Required</th>
     <th class="text-end">Damage</th>
-<th class="text-end">Actual qty</th>
+
     <th class="text-end">Used qty</th>
     
     <th class="text-end">Balance</th>
@@ -4336,10 +4336,7 @@ function renderBOM(){
                  oninput="calcNetUsed(this)">
         </td>
 
-        <!-- Net Used (auto) -->
-        <td class="text-end align-middle netUsed">
-          <span class="d-inline-block" style="min-width:70px;">${netDefault}</span>
-        </td>
+       
 
         <!-- Used RM (editable) -->
         <td class="text-end align-middle">
@@ -4958,17 +4955,21 @@ function viewProduction(id){
     return;
   }
 
-  const lines = (p.rmLines || []).map(l=>{
-    const rm = products.find(x=>x.id===l.rmId);
-    const net = Number((Number(l.req||0) - Number(l.dmg||0)).toFixed(6)); // net used
-    return `
-      <tr>
-        <td>${escapeHtml(rm?.name || 'Unknown')}</td>
-        <td class="text-end"><b>${net}</b></td>
-        <td class="text-end">${Number(l.dmg || 0)}</td>
-      </tr>
-    `;
-  }).join('') || `<tr><td colspan="3" class="text-muted">No lines</td></tr>`;
+const lines = (p.rmLines || []).map(l=>{
+  const rm = (window.products || products || []).find(x => String(x.id) === String(l.rmId));
+
+  // ✅ show USED (editable used RM), not net(req-dmg)
+  const used = Math.round(Number(l.used || 0));
+  const dmg  = Number(l.dmg || 0);
+
+  return `
+    <tr>
+      <td>${escapeHtml(rm?.name || 'Unknown')}</td>
+      <td class="text-end"><b>${used}</b></td>
+      <td class="text-end">${dmg}</td>
+    </tr>
+  `;
+}).join('') || `<tr><td colspan="3" class="text-muted">No lines</td></tr>`;
 
   // ✅ fallback modal ids (supports both your modalTitle2 or modalTitle)
   const modal = document.getElementById('modal');
@@ -4994,7 +4995,7 @@ function viewProduction(id){
             <thead class="table-light">
               <tr>
                 <th>RM</th>
-                <th class="text-end">Net Used</th>
+                <th class="text-end">Used QTY</th>
                 <th class="text-end">Damage</th>
               </tr>
             </thead>
@@ -5791,9 +5792,9 @@ function renderProductsTable(){
         <td>${i++}</td>
         <td>${escapeHtml(p.code||'')}</td>
         <td>${escapeHtml(p.name||'')}</td>
-        <td>${escapeHtml(p.category||'')}</td>
+	<td class="admin-only">${escapeHtml(p.category||'')}</td>
         <td>${bal}</td>
-        <td>${Number(p.threshold ?? 5)}</td>
+        <td class="admin-only text-end">${Number(p.threshold ?? 5)}</td>
         <td>${escapeHtml(p.barcode||'')}</td>
         <td><button class="btn secondary" onclick="openHistory('${p.id}')">History</button></td>
         <td><button class="btn secondary btn-edit " onclick="editProduct('${p.id}')">Edit</button></td>

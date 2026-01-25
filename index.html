@@ -889,6 +889,7 @@ body.sm-on-dashboard #dashboardPage .dash-topbar-inner{
             </div>
           </div>
           <div class="dash-panel-body" style="display:grid; gap:10px;">
+
 <button class="dash-btn primary" onclick="openPage('products')">📦 RM Items</button>
 <button class="dash-btn primary" onclick="openPage('fgStock')">🏭 FG Items</button>
 <button class="dash-btn" onclick="openPage('suppliers')">👤 Suppliers</button>
@@ -2582,6 +2583,19 @@ async function addUser(){
   showToast("User added ✅");
   renderUsersTable();
 }
+function closeStockModal(){
+  // Close whichever history modal is currently open
+  const inM  = document.getElementById('stockInHistoryModal');
+  const outM = document.getElementById('stockOutHistoryModal');
+
+  if(inM)  inM.style.display = 'none';
+  if(outM) outM.style.display = 'none';
+
+  // If you also have a generic stock modal, close it too (optional)
+  const stock = document.getElementById('stockModal');
+  if(stock) stock.style.display = 'none';
+}
+
 
 // =========================
 // ✅ AUDIT LOG (time + username + changes) + CLOUD
@@ -7695,4 +7709,3 @@ window.viewProduction = viewProduction;
 
 </body>
 </html>
-

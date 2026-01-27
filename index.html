@@ -1934,19 +1934,21 @@ window.setAutoPRODNo = function(){ window.initAutoPROD(); };
 
 // ✅ after successful saves (GLOBAL) + REFRESH ALL
 window.afterSuccessfulBOESave = function(){
-  AutoDocNo.consume('GRN');   // commit the draft first
-  location.reload();         // refresh all
+  AutoDocNo.consume('GRN');
+  const el = document.getElementById('boeNo'); if (el) el.value = '';
+  AutoDocNo.set({ inputId:'boeNo', dateId:'boeDate', prefix:'GRN', pad:3, force:true });
 };
 
 window.afterSuccessfulDNSave = function(){
   AutoDocNo.consume('DN');
-  location.reload();
+  const el = document.getElementById('dnNo'); if (el) el.value = '';
+  AutoDocNo.set({ inputId:'dnNo', dateId:'dnDate', prefix:'DN', pad:3, force:true });
 };
 
 window.afterSuccessfulPRODSave = function(){
   AutoDocNo.consume('PR');
-  location.reload();
-};
+  const el = document.getElementById('prodNo'); if (el) el.value = '';
+  AutoDocNo.set({ inputId:'prodNo', dateId:'prodDate', 
 
 
 

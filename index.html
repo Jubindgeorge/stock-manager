@@ -1932,7 +1932,7 @@ window.setAutoBOENo  = function(){ window.initAutoBOE();  };
 window.setAutoDNNo   = function(){ window.initAutoDN();   };
 window.setAutoPRODNo = function(){ window.initAutoPROD(); };
 
-// ✅ after successful saves (GLOBAL) + REFRESH ALL
+// ✅ after successful saves (GLOBAL)
 window.afterSuccessfulBOESave = function(){
   AutoDocNo.consume('GRN');
   const el = document.getElementById('boeNo'); if (el) el.value = '';
@@ -1948,7 +1948,8 @@ window.afterSuccessfulDNSave = function(){
 window.afterSuccessfulPRODSave = function(){
   AutoDocNo.consume('PR');
   const el = document.getElementById('prodNo'); if (el) el.value = '';
-  AutoDocNo.set({ inputId:'prodNo', dateId:'prodDate', 
+  AutoDocNo.set({ inputId:'prodNo', dateId:'prodDate', prefix:'PR', pad:3, force:true });
+};
 
 
 
@@ -7696,5 +7697,3 @@ window.viewProduction = viewProduction;
 
 </body>
 </html>
-
-
